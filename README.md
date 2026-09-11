@@ -7,14 +7,6 @@
 
 React is the intended frontend framework, but it has not been set up yet. There is currently no `package.json`, so `npm install` and `npm run dev` are not available in this checkout.
 
-## Dependencies
-
-No `requirements.txt` is needed; that file is for Python dependencies.
-
-- Backend dependencies are declared in `backend/pom.xml`. The included Maven wrapper downloads Maven and the required dependencies when run, so a separate Maven installation is unnecessary. Internet access is needed for the initial downloads.
-- The current frontend has no dependencies to install.
-- Once React is configured, its dependencies will be declared in `frontend/package.json` and locked in `package-lock.json`. Commit both files so teammates can install the same dependencies with `npm ci`.
-
 ## Run the backend
 
 Install JDK 25 and ensure `JAVA_HOME` points to that JDK and Java is available on your `PATH`. Check with `java -version`.
