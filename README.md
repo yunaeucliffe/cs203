@@ -11,6 +11,13 @@ React is the intended frontend framework, but it has not been set up yet. There 
 
 Install JDK 25 and ensure `JAVA_HOME` points to that JDK and Java is available on your `PATH`. Check with `java -version`.
 
+If Homebrew OpenJDK 25 is installed on an Apple Silicon Mac but `java` is not found, run:
+
+```bash
+export JAVA_HOME=/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home
+export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+```
+
 From the repository directory containing this README, open a terminal and run:
 
 ```powershell
@@ -29,6 +36,43 @@ Check the backend at <http://localhost:8081/api/health>. A successful response c
 ```
 
 JSON field order may differ.
+
+## Try the mock route-recommendation agent
+
+The backend includes a provider-neutral agent skeleton at `POST /api/route-recommendations`.
+It currently uses a deterministic mock model and mock route-data tool, so it does not need
+an AI provider, network connection, or API key.
+
+With the backend running, submit a trip from another terminal:
+
+```bash
+curl -X POST http://localhost:8081/api/route-recommendations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": "Jurong East MRT",
+    "destination": "National University Hospital",
+    "departureTime": "2026-09-14T14:00:00+08:00",
+    "preferences": {
+      "maxWalkingMinutes": 10,
+      "wheelchairAccessible": true,
+      "minimizeTransfers": true
+    }
+  }'
+```
+
+The response contains a recommended route, alternatives, reasons, warnings, sources,
+an engine identifier, and a request ID. Invalid input returns a structured `400` response.
+If no registered route-data tool can supply routes, the endpoint returns `503`.
+
+### Agent extension points
+
+- Implement `ModelGateway` to replace the deterministic mock with a real AI model.
+- Implement `RouteDataTool` to add OneMap, LTA DataMall, or another data provider.
+- Register implementations as Spring components; `ToolRegistry` exposes them to the agent.
+- Provider credentials and provider-specific response types should remain inside each adapter.
+
+The agent limits each request to five tool calls. The controller and public response contract
+do not depend on a specific model or route-data provider.
 
 ## Open the current frontend
 
