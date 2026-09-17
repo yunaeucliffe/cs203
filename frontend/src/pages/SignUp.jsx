@@ -1,3 +1,6 @@
+import AuthLayout from '../components/AuthLayout'
+import Input from '../components/Input'
+
 function SignUp({ onBackToLogin }) {
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -5,56 +8,45 @@ function SignUp({ onBackToLogin }) {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <h1>SilverRoute</h1>
-
-        <p className="login-subtitle">
-          Create your account to get started.
-        </p>
-
-        <form onSubmit={handleSubmit}>
-          <label>Name</label>
+    <AuthLayout title="Create an account" description="Create your account to get started.">
+        <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-4">
+          <label htmlFor="signup-name">Name</label>
           <input
+            id="signup-name"
+            name="name"
+            autoComplete="name"
             type="text"
             placeholder="Enter your name"
             required
+            className="h-[68px] w-full rounded-full border border-[#7A7F7A]/40 px-6 text-lg"
           />
 
-          <label>Email</label>
+          <label htmlFor="signup-email">Email</label>
           <input
+            id="signup-email"
+            name="email"
+            autoComplete="email"
             type="email"
             placeholder="Enter your email"
             required
+            className="h-[68px] w-full rounded-full border border-[#7A7F7A]/40 px-6 text-lg"
           />
 
-          <label>Password</label>
-          <input
-            type="password"
-            placeholder="Create a password"
-            required
-          />
+          <Input name="password" placeholder="Create a password" autoComplete="new-password" required />
+          <Input name="confirmPassword" label="Confirm password" autoComplete="new-password" required />
 
-          <label>Confirm Password</label>
-          <input
-            type="password"
-            placeholder="Confirm your password"
-            required
-          />
-
-          <button type="submit" className="login-button">
+          <button type="submit" className="h-[68px] rounded-full bg-[#3E424B] text-lg font-semibold text-white">
             Sign Up
           </button>
         </form>
 
-        <p className="signup-text">
+        <p className="mt-10 text-center text-[#7A7F7A]">
           Already have an account?{' '}
           <button type="button" onClick={onBackToLogin}>
             Log In
           </button>
         </p>
-      </div>
-    </div>
+    </AuthLayout>
   )
 }
 
