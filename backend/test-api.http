@@ -1,0 +1,13 @@
+POST http://localhost:8081/api/route-recommendations
+Content-Type: application/json
+
+{
+  "origin": "SMU",
+  "destination": "Orchard MRT",
+  "departureTime": "2026-09-18T15:00:00+08:00",
+  "preferences": {
+    "maxWalkingMinutes": 15,
+    "wheelchairAccessible": false,
+    "minimizeTransfers": true
+  }
+}
