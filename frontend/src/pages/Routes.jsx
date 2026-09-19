@@ -1,4 +1,15 @@
 import { useState } from 'react'
+
+import {
+  MapContainer,
+  TileLayer,
+  CircleMarker,
+  Polyline,
+  Popup,
+} from 'react-leaflet'
+
+import 'leaflet/dist/leaflet.css'
+
 import {
   MapPin,
   Navigation,
@@ -15,6 +26,28 @@ import Navbar from '../components/Navbar'
 function Route({ onBack }) {
   const [destination, setDestination] = useState('')
   const [showRoute, setShowRoute] = useState(false)
+
+  /*
+   * TEMPORARY MAP DATA
+   *
+   * These coordinates are currently hardcoded just to test
+   * the map and blue route line.
+   *
+   * Later, these will come from the backend / OneMap Routing API.
+   */
+
+  const currentLocation = [1.3521, 103.8198]
+
+  const destinationLocation = [1.3575, 103.8190]
+
+  const routeCoordinates = [
+    [1.3521, 103.8198],
+    [1.3530, 103.8195],
+    [1.3540, 103.8192],
+    [1.3550, 103.8190],
+    [1.3560, 103.8188],
+    [1.3575, 103.8190],
+  ]
 
   // For now this only displays dummy route information.
   // Later, this function can call the backend / routing API.
@@ -36,10 +69,8 @@ function Route({ onBack }) {
         onRoutes={() => {}}
       />
 
-
       {/* MAIN PAGE */}
       <main className="mx-auto max-w-7xl px-8 pb-10 pt-10">
-
 
         {/* TWO-COLUMN LAYOUT */}
         <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
@@ -85,7 +116,6 @@ function Route({ onBack }) {
 
               </div>
 
-
               {/* DESTINATION */}
               <div>
 
@@ -117,7 +147,6 @@ function Route({ onBack }) {
 
               </div>
 
-
               {/* FIND ROUTE */}
               <button
                 type="button"
@@ -131,7 +160,6 @@ function Route({ onBack }) {
               </button>
 
             </div>
-
 
             {/* ====================================== */}
             {/* ROUTE RESULT */}
@@ -162,7 +190,6 @@ function Route({ onBack }) {
 
                 </div>
 
-
                 {/* TRANSPORT SEQUENCE */}
                 <div className="mt-6 flex items-center gap-3">
 
@@ -170,20 +197,25 @@ function Route({ onBack }) {
                     <Footprints size={20} />
                   </div>
 
-                  <ArrowRight size={17} className="text-[#7A7F7A]" />
+                  <ArrowRight
+                    size={17}
+                    className="text-[#7A7F7A]"
+                  />
 
                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white">
                     <Bus size={20} />
                   </div>
 
-                  <ArrowRight size={17} className="text-[#7A7F7A]" />
+                  <ArrowRight
+                    size={17}
+                    className="text-[#7A7F7A]"
+                  />
 
                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white">
                     <Footprints size={20} />
                   </div>
 
                 </div>
-
 
                 {/* ROUTE INFORMATION */}
                 <div className="mt-6 divide-y divide-[#7A7F7A]/20 border-y border-[#7A7F7A]/20">
@@ -205,7 +237,6 @@ function Route({ onBack }) {
 
                   </div>
 
-
                   {/* WALKING */}
                   <div className="flex items-center justify-between py-4">
 
@@ -223,7 +254,6 @@ function Route({ onBack }) {
 
                   </div>
 
-
                   {/* TRANSFERS */}
                   <div className="flex items-center justify-between py-4">
 
@@ -240,7 +270,6 @@ function Route({ onBack }) {
                     </span>
 
                   </div>
-
 
                   {/* ACCESSIBILITY */}
                   <div className="flex items-center justify-between py-4">
@@ -261,7 +290,6 @@ function Route({ onBack }) {
 
                 </div>
 
-
                 {/* START NAVIGATION */}
                 <button
                   type="button"
@@ -279,31 +307,72 @@ function Route({ onBack }) {
 
           </section>
 
-
           {/* ====================================== */}
-          {/* RIGHT SIDE - MAP PLACEHOLDER */}
+          {/* RIGHT SIDE - MAP */}
           {/* ====================================== */}
 
-          <section className="flex min-h-[650px] items-center justify-center rounded-[28px] border border-[#7A7F7A]/20 bg-[#E8E8E5]">
+          <section className="overflow-hidden rounded-[28px] border border-[#7A7F7A]/20">
 
-            <div className="text-center">
+            <MapContainer
+              center={currentLocation}
+              zoom={15}
+              scrollWheelZoom={true}
+              className="h-[650px] w-full"
+            >
 
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white">
-                <MapPin
-                  size={28}
-                  className="text-[#3E424B]"
-                />
-              </div>
+              {/* OneMap Singapore map */}
+              <TileLayer
+                url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.onemap.gov.sg/">OneMap</a> contributors | Singapore Land Authority'
+              />
 
-              <p className="mt-4 font-semibold text-[#2A3439]">
-                Map integration placeholder
-              </p>
+              {/* CURRENT LOCATION */}
+              <CircleMarker
+                center={currentLocation}
+                radius={9}
+                pathOptions={{
+                  color: '#ffffff',
+                  weight: 4,
+                  fillColor: '#4285F4',
+                  fillOpacity: 1,
+                }}
+              >
+                <Popup>
+                  You are here
+                </Popup>
+              </CircleMarker>
 
-              <p className="mt-1 text-sm text-[#7A7F7A]">
-                Your route will appear here.
-              </p>
+              {showRoute && (
+                <>
+                  {/* DESTINATION */}
+                  <CircleMarker
+                    center={destinationLocation}
+                    radius={9}
+                    pathOptions={{
+                      color: '#ffffff',
+                      weight: 4,
+                      fillColor: '#E45757',
+                      fillOpacity: 1,
+                    }}
+                  >
+                    <Popup>
+                      Destination
+                    </Popup>
+                  </CircleMarker>
 
-            </div>
+                  {/* BLUE ROUTE */}
+                  <Polyline
+                    positions={routeCoordinates}
+                    pathOptions={{
+                      color: '#2F6FED',
+                      weight: 7,
+                      opacity: 0.95,
+                    }}
+                  />
+                </>
+              )}
+
+            </MapContainer>
 
           </section>
 
