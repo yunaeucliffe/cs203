@@ -137,7 +137,6 @@ function Home() {
 
                         </section>
 
-
                         {/* ================================================= */}
                         {/* RIGHT SIDE — SAVED PLACES */}
                         {/* ================================================= */}
@@ -178,7 +177,6 @@ function Home() {
                                     address="123 Tampines Ave 4"
                                 />
 
-
                                 {/* SHOPPING */}
                                 <SavedPlacesCard
                                     label="SHOPPING"
@@ -217,11 +215,9 @@ function Home() {
                                     size={20}
                                     className="text-[#7A7F7A] transition group-hover:translate-x-1"
                                 />
-
                             </button>
                         </section>
                     </div>
-
                 </main>
             </div>
 

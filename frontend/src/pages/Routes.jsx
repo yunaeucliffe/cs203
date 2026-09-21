@@ -23,7 +23,7 @@ import {
 
 import Navbar from '../components/Navbar'
 
-function Route({ onBack }) {
+function Routes({ onBack }) {
   const [destination, setDestination] = useState('')
   const [showRoute, setShowRoute] = useState(false)
 
@@ -384,4 +384,4 @@ function Route({ onBack }) {
   )
 }
 
-export default Route
+export default Routes
