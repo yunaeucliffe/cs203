@@ -2,40 +2,80 @@
 
 ## Current project setup
 
-- `backend/`: Java 25 Spring Boot application, managed with Maven.
-- `frontend/`: a standalone HTML, CSS, and JavaScript demo in `index.html`.
+- `backend/`: Java 25 Spring Boot application, managed with Maven, on port 8081.
+- `frontend/`: React with Vite, Tailwind CSS and React Leaflet.
 
-React is the intended frontend framework, but it has not been set up yet. There is currently no `package.json`, so `npm install` and `npm run dev` are not available in this checkout.
+## Run locally
 
-## Run the backend
+Use two terminals, starting from the repository root.
 
-Install JDK 25 and ensure `JAVA_HOME` points to that JDK and Java is available on your `PATH`. Check with `java -version`.
-
-If Homebrew OpenJDK 25 is installed on an Apple Silicon Mac but `java` is not found, run:
+Backend (macOS):
 
 ```bash
-export JAVA_HOME=/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home
-export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
-```
-
-From the repository directory containing this README, open a terminal and run:
-
-```powershell
+export JAVA_HOME=$(/usr/libexec/java_home -v 25)
+export PATH="$JAVA_HOME/bin:$PATH"
 cd backend
-.\mvnw.cmd spring-boot:run
+./mvnw spring-boot:run
 ```
 
-On macOS/Linux, use `./mvnw spring-boot:run` instead.
+On Windows, configure JDK 25 and use `mvnw.cmd spring-boot:run` from `backend`.
+The health check is <http://localhost:8081/api/health>.
 
-Keep the terminal running. The backend uses port **8081**, configured in `backend/src/main/resources/application.properties`.
+For real route searches, create `.env` in the repository root (it is git-ignored):
 
-Check the backend at <http://localhost:8081/api/health>. A successful response contains:
-
-```json
-{"status":"ok","service":"silverroute-backend"}
+```dotenv
+ONEMAP_EMAIL=your_onemap_email
+ONEMAP_PASSWORD=your_onemap_password
 ```
 
-JSON field order may differ.
+Restart the backend after changing credentials. Run it from `backend` so the configured
+`../.env` import resolves correctly. Without credentials, the server and health check still
+start, but real location/route searches return a configuration error. Credentials stay on
+the backend; do not put them in frontend environment variables.
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the URL printed by Vite (normally <http://localhost:5173>). Vite proxies `/api` to
+`http://localhost:8081`. Restart Vite after changing `vite.config.js`. Opening `index.html`
+directly or using Live Server does not run this React application correctly.
+
+## Route search integration
+
+1. Enter a destination on Home and select **Find route**.
+2. On Routes, enter a starting point or select **Use my location** and allow browser access.
+3. Select **Find route** to resolve addresses through `/api/location/parsed`, then request
+   `/api/route/parsed` with coordinates and a departure timestamp.
+4. Choose among returned route options. Duration, walking time, transfers and available
+   distances come from OneMap. The map fits the endpoints and decoded route legs.
+
+Location search currently selects the first OneMap match; the resolved addresses appear
+above the route selector. There is no personalised ranking in this screen. Missing geometry
+is not replaced with a fabricated path. Sheltered percentage and accessibility remain
+unavailable/unverified; they are not inferred from the route response. Sign-in, saved places,
+weather overlays and turn-by-turn navigation are not connected by this integration.
+
+The backend converts departure timestamps to Singapore time and decodes each OneMap leg's
+encoded polyline into latitude/longitude pairs. See the [OneMap routing documentation](https://www.onemap.gov.sg/apidocs/routing).
+
+The Vite proxy is a development setup. Production hosting must forward `/api` to the backend.
+
+## Verification
+
+```bash
+cd frontend
+npm run build
+npm run lint
+npm test
+```
+
+From `backend`, with JDK 25 selected, run `./mvnw test`. Automated route tests use fixtures;
+real OneMap calls require valid credentials and network access.
 
 ## Try the mock route-recommendation agent
 
@@ -74,27 +114,12 @@ If no registered route-data tool can supply routes, the endpoint returns `503`.
 The agent limits each request to five tool calls. The controller and public response contract
 do not depend on a specific model or route-data provider.
 
-## Open the current frontend
-
-With the backend running, open `frontend/index.html` in your browser by double-clicking it in your file manager. No frontend build or Python installation is required for this method.
-
-For a localhost URL, you can alternatively use VS Code's Live Server extension: right-click `frontend/index.html`, select **Open with Live Server**, and use the URL it opens.
-
-If Python is already installed, another optional way to serve the current HTML page is to open a second terminal in the repository directory and run:
-
-```powershell
-cd frontend
-python -m http.server 5500
-```
-
-Then visit <http://localhost:5500/index.html>. Python only serves the static file; it is not part of the application's technology stack.
-
-The page calls <http://localhost:8081/api/health> automatically. Click **Check backend** to retry. A successful connection displays **Backend connected successfully**.
-
-The backend does not currently serve `frontend/index.html`, so visiting port 8081 will not open the frontend page.
-
 ## Troubleshooting
 
-- **Port 8081 is already in use:** an earlier backend instance or another application may still be running. In PowerShell, run `netstat -ano | Select-String ':8081'` and check the PID on the `LISTENING` row with `Get-Process -Id <PID>`. Stop the identified application in its original terminal or IDE before restarting. If the health endpoint already returns `silverroute-backend`, the backend may already be available.
-- **Frontend connection failed:** confirm the backend has started and the health endpoint works. If you change the backend port, also update the API URL and port message in `frontend/index.html`.
-- **Stopping servers:** press `Ctrl+C` in each server terminal.
+- **Backend Java version error:** use JDK 25 for Maven and the application. Check `java -version` and `./mvnw -version`.
+- **Route search is not configured:** populate the root `.env` with OneMap credentials and restart the backend from its directory.
+- **Cannot reach the backend:** check port 8081, `/api/health`, and that you opened the Vite URL.
+- **Location permission denied:** type a starting point instead. Geolocation requires localhost or HTTPS.
+- **No routes found:** check the resolved addresses and try another journey.
+- **Port 8081 already in use:** stop the earlier instance in its terminal before restarting.
+- **Stopping servers:** press `Ctrl+C` in each terminal.

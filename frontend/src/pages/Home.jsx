@@ -20,7 +20,7 @@ function Home() {
             return
         }
 
-        console.log('Searching for:', destination)
+        setShowRoutes(true)
     }
 
     if (showSignIn) {

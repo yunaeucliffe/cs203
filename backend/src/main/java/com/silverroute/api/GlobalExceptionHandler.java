@@ -56,6 +56,19 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiError> handleInvalidLocation(
+            IllegalArgumentException exception, HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(org.springframework.web.client.RestClientException.class)
+    public ResponseEntity<ApiError> handleProviderFailure(
+            org.springframework.web.client.RestClientException exception, HttpServletRequest request) {
+        return error(HttpStatus.BAD_GATEWAY,
+                "The map provider could not complete the request. Please try again later.", request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpectedFailure(
             Exception exception,
