@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import SignIn from './SignIn'
+import Profile from './Profile'
 import Routes from './Routes'
 import Navbar from '../components/Navbar'
 import SavedPlacesCard from '../components/SavedPlacesCard'
@@ -14,6 +15,25 @@ function Home() {
     const [destination, setDestination] = useState('')
     const [showSignIn, setShowSignIn] = useState(false)
     const [showRoutes, setShowRoutes] = useState(false)
+    const [showProfile, setShowProfile] = useState(false)
+    const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+    useEffect(() => {
+        const controller = new AbortController()
+
+        fetch('http://localhost:8081/api/users/me/profile', {
+            credentials: 'include',
+            signal: controller.signal,
+        })
+            .then((response) => setIsAuthenticated(response.ok))
+            .catch((error) => {
+                if (error.name !== 'AbortError') {
+                    setIsAuthenticated(false)
+                }
+            })
+
+        return () => controller.abort()
+    }, [])
 
     const handleSearch = () => {
         if (destination.trim() === '') {
@@ -26,8 +46,24 @@ function Home() {
     if (showSignIn) {
         return (
             <SignIn
-                onSignIn={() => setShowSignIn(false)}
+                onSignIn={() => {
+                    setShowSignIn(false)
+                    setIsAuthenticated(true)
+                    setShowProfile(true)
+                }}
                 onSignUp={() => console.log('Sign up clicked')}
+            />
+        )
+    }
+
+    if (showProfile) {
+        return (
+            <Profile
+                onBack={() => setShowProfile(false)}
+                onLogout={() => {
+                    setIsAuthenticated(false)
+                    setShowProfile(false)
+                }}
             />
         )
     }
@@ -38,6 +74,8 @@ function Home() {
                 destination={destination}
                 onBack={() => setShowRoutes(false)}
                 onSignIn={() => setShowSignIn(true)}
+                onProfile={() => setShowProfile(true)}
+                isAuthenticated={isAuthenticated}
             />
         )
     }
@@ -59,6 +97,8 @@ function Home() {
                     onHome={() => { }}
                     onRoutes={() => setShowRoutes(true)}
                     onSignIn={() => setShowSignIn(true)}
+                    onProfile={() => setShowProfile(true)}
+                    isAuthenticated={isAuthenticated}
                 />
 
                 {/* MAIN */}

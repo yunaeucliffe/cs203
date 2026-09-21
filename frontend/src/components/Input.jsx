@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Lock, Eye, EyeOff } from 'lucide-react'
 
-function Input({ placeholder = 'Password' }) {
+function Input({ placeholder = 'Password', ...inputProps }) {
 
   const [showPassword, setShowPassword] = useState(false)
 
@@ -11,6 +11,7 @@ function Input({ placeholder = 'Password' }) {
       <Lock size={20} className="text-[#7A7F7A]" />
 
       <input
+        {...inputProps}
         type={showPassword ? 'text' : 'password'}
         placeholder={placeholder}
         className="h-full w-full bg-transparent text-lg outline-none placeholder:text-[#7A7F7A]"

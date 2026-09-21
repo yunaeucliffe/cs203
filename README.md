@@ -1,49 +1,205 @@
-# SilverRoute — CS203
+# SilverRoute - CS203
 
-## Current project setup
+SilverRoute is a route-planning prototype with a React frontend and a Spring Boot backend. The backend connects to PostgreSQL and currently supports login, profile retrieval, route recommendations, weather, location search, and covered-linkway data.
 
-- `backend/`: Java 25 Spring Boot application, managed with Maven.
-- `frontend/`: a standalone HTML, CSS, and JavaScript demo in `index.html`.
+## Technology stack
 
-React is the intended frontend framework, but it has not been set up yet. There is currently no `package.json`, so `npm install` and `npm run dev` are not available in this checkout.
+- Frontend: React 19 and Vite
+- Backend: Java 25 and Spring Boot
+- Database: PostgreSQL
+- Build tools: npm and Maven Wrapper
+- Backend URL: <http://localhost:8081>
+- Frontend URL: <http://localhost:5173>
+
+## Project structure
+
+```text
+backend/       Spring Boot application
+database/      PostgreSQL schema and development data
+frontend/      React and Vite application
+data/          Local covered-linkway GeoJSON data
+```
+
+## Prerequisites
+
+Install the following before starting:
+
+- JDK 25
+- Node.js and npm
+- PostgreSQL
+
+Check that they are available:
+
+```powershell
+java -version
+node --version
+npm.cmd --version
+psql --version
+```
+
+## Database setup
+
+Create the development database and tables from the repository directory:
+
+```powershell
+psql -U postgres -d postgres -f database/schema.sql
+psql -U postgres -d silverroute -f database/mockdata.sql
+```
+
+`schema.sql` creates the `users`, `user_preferences`, and `saved_places` tables. It also removes the old `prefer_sheltered` preference because sheltered routing should be selected from current rain conditions instead of a permanent user preference.
+
+`mockdata.sql` creates or updates the development user. The password is stored as a BCrypt hash; plaintext passwords are never stored.
+
+The schema script creates `silverroute` only when it is missing, so it is safe to rerun. Afterward, rerun `mockdata.sql` to create or update the development account.
+
+## Environment variables
+
+Create the local environment file:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+At minimum, set the PostgreSQL password in `.env`:
+
+```properties
+DB_HOST=[::1]
+DB_PASSWORD=your_postgres_password
+SESSION_COOKIE_SECURE=false
+```
+
+The default `[::1]` is the IPv6 loopback address used by the tested Windows PostgreSQL installation. If your PostgreSQL server listens on IPv4 instead, use `DB_HOST=localhost` or `DB_HOST=127.0.0.1`. The JDBC connection has a 10-second timeout so an unreachable host fails quickly.
+
+Keep `SESSION_COOKIE_SECURE=false` for local HTTP development. Set it to `true` when deploying behind HTTPS.
+
+The existing OneMap and LTA variables in `.env.example` can also be configured when those integrations are needed. Do not commit the `.env` file.
 
 ## Run the backend
 
-Install JDK 25 and ensure `JAVA_HOME` points to that JDK and Java is available on your `PATH`. Check with `java -version`.
-
-If Homebrew OpenJDK 25 is installed on an Apple Silicon Mac but `java` is not found, run:
-
-```bash
-export JAVA_HOME=/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home
-export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
-```
-
-From the repository directory containing this README, open a terminal and run:
+From the repository directory:
 
 ```powershell
 cd backend
 .\mvnw.cmd spring-boot:run
 ```
 
-On macOS/Linux, use `./mvnw spring-boot:run` instead.
+On macOS or Linux:
 
-Keep the terminal running. The backend uses port **8081**, configured in `backend/src/main/resources/application.properties`.
-
-Check the backend at <http://localhost:8081/api/health>. A successful response contains:
-
-```json
-{"status":"ok","service":"silverroute-backend"}
+```bash
+cd backend
+./mvnw spring-boot:run
 ```
 
-JSON field order may differ.
+The backend starts on <http://localhost:8081>. PostgreSQL must be running, and the schema must exist because Hibernate is configured with `ddl-auto=validate`.
 
-## Try the mock route-recommendation agent
+## Run the frontend
 
-The backend includes a provider-neutral agent skeleton at `POST /api/route-recommendations`.
-It currently uses a deterministic mock model and mock route-data tool, so it does not need
-an AI provider, network connection, or API key.
+Open a second terminal from the repository directory:
 
-With the backend running, submit a trip from another terminal:
+```powershell
+cd frontend
+npm.cmd ci
+npm.cmd run dev
+```
+
+On macOS or Linux, `npm ci` and `npm run dev` can be used instead. Open <http://localhost:5173> after Vite starts.
+
+## Development login
+
+Use the following seeded account:
+
+```text
+Email: mary@example.com
+Password: password123
+```
+
+The login flow is:
+
+```text
+React SignIn page
+  -> POST /api/auth/login
+  -> BCrypt password validation
+  -> authenticated Spring Security session
+  -> HttpOnly JSESSIONID cookie
+  -> GET /api/users/me/profile
+  -> React Profile page
+```
+
+The browser sends the session cookie using credentialed requests. User identity is read from the authenticated server session rather than from a browser-controlled user ID. Login is protected with a CSRF token, the session expires after 30 minutes of inactivity, and the legacy `/api/users/{userId}/profile` route only permits the authenticated owner.
+
+## Login and profile APIs
+
+### Login
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+```
+
+```json
+{
+  "email": "mary@example.com",
+  "password": "password123"
+}
+```
+
+Successful response:
+
+```json
+{
+  "success": true,
+  "userId": 1,
+  "name": "Mary Tan",
+  "message": "Login successful"
+}
+```
+
+Invalid credentials return HTTP `401` with a generic error message.
+
+### Profile
+
+```http
+GET /api/users/me/profile
+```
+
+Example response:
+
+```json
+{
+  "id": 1,
+  "name": "Mary Tan",
+  "email": "mary@example.com",
+  "walkingSpeed": "Slow",
+  "maxWalkingDistance": 500,
+  "avoidStairs": true
+}
+```
+
+### Update preferences
+
+This endpoint requires the authenticated session and a valid CSRF token:
+
+```http
+PUT /api/users/me/preferences
+Content-Type: application/json
+X-XSRF-TOKEN: <csrf-token>
+```
+
+```json
+{
+  "walkingSpeed": "Normal",
+  "maxWalkingDistance": 750,
+  "avoidStairs": false
+}
+```
+
+Allowed walking speeds are `Slow`, `Normal`, and `Fast`. Maximum walking distance must be between 50 and 10,000 metres.
+
+## Route-recommendation endpoint
+
+The backend also provides `POST /api/route-recommendations`. It currently uses the project's mock model and route-data tooling, so the login/profile setup does not require an AI provider.
+
+Example request:
 
 ```bash
 curl -X POST http://localhost:8081/api/route-recommendations \
@@ -60,41 +216,28 @@ curl -X POST http://localhost:8081/api/route-recommendations \
   }'
 ```
 
-The response contains a recommended route, alternatives, reasons, warnings, sources,
-an engine identifier, and a request ID. Invalid input returns a structured `400` response.
-If no registered route-data tool can supply routes, the endpoint returns `503`.
+## Tests and checks
 
-### Agent extension points
+Backend tests require the configured PostgreSQL database for application-context tests:
 
-- Implement `ModelGateway` to replace the deterministic mock with a real AI model.
-- Implement `RouteDataTool` to add OneMap, LTA DataMall, or another data provider.
-- Register implementations as Spring components; `ToolRegistry` exposes them to the agent.
-- Provider credentials and provider-specific response types should remain inside each adapter.
+```powershell
+cd backend
+.\mvnw.cmd test
+```
 
-The agent limits each request to five tool calls. The controller and public response contract
-do not depend on a specific model or route-data provider.
-
-## Open the current frontend
-
-With the backend running, open `frontend/index.html` in your browser by double-clicking it in your file manager. No frontend build or Python installation is required for this method.
-
-For a localhost URL, you can alternatively use VS Code's Live Server extension: right-click `frontend/index.html`, select **Open with Live Server**, and use the URL it opens.
-
-If Python is already installed, another optional way to serve the current HTML page is to open a second terminal in the repository directory and run:
+Frontend checks:
 
 ```powershell
 cd frontend
-python -m http.server 5500
+npm.cmd run lint
+npm.cmd run build
 ```
-
-Then visit <http://localhost:5500/index.html>. Python only serves the static file; it is not part of the application's technology stack.
-
-The page calls <http://localhost:8081/api/health> automatically. Click **Check backend** to retry. A successful connection displays **Backend connected successfully**.
-
-The backend does not currently serve `frontend/index.html`, so visiting port 8081 will not open the frontend page.
 
 ## Troubleshooting
 
-- **Port 8081 is already in use:** an earlier backend instance or another application may still be running. In PowerShell, run `netstat -ano | Select-String ':8081'` and check the PID on the `LISTENING` row with `Get-Process -Id <PID>`. Stop the identified application in its original terminal or IDE before restarting. If the health endpoint already returns `silverroute-backend`, the backend may already be available.
-- **Frontend connection failed:** confirm the backend has started and the health endpoint works. If you change the backend port, also update the API URL and port message in `frontend/index.html`.
-- **Stopping servers:** press `Ctrl+C` in each server terminal.
+- **Database connection fails:** confirm PostgreSQL is running, the `silverroute` database exists, and `DB_PASSWORD` in `.env` is correct. If `psql -h ::1` works but `psql -h 127.0.0.1` does not, set `DB_HOST=[::1]`.
+- **Schema validation fails:** rerun `database/schema.sql`, followed by `database/mockdata.sql`.
+- **Login fails:** rerun `database/mockdata.sql` to restore the BCrypt development password.
+- **Port 8081 is occupied:** stop the existing backend process or inspect it with `netstat -ano | Select-String ':8081'`.
+- **PowerShell blocks `npm.ps1`:** use `npm.cmd` as shown above.
+- **Stop either server:** press `Ctrl+C` in its terminal.

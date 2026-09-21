@@ -1,6 +1,6 @@
 import Logo from './Logo'
 
-function Navbar({ activePage, onHome, onRoutes, onSignIn }) {
+function Navbar({ activePage, onHome, onRoutes, onSignIn, onProfile, isAuthenticated = false }) {
 
   return (
     <nav className="pt-6">
@@ -40,8 +40,8 @@ function Navbar({ activePage, onHome, onRoutes, onSignIn }) {
 
 
           <button 
-            onClick={onSignIn} className="rounded-full px-6 py-2.5 font-medium text-[#7A7F7A] transition hover:bg-[#FFD3B4] hover:text-black">
-            Sign in
+            onClick={isAuthenticated ? onProfile : onSignIn} className="rounded-full px-6 py-2.5 font-medium text-[#7A7F7A] transition hover:bg-[#FFD3B4] hover:text-black">
+            {isAuthenticated ? 'Profile' : 'Sign in'}
           </button>
 
         </div>

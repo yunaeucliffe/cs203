@@ -23,7 +23,7 @@ import {
 
 import Navbar from '../components/Navbar'
 
-function Route({ onBack }) {
+function Route({ onBack, onSignIn, onProfile, isAuthenticated }) {
   const [destination, setDestination] = useState('')
   const [showRoute, setShowRoute] = useState(false)
 
@@ -67,6 +67,9 @@ function Route({ onBack }) {
         activePage="routes"
         onHome={onBack}
         onRoutes={() => {}}
+        onSignIn={onSignIn}
+        onProfile={onProfile}
+        isAuthenticated={isAuthenticated}
       />
 
       {/* MAIN PAGE */}

@@ -1,11 +1,51 @@
+import { useState } from 'react'
 import { Mail, ArrowRight } from 'lucide-react'
 import AuthLayout from '../components/AuthLayout'
 import Input from '../components/Input'
 
 function SignIn({ onSignIn, onSignUp }) {
-  const handleSubmit = (event) => {
+  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    onSignIn()
+    setError('')
+    setIsSubmitting(true)
+
+    const formData = new FormData(event.currentTarget)
+
+    try {
+      const csrfResponse = await fetch('http://localhost:8081/api/auth/csrf', {
+        credentials: 'include',
+      })
+      const csrf = await csrfResponse.json()
+
+      const response = await fetch('http://localhost:8081/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-XSRF-TOKEN': csrf.token,
+        },
+        body: JSON.stringify({
+          email: formData.get('email'),
+          password: formData.get('password'),
+        }),
+      })
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        setError(data.message || 'Invalid email or password')
+        return
+      }
+
+      localStorage.removeItem('userId')
+      onSignIn()
+    } catch {
+      setError('Unable to sign in. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -71,13 +111,20 @@ function SignIn({ onSignIn, onSignUp }) {
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="mt-8 flex h-[68px] w-full items-center justify-center gap-4 rounded-full bg-[#3E424B] text-lg font-semibold text-white transition hover:scale-[1.01]"
               >
-                Sign in
+                {isSubmitting ? 'Signing in...' : 'Sign in'}
 
                 <ArrowRight size={20} />
 
               </button>
+
+              {error && (
+                <p role="alert" className="mt-4 text-center text-red-700">
+                  {error}
+                </p>
+              )}
 
             </form>
 

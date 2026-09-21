@@ -1,0 +1,221 @@
+.profile-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 40px 24px 60px;
+  background-color: #f7f5ed;
+}
+
+.profile-card {
+  width: 100%;
+  max-width: 600px;
+  padding: 30px;
+  border-radius: 20px;
+  background-color: white;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+}
+
+.profile-back-button {
+  padding: 5px 0;
+  border: none;
+  background: none;
+  color: #3f5138;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.profile-header {
+  margin: 15px 0 30px;
+  text-align: center;
+}
+
+.profile-icon {
+  margin-bottom: 10px;
+  font-size: 60px;
+}
+
+.profile-header h1 {
+  margin: 0;
+  color: #3f5138;
+  font-size: 34px;
+}
+
+.profile-info {
+  border-top: 1px solid #d5dacd;
+}
+
+.profile-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 5px;
+  border-bottom: 1px solid #d5dacd;
+}
+
+.field-label {
+  color: #666;
+  font-size: 18px;
+}
+
+.field-value {
+  color: #3f5138;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.profile-preferences {
+  margin-top: 30px;
+}
+
+.profile-preferences h2 {
+  margin-bottom: 15px;
+  color: #3f5138;
+  font-size: 24px;
+}
+
+.preference {
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 5px;
+  border-bottom: 1px solid #d5dacd;
+  font-size: 18px;
+}
+
+.preference span:last-child {
+  color: #3f5138;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.edit-profile-button {
+  width: 100%;
+  margin-top: 30px;
+  padding: 15px;
+  border: none;
+  border-radius: 12px;
+  background-color: #71866b;
+  color: white;
+  font-size: 19px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.edit-profile-button:hover {
+  background-color: #5f7359;
+}
+
+.preferences-form {
+  display: grid;
+  gap: 18px;
+  margin-top: 30px;
+  padding: 22px;
+  border: 1px solid #d5dacd;
+  border-radius: 14px;
+  background-color: #f7f5ed;
+}
+
+.preferences-form label:not(.preference-checkbox) {
+  display: grid;
+  gap: 8px;
+  color: #3f5138;
+  font-weight: 600;
+}
+
+.preferences-form select,
+.preferences-form input[type='number'] {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #b8c2b3;
+  border-radius: 9px;
+  background: white;
+  color: #2a3439;
+  font-size: 16px;
+}
+
+.preference-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #3f5138;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.preference-checkbox input {
+  width: 18px;
+  height: 18px;
+}
+
+.preference-form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.cancel-preferences-button,
+.save-preferences-button {
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancel-preferences-button {
+  border: 1px solid #71866b;
+  background: white;
+  color: #3f5138;
+}
+
+.save-preferences-button {
+  border: 1px solid #71866b;
+  background: #71866b;
+  color: white;
+}
+
+.cancel-preferences-button:disabled,
+.save-preferences-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.profile-action-error {
+  margin: 14px 0 0;
+  color: #a12b2b;
+  text-align: center;
+}
+
+.logout-profile-button {
+  width: 100%;
+  margin-top: 12px;
+  padding: 13px;
+  border: 1px solid #71866b;
+  border-radius: 12px;
+  background: white;
+  color: #3f5138;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.logout-profile-button:hover {
+  background-color: #f0f4ed;
+}
+
+@media (max-width: 600px) {
+  .profile-page {
+    padding: 20px 14px 40px;
+  }
+
+  .profile-card {
+    padding: 22px 18px;
+  }
+
+  .profile-field,
+  .preference {
+    align-items: flex-start;
+    gap: 8px;
+  }
+}

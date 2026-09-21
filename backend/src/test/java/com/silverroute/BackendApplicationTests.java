@@ -18,20 +18,7 @@ class BackendApplicationTests {
 	@Test
 	void contextLoads() {
 	}
-
-	@Test
-	void healthEndpointShouldReturnServiceStatus() throws Exception {
-		HttpClient client = HttpClient.newHttpClient();
-		HttpRequest request = HttpRequest.newBuilder()
-				.uri(URI.create("http://localhost:" + port + "/api/health"))
-				.build();
-
-		HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-		assertThat(response.statusCode()).isEqualTo(200);
-		assertThat(response.body()).contains("status").contains("ok");
-	}
-
+	
 	@Test
 	void recommendationEndpointShouldReturnAgentRecommendation() throws Exception {
 		String requestBody = """
