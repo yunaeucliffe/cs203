@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.silverroute.exception.AgentLoopLimitException;
+import com.silverroute.exception.DuplicateSavedPlaceException;
 import com.silverroute.exception.ModelAgentException;
 import com.silverroute.exception.RouteDataUnavailableException;
 import com.silverroute.exception.UnknownToolException;
@@ -36,6 +37,13 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException exception,
             HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "Request body is missing or contains invalid JSON", request);
+    }
+
+    @ExceptionHandler(DuplicateSavedPlaceException.class)
+    public ResponseEntity<ApiError> handleDuplicateSavedPlace(
+            DuplicateSavedPlaceException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.CONFLICT, exception.getMessage(), request);
     }
 
     @ExceptionHandler(RouteDataUnavailableException.class)

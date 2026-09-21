@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import SignIn from './SignIn'
 import Profile from './Profile'
 import Routes from './Routes'
+import SavedPlaces from './SavedPlaces'
 import Navbar from '../components/Navbar'
 import SavedPlacesCard from '../components/SavedPlacesCard'
+import { API_URL } from '../api'
 
 import {
     Plus,
@@ -16,16 +18,29 @@ function Home() {
     const [showSignIn, setShowSignIn] = useState(false)
     const [showRoutes, setShowRoutes] = useState(false)
     const [showProfile, setShowProfile] = useState(false)
+    const [showSavedPlaces, setShowSavedPlaces] = useState(false)
     const [isAuthenticated, setIsAuthenticated] = useState(false)
+    const [userName, setUserName] = useState('there')
+    const [savedPlaces, setSavedPlaces] = useState([])
 
     useEffect(() => {
         const controller = new AbortController()
 
-        fetch('http://localhost:8081/api/users/me/profile', {
+        fetch(`${API_URL}/api/users/me/profile`, {
             credentials: 'include',
             signal: controller.signal,
         })
-            .then((response) => setIsAuthenticated(response.ok))
+            .then(async (response) => {
+                setIsAuthenticated(response.ok)
+                if (!response.ok) return
+                const profile = await response.json()
+                setUserName(profile.name.split(' ')[0])
+                const placesResponse = await fetch(`${API_URL}/api/users/me/saved-places`, {
+                    credentials: 'include',
+                    signal: controller.signal,
+                })
+                if (placesResponse.ok) setSavedPlaces(await placesResponse.json())
+            })
             .catch((error) => {
                 if (error.name !== 'AbortError') {
                     setIsAuthenticated(false)
@@ -40,7 +55,18 @@ function Home() {
             return
         }
 
-        console.log('Searching for:', destination)
+        setShowRoutes(true)
+    }
+
+    const openSavedPlaces = () => {
+        if (isAuthenticated) setShowSavedPlaces(true)
+        else setShowSignIn(true)
+    }
+
+    const selectSavedPlace = (place) => {
+        setDestination(place.address)
+        setShowSavedPlaces(false)
+        setShowRoutes(true)
     }
 
     if (showSignIn) {
@@ -68,6 +94,29 @@ function Home() {
         )
     }
 
+    if (showSavedPlaces) {
+        return (
+            <SavedPlaces
+                onHome={() => setShowSavedPlaces(false)}
+                onRoutes={() => {
+                    setShowSavedPlaces(false)
+                    setShowRoutes(true)
+                }}
+                onProfile={() => {
+                    setShowSavedPlaces(false)
+                    setShowProfile(true)
+                }}
+                onSignIn={() => {
+                    setShowSavedPlaces(false)
+                    setShowSignIn(true)
+                }}
+                onUsePlace={selectSavedPlace}
+                onPlacesChange={setSavedPlaces}
+                isAuthenticated={isAuthenticated}
+            />
+        )
+    }
+
     if (showRoutes) {
         return (
             <Routes
@@ -75,7 +124,9 @@ function Home() {
                 onBack={() => setShowRoutes(false)}
                 onSignIn={() => setShowSignIn(true)}
                 onProfile={() => setShowProfile(true)}
+                onSavedPlaces={openSavedPlaces}
                 isAuthenticated={isAuthenticated}
+                initialDestination={destination}
             />
         )
     }
@@ -98,6 +149,7 @@ function Home() {
                     onRoutes={() => setShowRoutes(true)}
                     onSignIn={() => setShowSignIn(true)}
                     onProfile={() => setShowProfile(true)}
+                    onSavedPlaces={openSavedPlaces}
                     isAuthenticated={isAuthenticated}
                 />
 
@@ -115,7 +167,7 @@ function Home() {
 
                             {/* Greeting */}
                             <p className="mb-4 text-[18px] font-semibold text-[#7A7F7A]">
-                                Hello, Enya
+                                Hello, {isAuthenticated ? userName : 'there'}
                             </p>
 
                             {/* Main heading */}
@@ -201,34 +253,35 @@ function Home() {
                                     </h2>
                                 </div>
 
-                                <button className="text-[15px] font-bold text-[#7A7F7A] underline underline-offset-4 transition hover:text-[#2A3439]">
+                                <button onClick={openSavedPlaces} className="text-[15px] font-bold text-[#7A7F7A] underline underline-offset-4 transition hover:text-[#2A3439]">
                                     View all
                                 </button>
 
                             </div>
 
                             {/* Saved Places */}
-                            <div className="grid grid-cols-2 gap-4">
-
-                                {/* HOME */}
-                                <SavedPlacesCard
-                                    label="HOME"
-                                    name="My Home"
-                                    address="123 Tampines Ave 4"
-                                />
-
-                                {/* SHOPPING */}
-                                <SavedPlacesCard
-                                    label="SHOPPING"
-                                    name="Tampines Mall"
-                                    address="address"
-                                />
-
-                            </div>
+                            {isAuthenticated && savedPlaces.length > 0 ? (
+                                <div className="grid grid-cols-2 gap-4">
+                                    {savedPlaces.slice(0, 2).map((place) => (
+                                        <SavedPlacesCard
+                                            key={place.id}
+                                            label={place.label}
+                                            address={place.address}
+                                            onClick={() => selectSavedPlace(place)}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="rounded-[18px] border border-[#7A7F7A]/20 bg-white p-6 text-[#7A7F7A]">
+                                    {isAuthenticated
+                                        ? 'You have no saved places yet.'
+                                        : 'Sign in to see your saved places.'}
+                                </div>
+                            )}
 
                             {/* ADD PLACE */}
 
-                            <button className="group mt-4 flex min-h-[100px] w-full items-center gap-5 border-2 border-dashed border-[#A88FA1]/45 rounded-xl px-5 text-left transition hover:border-[#A88FA1] hover:bg-[#A88FA1]/10">
+                            <button onClick={openSavedPlaces} className="group mt-4 flex min-h-[100px] w-full items-center gap-5 border-2 border-dashed border-[#A88FA1]/45 rounded-xl px-5 text-left transition hover:border-[#A88FA1] hover:bg-[#A88FA1]/10">
 
                                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#A88FA1] text-white">
                                     <Plus size={21} />

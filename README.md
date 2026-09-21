@@ -1,6 +1,6 @@
 # SilverRoute - CS203
 
-SilverRoute is a route-planning prototype with a React frontend and a Spring Boot backend. The backend connects to PostgreSQL and currently supports login, profile retrieval, route recommendations, weather, location search, and covered-linkway data.
+SilverRoute is a route-planning prototype with a React frontend and a Spring Boot backend. The backend connects to PostgreSQL and currently supports login, profile retrieval, saved-place management, route recommendations, weather, location search, and covered-linkway data.
 
 ## Technology stack
 
@@ -194,6 +194,30 @@ X-XSRF-TOKEN: <csrf-token>
 ```
 
 Allowed walking speeds are `Slow`, `Normal`, and `Fast`. Maximum walking distance must be between 50 and 10,000 metres.
+
+## Saved places APIs
+
+All saved-place endpoints require the authenticated session. Create, update, and delete requests also require the CSRF token in the `X-XSRF-TOKEN` header.
+
+```http
+GET    /api/users/me/saved-places
+POST   /api/users/me/saved-places
+PUT    /api/users/me/saved-places/{placeId}
+DELETE /api/users/me/saved-places/{placeId}
+```
+
+Create and update request body:
+
+```json
+{
+  "label": "Home",
+  "address": "Tampines, Singapore",
+  "latitude": 1.3521,
+  "longitude": 103.9447
+}
+```
+
+Coordinates are optional. Labels must be unique for each user. The Saved Places page supports adding, editing, deleting, and choosing a saved destination for route planning; Home displays the first two places as quick-access cards.
 
 ## Route-recommendation endpoint
 

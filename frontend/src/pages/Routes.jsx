@@ -23,8 +23,8 @@ import {
 
 import Navbar from '../components/Navbar'
 
-function Routes({ onBack }) {
-  const [destination, setDestination] = useState('')
+function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = '' }) {
+  const [destination, setDestination] = useState(initialDestination)
   const [showRoute, setShowRoute] = useState(false)
 
   /*
@@ -67,6 +67,7 @@ function Routes({ onBack }) {
         activePage="routes"
         onHome={onBack}
         onRoutes={() => {}}
+        onSavedPlaces={onSavedPlaces}
         onSignIn={onSignIn}
         onProfile={onProfile}
         isAuthenticated={isAuthenticated}

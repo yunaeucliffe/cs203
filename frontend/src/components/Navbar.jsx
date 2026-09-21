@@ -1,6 +1,6 @@
 import Logo from './Logo'
 
-function Navbar({ activePage, onHome, onRoutes, onSignIn, onProfile, isAuthenticated = false }) {
+function Navbar({ activePage, onHome, onRoutes, onSavedPlaces, onSignIn, onProfile, isAuthenticated = false }) {
 
   return (
     <nav className="pt-6">
@@ -34,7 +34,14 @@ function Navbar({ activePage, onHome, onRoutes, onSignIn, onProfile, isAuthentic
           </button>
 
 
-          <button className="rounded-full px-6 py-2.5 font-medium text-[#7A7F7A] transition hover:bg-[#DCE7D2] hover:text-black">
+          <button
+            onClick={isAuthenticated ? onSavedPlaces : onSignIn}
+            className={`rounded-full px-6 py-2.5 font-medium transition ${
+              activePage === 'saved'
+                ? 'bg-[#3E424B] text-white'
+                : 'text-[#7A7F7A] hover:bg-[#DCE7D2] hover:text-black'
+            }`}
+          >
             Saved Places
           </button>
 
