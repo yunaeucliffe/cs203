@@ -14,6 +14,7 @@ import com.silverroute.exception.AgentLoopLimitException;
 import com.silverroute.exception.DuplicateSavedPlaceException;
 import com.silverroute.exception.ModelAgentException;
 import com.silverroute.exception.RouteDataUnavailableException;
+import com.silverroute.exception.RegistrationConflictException;
 import com.silverroute.exception.UnknownToolException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +43,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateSavedPlaceException.class)
     public ResponseEntity<ApiError> handleDuplicateSavedPlace(
             DuplicateSavedPlaceException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.CONFLICT, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(RegistrationConflictException.class)
+    public ResponseEntity<ApiError> handleRegistrationConflict(
+            RegistrationConflictException exception,
             HttpServletRequest request) {
         return error(HttpStatus.CONFLICT, exception.getMessage(), request);
     }

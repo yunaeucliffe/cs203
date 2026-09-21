@@ -1,10 +1,49 @@
+import { useState } from 'react'
 import AuthLayout from '../components/AuthLayout'
 import Input from '../components/Input'
+import { API_URL, getCsrfToken } from '../api'
 
-function SignUp({ onBackToLogin }) {
-  const handleSubmit = (event) => {
+function SignUp({ onBackToLogin, onSignUp }) {
+  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    onBackToLogin()
+    setError('')
+    const formData = new FormData(event.currentTarget)
+
+    if (formData.get('password') !== formData.get('confirmPassword')) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const token = await getCsrfToken()
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-XSRF-TOKEN': token,
+        },
+        body: JSON.stringify({
+          name: formData.get('name'),
+          username: formData.get('username'),
+          email: formData.get('email'),
+          password: formData.get('password'),
+        }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || 'Unable to create your account.')
+      }
+      onSignUp(data)
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -21,6 +60,21 @@ function SignUp({ onBackToLogin }) {
             className="h-[68px] w-full rounded-full border border-[#7A7F7A]/40 px-6 text-lg"
           />
 
+          <label htmlFor="signup-username">Username</label>
+          <input
+            id="signup-username"
+            name="username"
+            autoComplete="username"
+            type="text"
+            minLength="3"
+            maxLength="50"
+            pattern="[A-Za-z0-9._-]+"
+            title="Use letters, numbers, dots, underscores, or hyphens"
+            placeholder="Choose a username"
+            required
+            className="h-[68px] w-full rounded-full border border-[#7A7F7A]/40 px-6 text-lg"
+          />
+
           <label htmlFor="signup-email">Email</label>
           <input
             id="signup-email"
@@ -32,11 +86,13 @@ function SignUp({ onBackToLogin }) {
             className="h-[68px] w-full rounded-full border border-[#7A7F7A]/40 px-6 text-lg"
           />
 
-          <Input name="password" placeholder="Create a password" autoComplete="new-password" required />
+          <Input name="password" placeholder="Create a password" autoComplete="new-password" minLength="8" maxLength="72" required />
           <Input name="confirmPassword" label="Confirm password" autoComplete="new-password" required />
 
-          <button type="submit" className="h-[68px] rounded-full bg-[#3E424B] text-lg font-semibold text-white">
-            Sign Up
+          {error && <p role="alert" className="text-center text-red-700">{error}</p>}
+
+          <button type="submit" disabled={isSubmitting} className="h-[68px] rounded-full bg-[#3E424B] text-lg font-semibold text-white disabled:opacity-60">
+            {isSubmitting ? 'Creating account...' : 'Sign Up'}
           </button>
         </form>
 

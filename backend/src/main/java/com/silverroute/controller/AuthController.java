@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.silverroute.dto.LoginRequest;
 import com.silverroute.dto.LoginResponse;
+import com.silverroute.dto.SignUpRequest;
 import com.silverroute.service.AuthService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,21 +48,19 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
 
-        HttpSession existingSession = httpRequest.getSession(false);
-        if (existingSession != null) {
-            httpRequest.changeSessionId();
-        }
-
-        Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(
-                request.email(),
-                null,
-                AuthorityUtils.createAuthorityList("ROLE_USER"));
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication);
-        SecurityContextHolder.setContext(context);
-        securityContextRepository.saveContext(context, httpRequest, httpResponse);
+        authenticate(request.email().trim().toLowerCase(), httpRequest, httpResponse);
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/signup")
+    public ResponseEntity<LoginResponse> signUp(
+            @Valid @RequestBody SignUpRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        LoginResponse response = authService.signUp(request);
+        authenticate(request.email().trim().toLowerCase(), httpRequest, httpResponse);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/csrf")
@@ -76,5 +75,24 @@ public class AuthController {
             HttpServletResponse response) {
         new SecurityContextLogoutHandler().logout(request, response, authentication);
         return ResponseEntity.noContent().build();
+    }
+
+    private void authenticate(
+            String email,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        HttpSession existingSession = request.getSession(false);
+        if (existingSession != null) {
+            request.changeSessionId();
+        }
+
+        Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(
+                email,
+                null,
+                AuthorityUtils.createAuthorityList("ROLE_USER"));
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+        securityContextRepository.saveContext(context, request, response);
     }
 }

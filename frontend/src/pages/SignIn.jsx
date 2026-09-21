@@ -40,7 +40,7 @@ function SignIn({ onSignIn, onSignUp }) {
       }
 
       localStorage.removeItem('userId')
-      onSignIn()
+      onSignIn(data)
     } catch {
       setError('Unable to sign in. Please try again.')
     } finally {

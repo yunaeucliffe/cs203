@@ -127,6 +127,8 @@ React SignIn page
 
 The browser sends the session cookie using credentialed requests. User identity is read from the authenticated server session rather than from a browser-controlled user ID. Login is protected with a CSRF token, the session expires after 30 minutes of inactivity, and the legacy `/api/users/{userId}/profile` route only permits the authenticated owner.
 
+New accounts are created with a BCrypt password hash and default travel preferences, then signed into a server-side session automatically.
+
 ## Login and profile APIs
 
 ### Login
@@ -155,6 +157,25 @@ Successful response:
 ```
 
 Invalid credentials return HTTP `401` with a generic error message.
+
+### Sign up
+
+```http
+POST /api/auth/signup
+Content-Type: application/json
+X-XSRF-TOKEN: <csrf-token>
+```
+
+```json
+{
+  "name": "Alex Lee",
+  "username": "alexlee",
+  "email": "alex@example.com",
+  "password": "password123"
+}
+```
+
+Usernames and email addresses must be unique. Passwords must contain between 8 and 72 characters. A successful registration returns HTTP `201`, creates default preferences, and authenticates the new session.
 
 ### Profile
 

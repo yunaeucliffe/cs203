@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import SignIn from './SignIn'
+import SignUp from './SignUp'
 import Profile from './Profile'
 import Routes from './Routes'
 import SavedPlaces from './SavedPlaces'
@@ -16,6 +17,7 @@ import {
 function Home() {
     const [destination, setDestination] = useState('')
     const [showSignIn, setShowSignIn] = useState(false)
+    const [showSignUp, setShowSignUp] = useState(false)
     const [showRoutes, setShowRoutes] = useState(false)
     const [showProfile, setShowProfile] = useState(false)
     const [showSavedPlaces, setShowSavedPlaces] = useState(false)
@@ -72,12 +74,38 @@ function Home() {
     if (showSignIn) {
         return (
             <SignIn
-                onSignIn={() => {
+                onSignIn={(account) => {
                     setShowSignIn(false)
                     setIsAuthenticated(true)
-                    setShowProfile(true)
+                    setUserName(account.name.split(' ')[0])
+                    fetch(`${API_URL}/api/users/me/saved-places`, {
+                        credentials: 'include',
+                    })
+                        .then((response) => response.ok ? response.json() : [])
+                        .then(setSavedPlaces)
+                        .catch(() => setSavedPlaces([]))
                 }}
-                onSignUp={() => console.log('Sign up clicked')}
+                onSignUp={() => {
+                    setShowSignIn(false)
+                    setShowSignUp(true)
+                }}
+            />
+        )
+    }
+
+    if (showSignUp) {
+        return (
+            <SignUp
+                onBackToLogin={() => {
+                    setShowSignUp(false)
+                    setShowSignIn(true)
+                }}
+                onSignUp={(account) => {
+                    setShowSignUp(false)
+                    setIsAuthenticated(true)
+                    setUserName(account.name.split(' ')[0])
+                    setSavedPlaces([])
+                }}
             />
         )
     }
