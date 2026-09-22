@@ -11,3 +11,18 @@ Content-Type: application/json
     "minimizeTransfers": true
   }
 }
+
+###
+GET http://localhost:8081/api/lta/bus-routes?skip=0
+
+###
+GET http://localhost:8081/api/lta/bus-services?skip=0
+
+###
+GET http://localhost:8081/api/lta/station-crowding?trainLine=DTL
+
+###
+GET http://localhost:8081/api/lta/facilities-maintenance
+
+###
+GET http://localhost:8081/api/lta/train-alerts
