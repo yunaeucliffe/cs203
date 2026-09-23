@@ -24,6 +24,7 @@ function Home() {
     const [isAuthenticated, setIsAuthenticated] = useState(false)
     const [userName, setUserName] = useState('there')
     const [savedPlaces, setSavedPlaces] = useState([])
+    const [addSavedPlace, setAddSavedPlace] = useState(false)
 
     useEffect(() => {
         const controller = new AbortController()
@@ -63,6 +64,15 @@ function Home() {
     const openSavedPlaces = () => {
         if (isAuthenticated) setShowSavedPlaces(true)
         else setShowSignIn(true)
+    }
+
+    const openAddSavedPlace = () => {
+        if (isAuthenticated) {
+            setAddSavedPlace(true)
+            setShowSavedPlaces(true)
+        } else {
+            setShowSignIn(true)
+        }
     }
 
     const selectSavedPlace = (place) => {
@@ -125,19 +135,31 @@ function Home() {
     if (showSavedPlaces) {
         return (
             <SavedPlaces
-                onHome={() => setShowSavedPlaces(false)}
+                startAdding={addSavedPlace}
+
+                onHome={() => {
+                    setShowSavedPlaces(false)
+                    setAddSavedPlace(false)
+                }}
+
                 onRoutes={() => {
                     setShowSavedPlaces(false)
+                    setAddSavedPlace(false)
                     setShowRoutes(true)
                 }}
+
                 onProfile={() => {
                     setShowSavedPlaces(false)
+                    setAddSavedPlace(false)
                     setShowProfile(true)
                 }}
+
                 onSignIn={() => {
                     setShowSavedPlaces(false)
+                    setAddSavedPlace(false)
                     setShowSignIn(true)
                 }}
+
                 onUsePlace={selectSavedPlace}
                 onPlacesChange={setSavedPlaces}
                 isAuthenticated={isAuthenticated}
@@ -309,7 +331,7 @@ function Home() {
 
                             {/* ADD PLACE */}
 
-                            <button onClick={openSavedPlaces} className="group mt-4 flex min-h-[100px] w-full items-center gap-5 border-2 border-dashed border-[#A88FA1]/45 rounded-xl px-5 text-left transition hover:border-[#A88FA1] hover:bg-[#A88FA1]/10">
+                            <button onClick={openAddSavedPlace} className="group mt-4 flex min-h-[100px] w-full items-center gap-5 border-2 border-dashed border-[#A88FA1]/45 rounded-xl px-5 text-left transition hover:border-[#A88FA1] hover:bg-[#A88FA1]/10">
 
                                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#A88FA1] text-white">
                                     <Plus size={21} />
