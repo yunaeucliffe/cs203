@@ -53,7 +53,7 @@ public class AuthService {
                 username,
                 email,
                 passwordEncoder.encode(request.password())));
-        preferenceRepository.save(new UserPreference(user.getId(), "Normal", 500, false));
+        preferenceRepository.save(new UserPreference(user.getId(), "Normal", "Moderate", false));
 
         return new LoginResponse(true, user.getId(), user.getName(), "Account created successfully");
     }

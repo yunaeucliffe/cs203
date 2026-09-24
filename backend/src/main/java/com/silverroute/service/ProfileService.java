@@ -48,8 +48,8 @@ public class ProfileService {
         UserPreference foundPreference = preference.get();
         foundPreference.update(
                 request.walkingSpeed(),
-                request.maxWalkingDistance(),
-                request.avoidStairs());
+                request.walkingTolerance(),
+                request.preferSheltered());
         preferenceRepository.save(foundPreference);
 
         return Optional.of(toResponse(user.get(), foundPreference));
@@ -67,7 +67,7 @@ public class ProfileService {
                 user.getName(),
                 user.getEmail(),
                 preference.getWalkingSpeed(),
-                preference.getMaxWalkingDistance(),
-                preference.isAvoidStairs());
+                preference.getWalkingTolerance(),
+                preference.isPreferSheltered());
     }
 }

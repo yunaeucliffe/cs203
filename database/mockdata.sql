@@ -17,27 +17,29 @@ ON CONFLICT (username) DO UPDATE SET
     email = EXCLUDED.email,
     password_hash = EXCLUDED.password_hash;
 
+
 -- MOCK USER PREFERENCES
 
 INSERT INTO user_preferences (
     user_id,
-    avoid_stairs,
     walking_speed,
-    max_walking_distance
+    walking_tolerance,
+    prefer_sheltered
 )
 SELECT
     id,
-    TRUE,
     'Slow',
-    500
+    'Short',
+    TRUE
 FROM users
 WHERE username = 'marytan'
 ON CONFLICT (user_id) DO UPDATE SET
-    avoid_stairs = EXCLUDED.avoid_stairs,
     walking_speed = EXCLUDED.walking_speed,
-    max_walking_distance = EXCLUDED.max_walking_distance;
+    walking_tolerance = EXCLUDED.walking_tolerance,
+    prefer_sheltered = EXCLUDED.prefer_sheltered;
 
--- MOCK SAVED PLACES
+
+-- MOCK SAVED PLACE: HOME
 
 INSERT INTO saved_places (
     user_id,
@@ -56,6 +58,8 @@ FROM users
 WHERE username = 'marytan'
 ON CONFLICT (user_id, label) DO NOTHING;
 
+
+-- MOCK SAVED PLACE: SMU
 
 INSERT INTO saved_places (
     user_id,

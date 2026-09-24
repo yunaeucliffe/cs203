@@ -40,14 +40,14 @@ class ProfileServiceTests {
     void getProfileCombinesUserAndPreferences() {
         User user = new User("Mary Tan", "marytan", "mary@example.com", "unused");
         ReflectionTestUtils.setField(user, "id", 1L);
-        UserPreference preference = new UserPreference(1L, "Slow", 500, true);
+        UserPreference preference = new UserPreference(1L, "Slow", "Short", true);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(preferenceRepository.findByUserId(1L)).thenReturn(Optional.of(preference));
 
         Optional<ProfileResponse> response = profileService.getProfile(1L);
 
         assertThat(response).contains(new ProfileResponse(
-                1L, "Mary Tan", "mary@example.com", "Slow", 500, true));
+                1L, "Mary Tan", "mary@example.com", "Slow", "Short", true));
     }
 
     @Test
@@ -64,29 +64,29 @@ class ProfileServiceTests {
     void getProfileByEmailUsesTheAuthenticatedUsersEmail() {
         User user = new User("Mary Tan", "marytan", "mary@example.com", "unused");
         ReflectionTestUtils.setField(user, "id", 1L);
-        UserPreference preference = new UserPreference(1L, "Slow", 500, true);
+        UserPreference preference = new UserPreference(1L, "Slow", "Short", true);
         when(userRepository.findByEmail("mary@example.com")).thenReturn(Optional.of(user));
         when(preferenceRepository.findByUserId(1L)).thenReturn(Optional.of(preference));
 
         assertThat(profileService.getProfileByEmail("mary@example.com"))
                 .contains(new ProfileResponse(
-                        1L, "Mary Tan", "mary@example.com", "Slow", 500, true));
+                        1L, "Mary Tan", "mary@example.com", "Slow", "Short", true));
     }
 
     @Test
     void updatePreferencesSavesAndReturnsTheUpdatedProfile() {
         User user = new User("Mary Tan", "marytan", "mary@example.com", "unused");
         ReflectionTestUtils.setField(user, "id", 1L);
-        UserPreference preference = new UserPreference(1L, "Slow", 500, true);
+        UserPreference preference = new UserPreference(1L, "Slow", "Short", true);
         when(userRepository.findByEmail("mary@example.com")).thenReturn(Optional.of(user));
         when(preferenceRepository.findByUserId(1L)).thenReturn(Optional.of(preference));
 
         Optional<ProfileResponse> response = profileService.updatePreferences(
                 "mary@example.com",
-                new UpdatePreferencesRequest("Fast", 750, false));
+                new UpdatePreferencesRequest("Fast", "Moderate", false));
 
         assertThat(response).contains(new ProfileResponse(
-                1L, "Mary Tan", "mary@example.com", "Fast", 750, false));
+                1L, "Mary Tan", "mary@example.com", "Fast", "Moderate", false));
         verify(preferenceRepository).save(preference);
     }
 }
