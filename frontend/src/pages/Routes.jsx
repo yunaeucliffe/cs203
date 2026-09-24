@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import L from 'leaflet'
+import { searchLocation, searchRoutes } from '../api/routes'
 
 import {
   MapContainer,
+  useMap,
   TileLayer,
-  CircleMarker,
   Polyline,
   Popup,
+  Marker,
 } from 'react-leaflet'
 
 import 'leaflet/dist/leaflet.css'
@@ -16,47 +19,224 @@ import {
   LocateFixed,
   Footprints,
   Bus,
-  ArrowRight,
   Umbrella,
   Accessibility,
 } from 'lucide-react'
 
 import Navbar from '../components/Navbar'
 
-function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = '' }) {
+function FitRoute({ origin, destination, paths }) {
+  const map = useMap()
+  useEffect(() => {
+    const points = paths.flat()
+    if (origin) points.push([origin.latitude, origin.longitude])
+    if (destination) points.push([destination.latitude, destination.longitude])
+    if (points.length > 0) map.fitBounds(points, { padding: [35, 35], maxZoom: 16 })
+  }, [map, origin, destination, paths])
+  return null
+}
+
+function calculateHeading(previous, current) {
+  const lat1 = (previous.latitude * Math.PI) / 180
+  const lat2 = (current.latitude * Math.PI) / 180
+  const dLon = ((current.longitude - previous.longitude) * Math.PI) / 180
+
+  const y = Math.sin(dLon) * Math.cos(lat2)
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
+
+  const angle = (Math.atan2(y, x) * 180) / Math.PI
+
+  return (angle + 360) % 360
+}
+
+function DirectionMarker({ position, heading }) {
+  const rotation = heading ?? 0
+
+  const icon = L.divIcon({
+    className: '',
+    html: `
+      <svg
+        width="80"
+        height="80"
+        viewBox="0 0 80 80"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M40 4
+            C53 14, 61 27, 66 44
+            C57 40, 49 38, 40 38
+            C31 38, 23 40, 14 44
+            C19 27, 27 14, 40 4 Z"
+          fill="rgba(47, 111, 237, 0.25)"
+          transform="rotate(${rotation} 40 40)"
+        />
+
+        <circle
+          cx="40"
+          cy="40"
+          r="9"
+          fill="#2F6FED"
+          stroke="white"
+          strokeWidth="3"
+        />
+      </svg>
+    `,
+    iconSize: [80, 80],
+    iconAnchor: [40, 40],
+  })
+
+  return <Marker position={position} icon={icon} />
+}
+
+
+const EMPTY_PATHS = []
+
+function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = ''}) {
   const [destination, setDestination] = useState(initialDestination)
-  const [showRoute, setShowRoute] = useState(false)
+  const [originText, setOriginText] = useState('')
+  const [deviceLocation, setDeviceLocation] = useState(null)
+  const [result, setResult] = useState(null)
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [locating, setLocating] = useState(false)
+  const [error, setError] = useState('')
+  const pending = useRef(null)
+  const locationRequest = useRef(0)
+  const previousLocation = useRef(null)
+  const locationWatch = useRef(null)
 
-  /*
-   * TEMPORARY MAP DATA
-   *
-   * These coordinates are currently hardcoded just to test
-   * the map and blue route line.
-   *
-   * Later, these will come from the backend / OneMap Routing API.
-   */
+  useEffect(() => {
+  return () => {
+    pending.current?.abort()
 
-  const currentLocation = [1.3521, 103.8198]
+    if (locationWatch.current !== null) {
+      navigator.geolocation.clearWatch(locationWatch.current)
+    }
 
-  const destinationLocation = [1.3575, 103.8190]
+    locationRequest.current += 1
+  }
+}, [])
 
-  const routeCoordinates = [
-    [1.3521, 103.8198],
-    [1.3530, 103.8195],
-    [1.3540, 103.8192],
-    [1.3550, 103.8190],
-    [1.3560, 103.8188],
-    [1.3575, 103.8190],
-  ]
+  const selectedRoute = result?.routes[selectedIndex]
+  const showRoute = Boolean(selectedRoute)
+  const currentLocation = deviceLocation || result?.origin
+  const destinationLocation = result?.destination
+  const routeCoordinates = selectedRoute?.routePaths || EMPTY_PATHS
 
-  // For now this only displays dummy route information.
-  // Later, this function can call the backend / routing API.
-  const handleFindRoute = () => {
-    if (destination.trim() === '') {
+  const destinationIcon = L.divIcon({
+    className: '',
+    html: `
+      <div style="
+        width: 32px;
+        height: 32px;
+        background: #e53935;
+        border: 3px solid white;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      ">
+        <div style="
+          width: 10px;
+          height: 10px;
+          background: white;
+          border-radius: 50%;
+          position: absolute;
+          top: 8px;
+          left: 8px;
+        "></div>
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+  })
+
+  const clearResult = () => {
+    pending.current?.abort()
+    pending.current = null
+    setLoading(false)
+    setResult(null)
+    setError('')
+  }
+
+  const useMyLocation = () => {
+    clearResult()
+
+    if (!navigator.geolocation) {
+      setError('Location is unavailable in this browser. Enter a starting point instead.')
       return
     }
 
-    setShowRoute(true)
+    const request = ++locationRequest.current
+    setLocating(true)
+
+    locationWatch.current = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        if (request !== locationRequest.current) return
+
+        const newLocation = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          name: 'Current location',
+        }
+
+        let heading = coords.heading
+
+        if (
+          heading == null &&
+          previousLocation.current
+        ) {
+          heading = calculateHeading(
+            previousLocation.current,
+            newLocation
+          )
+        }
+
+        setDeviceLocation({
+          ...newLocation,
+          heading,
+        })
+
+        previousLocation.current = newLocation
+
+        setOriginText('Current location')
+        setLocating(false)
+      },
+    )
+  }
+
+  const handleFindRoute = async () => {
+    if (loading || locating) return
+    clearResult()
+    if (!destination.trim() || (!deviceLocation && !originText.trim())) {
+      setError('Enter a starting point and destination, or use your current location.')
+      return
+    }
+    const controller = new AbortController()
+    pending.current = controller
+    setLoading(true)
+    try {
+      const [origin, target] = await Promise.all([
+        deviceLocation || searchLocation(originText.trim(), controller.signal),
+        searchLocation(destination.trim(), controller.signal),
+      ])
+      const routes = await searchRoutes(origin, target, controller.signal)
+      if (controller.signal.aborted) return
+      if (!Array.isArray(routes) || routes.length === 0) {
+        setError('No public transport routes were found. Try another starting point or destination.')
+        return
+      }
+      setSelectedIndex(0)
+      setResult({ origin, destination: target, routes })
+    } catch (failure) {
+      if (!controller.signal.aborted) setError(failure.message)
+    } finally {
+      if (pending.current === controller) {
+        pending.current = null
+        setLoading(false)
+      }
+    }
   }
 
   return (
@@ -104,16 +284,26 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
                   <input
                     type="text"
-                    value="Current location"
-                    readOnly
+                    aria-label="Starting point"
+                    value={originText}
+                    placeholder="Enter starting point"
+                    onChange={(event) => {
+                      clearResult()
+                      locationRequest.current += 1
+                      setLocating(false)
+                      setDeviceLocation(null)
+                      setOriginText(event.target.value)
+                    }}
                     className="w-full bg-transparent text-base outline-none"
                   />
 
                   <button
                     type="button"
+                    onClick={useMyLocation}
+                    disabled={locating || loading}
                     className="shrink-0 text-sm font-semibold text-[#7A7F7A] transition hover:text-[#2A3439]"
                   >
-                    Use my location
+                    {locating ? 'Locating…' : 'Use my location'}
                   </button>
 
                 </div>
@@ -136,8 +326,12 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
                   <input
                     type="text"
+                    aria-label="Destination"
                     value={destination}
-                    onChange={(event) => setDestination(event.target.value)}
+                    onChange={(event) => {
+                      clearResult()
+                      setDestination(event.target.value)
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') {
                         handleFindRoute()
@@ -155,15 +349,34 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               <button
                 type="button"
                 onClick={handleFindRoute}
+                disabled={loading || locating}
+                aria-busy={loading}
                 className="mt-5 flex h-[62px] w-full items-center justify-center gap-3 rounded-2xl bg-[#3E424B] text-lg font-semibold text-white transition hover:scale-[1.01]"
               >
-                Find route
+                {loading ? 'Finding routes…' : 'Find route'}
 
                 <Navigation size={20} />
 
               </button>
 
             </div>
+
+            {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
+            {loading && <p role="status" className="mt-4">Finding public transport routes…</p>}
+            {result && (
+              <div className="mt-4">
+                <p className="mb-3 text-sm">{result.origin.name} → {result.destination.name}</p>
+                <label className="font-semibold" htmlFor="route-choice">Choose a route</label>
+                <select id="route-choice" className="mt-2 w-full rounded-xl border bg-white p-3"
+                  value={selectedIndex} onChange={(event) => setSelectedIndex(Number(event.target.value))}>
+                  {result.routes.map((route, index) => (
+                    <option key={route.id} value={index}>
+                      Route {index + 1}: {route.durationMinutes} min · {route.transfers} transfers
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* ====================================== */}
             {/* ROUTE RESULT */}
@@ -178,48 +391,23 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                 <div>
 
                   <p className="text-xs font-extrabold tracking-[0.14em] text-[#7A7F7A]">
-                    BEST FOR YOU
+                    PUBLIC TRANSPORT ROUTE
                   </p>
 
                   <h2
                     className="mt-2 text-4xl text-[#2A3439]"
                     style={{ fontFamily: '"DM Serif Display", serif' }}
                   >
-                    18 min
+                    {selectedRoute.durationMinutes} min
                   </h2>
 
                   <p className="mt-1 text-[#7A7F7A]">
-                    1.2 km total journey
+                    {selectedRoute.distanceMeters == null ? 'Distance unavailable' : `${(selectedRoute.distanceMeters / 1000).toFixed(1)} km total journey`}
                   </p>
 
                 </div>
 
-                {/* TRANSPORT SEQUENCE */}
-                <div className="mt-6 flex items-center gap-3">
-
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white">
-                    <Footprints size={20} />
-                  </div>
-
-                  <ArrowRight
-                    size={17}
-                    className="text-[#7A7F7A]"
-                  />
-
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white">
-                    <Bus size={20} />
-                  </div>
-
-                  <ArrowRight
-                    size={17}
-                    className="text-[#7A7F7A]"
-                  />
-
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white">
-                    <Footprints size={20} />
-                  </div>
-
-                </div>
+                <p className="mt-6 font-semibold">{selectedRoute.summary}</p>
 
                 {/* ROUTE INFORMATION */}
                 <div className="mt-6 divide-y divide-[#7A7F7A]/20 border-y border-[#7A7F7A]/20">
@@ -236,7 +424,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     </div>
 
                     <span className="font-semibold">
-                      80%
+                      Unavailable
                     </span>
 
                   </div>
@@ -253,7 +441,8 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     </div>
 
                     <span className="font-semibold">
-                      6 min · 400 m
+                      {selectedRoute.walkingMinutes} min
+                      {selectedRoute.walkingDistanceMeters != null && ` · ${Math.round(selectedRoute.walkingDistanceMeters)} m`}
                     </span>
 
                   </div>
@@ -270,7 +459,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     </div>
 
                     <span className="font-semibold">
-                      1
+                      {selectedRoute.transfers}
                     </span>
 
                   </div>
@@ -287,23 +476,16 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     </div>
 
                     <span className="text-right font-semibold">
-                      Lift available · No stairs
+                      Not verified
                     </span>
 
                   </div>
 
                 </div>
 
-                {/* START NAVIGATION */}
-                <button
-                  type="button"
-                  className="mt-6 flex h-[62px] w-full items-center justify-center gap-3 rounded-2xl bg-[#3E424B] text-lg font-semibold text-white transition hover:scale-[1.01]"
-                >
-                  Start navigation
-
-                  <ArrowRight size={20} />
-
-                </button>
+                {routeCoordinates.length === 0 && (
+                  <p className="mt-4 text-sm">Map geometry is unavailable for this route.</p>
+                )}
 
               </div>
 
@@ -318,7 +500,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
           <section className="overflow-hidden rounded-[28px] border border-[#7A7F7A]/20">
 
             <MapContainer
-              center={currentLocation}
+              center={[1.3521, 103.8198]}
               zoom={15}
               scrollWheelZoom={true}
               className="h-[650px] w-full"
@@ -330,49 +512,60 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                 attribution='&copy; <a href="https://www.onemap.gov.sg/">OneMap</a> contributors | Singapore Land Authority'
               />
 
-              {/* CURRENT LOCATION */}
-              <CircleMarker
-                center={currentLocation}
-                radius={9}
-                pathOptions={{
-                  color: '#ffffff',
-                  weight: 4,
-                  fillColor: '#4285F4',
-                  fillOpacity: 1,
-                }}
-              >
-                <Popup>
-                  You are here
-                </Popup>
-              </CircleMarker>
+              <FitRoute origin={currentLocation} destination={destinationLocation} paths={routeCoordinates} />
+              {currentLocation && (
+                <DirectionMarker
+                  position={[
+                    currentLocation.latitude,
+                    currentLocation.longitude,
+                  ]}
+                  heading={currentLocation.heading}
+                />
+              )}
 
               {showRoute && (
                 <>
                   {/* DESTINATION */}
-                  <CircleMarker
-                    center={destinationLocation}
-                    radius={9}
-                    pathOptions={{
-                      color: '#ffffff',
-                      weight: 4,
-                      fillColor: '#E45757',
-                      fillOpacity: 1,
-                    }}
+                  <Marker
+                    position={[
+                      destinationLocation.latitude,
+                      destinationLocation.longitude,
+                    ]}
+                    icon={destinationIcon}
                   >
                     <Popup>
                       Destination
                     </Popup>
-                  </CircleMarker>
+                  </Marker>
 
                   {/* BLUE ROUTE */}
-                  <Polyline
-                    positions={routeCoordinates}
-                    pathOptions={{
-                      color: '#2F6FED',
-                      weight: 7,
-                      opacity: 0.95,
-                    }}
-                  />
+                    {routeCoordinates.length > 0 && (
+                      <>
+                        {/* White outline */}
+                        <Polyline
+                          positions={routeCoordinates}
+                          pathOptions={{
+                            color: 'white',
+                            weight: 10,
+                            opacity: 0.9,
+                            lineCap: 'round',
+                            lineJoin: 'round',
+                          }}
+                        />
+
+                        {/* Main route */}
+                        <Polyline
+                          positions={routeCoordinates}
+                          pathOptions={{
+                            color: '#2F6FED',
+                            weight: 6,
+                            opacity: 0.95,
+                            lineCap: 'round',
+                            lineJoin: 'round',
+                          }}
+                        />
+                      </>
+                    )}
                 </>
               )}
 
