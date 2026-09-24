@@ -1,5 +1,6 @@
 package com.silverroute.service;
 
+import java.time.Instant;
 import java.util.*;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,12 @@ public class OneMapService {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final Object tokenLock = new Object();
+
+    // OneMap supplies the exact expiry time with each token 
+    // The cache is kept for the lifetime of this application instance
+    private volatile CachedToken cachedToken;
+    private static final long TOKEN_REFRESH_BUFFER_SECONDS = 60;
 
     public OneMapService() {
         restClient = RestClient.builder()
@@ -36,23 +43,68 @@ public class OneMapService {
         objectMapper = new ObjectMapper();
     }
 
-    // Gets OneMap access token
+    // Returns the cached OneMap access token, refreshing it only when it is near expiry
     public String getToken() {
+        CachedToken token = cachedToken;
+        if (isUsable(token)) {
+            return token.value();
+        }
 
+        // Avoid multiple simultaneous requests all generating a new token
+        synchronized (tokenLock) {
+            token = cachedToken;
+            if (isUsable(token)) {
+                return token.value();
+            }
+
+            cachedToken = requestToken();
+            return cachedToken.value();
+        }
+    }
+
+    private CachedToken requestToken() {
         Map<String, Object> response = restClient.post()
                 .uri("/api/auth/post/getToken")
                 .header("Content-Type", "application/json")
-                .body("""
-                        {
-                            "email": "%s",
-                            "password": "%s"
-                        }
-                        """.formatted(email, password))
+                .body(Map.of("email", email, "password", password))
                 .retrieve()
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {
                 });
 
-        return response.get("access_token").toString();
+        if (response == null || response.get("access_token") == null || response.get("expiry_timestamp") == null) {
+            throw new IllegalStateException("OneMap token response did not include an access token and expiry timestamp");
+        }
+
+        try {
+            String accessToken = response.get("access_token").toString();
+            long expiryEpochSeconds = Long.parseLong(response.get("expiry_timestamp").toString());
+            return new CachedToken(accessToken, Instant.ofEpochSecond(expiryEpochSeconds));
+        } catch (NumberFormatException exception) {
+            throw new IllegalStateException("OneMap returned an invalid token expiry timestamp", exception);
+        }
+    }
+
+    private boolean isUsable(CachedToken token) {
+        return token != null
+                && Instant.now().plusSeconds(TOKEN_REFRESH_BUFFER_SECONDS).isBefore(token.expiresAt());
+    }
+
+    private static class CachedToken {
+        private final String value;
+        private final Instant expiresAt;
+
+        private CachedToken(String value, Instant expiresAt) {
+            this.value = value;
+            this.expiresAt = expiresAt;
+        }
+
+        private String value() {
+            return value;
+        }
+
+        private Instant expiresAt() {
+            return expiresAt;
+        }
     }
 
     // Searches a place name --> gets raw JSON
