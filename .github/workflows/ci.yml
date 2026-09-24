@@ -1,0 +1,101 @@
+# CI: runs on every pull request into main (and on main after a merge).
+# A PR cannot be merged unless all three jobs are green (enforced by the branch ruleset).
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# cancel the old run instead of queueing.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Check: Jira key in PR title and branch name. This is a soft check: it does not block the merge, but it will fail the CI job and show an error message in the PR if the check fails.
+
+jobs:
+  jira-key:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Jira key in PR title and branch
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          KEY_REGEX='CS203-[0-9]+'
+          ok=true
+          if ! echo "$TITLE" | grep -Eq "^\[?$KEY_REGEX\]?"; then
+            echo "::error::PR title must start with a Jira key, e.g. 'CS203-42: Add LLM gateway'. Got: $TITLE"
+            ok=false
+          fi
+          if ! echo "$BRANCH" | grep -Eq "$KEY_REGEX"; then
+            echo "::error::Branch name must contain a Jira key, e.g. 'feature/CS203-42-llm-gateway'. Got: $BRANCH"
+            ok=false
+          fi
+          $ok
+
+  # Backend: compile, run all tests against a throwaway Postgres.
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      # Dummy values: tests must NEVER call the real OneMap / LTA / LLM APIs.
+      DB_HOST: localhost
+      DB_PASSWORD: postgres
+      SESSION_COOKIE_SECURE: "false"
+      ONEMAP_EMAIL: ci@example.com
+      ONEMAP_PASSWORD: ci-dummy
+      LTA_DATAMALL_API_KEY: ci-dummy
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Create schema
+        run: psql -h localhost -U postgres -d postgres -f database/schema.sql
+
+      - name: Build and test
+        working-directory: backend
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp verify
+
+      - name: Upload test reports (only if tests failed)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports/
+
+  # 3. Frontend: install, lint, build.
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
