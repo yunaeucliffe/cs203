@@ -31,8 +31,12 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL UNIQUE,
 
-    walking_speed VARCHAR(20) NOT NULL DEFAULT 'Normal',
-    walking_tolerance VARCHAR(20) NOT NULL DEFAULT 'Moderate',
+    walking_speed VARCHAR(20) NOT NULL DEFAULT 'Normal'
+        CHECK (walking_speed IN ('Slow', 'Normal', 'Fast')),
+
+    walking_tolerance VARCHAR(20) NOT NULL DEFAULT 'Moderate'
+        CHECK (walking_tolerance IN ('Poor', 'Moderate', 'Good')),
+
     prefer_sheltered BOOLEAN NOT NULL DEFAULT FALSE,
 
     CONSTRAINT fk_preferences_user

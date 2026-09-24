@@ -29,7 +29,7 @@ INSERT INTO user_preferences (
 SELECT
     id,
     'Slow',
-    'Short',
+    'Poor',
     TRUE
 FROM users
 WHERE username = 'marytan'
@@ -37,7 +37,6 @@ ON CONFLICT (user_id) DO UPDATE SET
     walking_speed = EXCLUDED.walking_speed,
     walking_tolerance = EXCLUDED.walking_tolerance,
     prefer_sheltered = EXCLUDED.prefer_sheltered;
-
 
 -- MOCK SAVED PLACE: HOME
 
