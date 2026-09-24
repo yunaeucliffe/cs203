@@ -17,7 +17,6 @@ SilverRoute is a route-planning prototype with a React frontend and a Spring Boo
 backend/       Spring Boot application
 database/      PostgreSQL schema and development data
 frontend/      React and Vite application
-data/          Local covered-linkway GeoJSON data
 ```
 
 ## Prerequisites
