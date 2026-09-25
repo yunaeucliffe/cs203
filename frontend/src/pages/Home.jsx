@@ -16,11 +16,7 @@ import {
 
 function Home() {
     const [destination, setDestination] = useState('')
-    const [showSignIn, setShowSignIn] = useState(false)
-    const [showSignUp, setShowSignUp] = useState(false)
-    const [showRoutes, setShowRoutes] = useState(false)
-    const [showProfile, setShowProfile] = useState(false)
-    const [showSavedPlaces, setShowSavedPlaces] = useState(false)
+    const [currentPage, setCurrentPage] = useState('home')
     const [isAuthenticated, setIsAuthenticated] = useState(false)
     const [userName, setUserName] = useState('there')
     const [savedPlaces, setSavedPlaces] = useState([])
@@ -58,34 +54,33 @@ function Home() {
             return
         }
 
-        setShowRoutes(true)
+        setCurrentPage('routes')
     }
 
     const openSavedPlaces = () => {
-        if (isAuthenticated) setShowSavedPlaces(true)
-        else setShowSignIn(true)
+        if (isAuthenticated) setCurrentPage('savedPlaces')
+        else setCurrentPage('signIn')
     }
 
     const openAddSavedPlace = () => {
         if (isAuthenticated) {
             setAddSavedPlace(true)
-            setShowSavedPlaces(true)
+            setCurrentPage('savedPlaces')
         } else {
-            setShowSignIn(true)
+            setCurrentPage('signIn')
         }
     }
 
     const selectSavedPlace = (place) => {
         setDestination(place.address)
-        setShowSavedPlaces(false)
-        setShowRoutes(true)
+        setCurrentPage('routes')
     }
 
-    if (showSignIn) {
+    if (currentPage === 'signIn') {
         return (
             <SignIn
                 onSignIn={(account) => {
-                    setShowSignIn(false)
+                    setCurrentPage('home')
                     setIsAuthenticated(true)
                     setUserName(account.name.split(' ')[0])
                     fetch(`${API_URL}/api/users/me/saved-places`, {
@@ -96,22 +91,20 @@ function Home() {
                         .catch(() => setSavedPlaces([]))
                 }}
                 onSignUp={() => {
-                    setShowSignIn(false)
-                    setShowSignUp(true)
+                    setCurrentPage('signUp')
                 }}
             />
         )
     }
 
-    if (showSignUp) {
+    if (currentPage === 'signUp') {
         return (
             <SignUp
                 onBackToLogin={() => {
-                    setShowSignUp(false)
-                    setShowSignIn(true)
+                    setCurrentPage('signIn')
                 }}
                 onSignUp={(account) => {
-                    setShowSignUp(false)
+                    setCurrentPage('home')
                     setIsAuthenticated(true)
                     setUserName(account.name.split(' ')[0])
                     setSavedPlaces([])
@@ -120,44 +113,41 @@ function Home() {
         )
     }
 
-    if (showProfile) {
+    if (currentPage === 'profile') {
         return (
             <Profile
-                onBack={() => setShowProfile(false)}
+                onBack={() => setCurrentPage('home')}
                 onLogout={() => {
                     setIsAuthenticated(false)
-                    setShowProfile(false)
+                    setCurrentPage('home')
                 }}
             />
         )
     }
 
-    if (showSavedPlaces) {
+    if (currentPage === 'savedPlaces') {
         return (
             <SavedPlaces
                 startAdding={addSavedPlace}
 
                 onHome={() => {
-                    setShowSavedPlaces(false)
+                    setCurrentPage('home')
                     setAddSavedPlace(false)
                 }}
 
                 onRoutes={() => {
-                    setShowSavedPlaces(false)
+                    setCurrentPage('routes')
                     setAddSavedPlace(false)
-                    setShowRoutes(true)
                 }}
 
                 onProfile={() => {
-                    setShowSavedPlaces(false)
+                    setCurrentPage('profile')
                     setAddSavedPlace(false)
-                    setShowProfile(true)
                 }}
 
                 onSignIn={() => {
-                    setShowSavedPlaces(false)
+                    setCurrentPage('signIn')
                     setAddSavedPlace(false)
-                    setShowSignIn(true)
                 }}
 
                 onUsePlace={selectSavedPlace}
@@ -167,13 +157,13 @@ function Home() {
         )
     }
 
-    if (showRoutes) {
+    if (currentPage === 'routes') {
         return (
             <Routes
                 destination={destination}
-                onBack={() => setShowRoutes(false)}
-                onSignIn={() => setShowSignIn(true)}
-                onProfile={() => setShowProfile(true)}
+                onBack={() => setCurrentPage('home')}
+                onSignIn={() => setCurrentPage('signIn')}
+                onProfile={() => setCurrentPage('profile')}
                 onSavedPlaces={openSavedPlaces}
                 isAuthenticated={isAuthenticated}
                 initialDestination={destination}
@@ -195,10 +185,10 @@ function Home() {
 
                 <Navbar
                     activePage="home"
-                    onHome={() => { }}
-                    onRoutes={() => setShowRoutes(true)}
-                    onSignIn={() => setShowSignIn(true)}
-                    onProfile={() => setShowProfile(true)}
+                    onHome={() => setCurrentPage('home')}
+                    onRoutes={() => setCurrentPage('routes')}
+                    onSignIn={() => setCurrentPage('signIn')}
+                    onProfile={() => setCurrentPage('profile')}
                     onSavedPlaces={openSavedPlaces}
                     isAuthenticated={isAuthenticated}
                 />

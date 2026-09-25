@@ -1,5 +1,16 @@
-import { useEffect, useState } from 'react'
-import './Profile.css'
+import {useEffect, useState} from 'react'
+import InfoRow from '../components/InfoRow'
+import {PreferenceCard, PreferenceSelector} from '../components/PreferenceComponents'
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  AtSign,
+  Gauge,
+  Footprints,
+  Umbrella,
+  LogOut,
+} from 'lucide-react'
 
 function Profile({ onBack, onLogout }) {
   const [user, setUser] = useState(null)
@@ -7,10 +18,11 @@ function Profile({ onBack, onLogout }) {
   const [actionError, setActionError] = useState('')
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+
   const [formValues, setFormValues] = useState({
     walkingSpeed: 'Normal',
-    maxWalkingDistance: 500,
-    avoidStairs: false,
+    walkingTolerance: 'Moderate',
+    preferSheltered: false,
   })
 
   useEffect(() => {
@@ -24,9 +36,11 @@ function Profile({ onBack, onLogout }) {
         if (response.status === 401) {
           throw new Error('Your session has expired. Please sign in again.')
         }
+
         if (!response.ok) {
           throw new Error('Unable to load profile.')
         }
+
         return response.json()
       })
       .then(setUser)
@@ -42,9 +56,10 @@ function Profile({ onBack, onLogout }) {
   const startEditing = () => {
     setFormValues({
       walkingSpeed: user.walkingSpeed,
-      maxWalkingDistance: user.maxWalkingDistance,
-      avoidStairs: user.avoidStairs,
+      walkingTolerance: user.walkingTolerance,
+      preferSheltered: user.preferSheltered,
     })
+
     setActionError('')
     setIsEditing(true)
   }
@@ -55,10 +70,15 @@ function Profile({ onBack, onLogout }) {
     setIsSaving(true)
 
     try {
-      const csrfResponse = await fetch('http://localhost:8081/api/auth/csrf', {
-        credentials: 'include',
-      })
+      const csrfResponse = await fetch(
+        'http://localhost:8081/api/auth/csrf',
+        {
+          credentials: 'include',
+        },
+      )
+
       const csrf = await csrfResponse.json()
+
       const response = await fetch(
         'http://localhost:8081/api/users/me/preferences',
         {
@@ -68,17 +88,16 @@ function Profile({ onBack, onLogout }) {
             'Content-Type': 'application/json',
             'X-XSRF-TOKEN': csrf.token,
           },
-          body: JSON.stringify({
-            ...formValues,
-            maxWalkingDistance: Number(formValues.maxWalkingDistance),
-          }),
+          body: JSON.stringify(formValues),
         },
       )
+
       const data = await response.json().catch(() => null)
 
       if (response.status === 401) {
         throw new Error('Your session has expired. Please sign in again.')
       }
+
       if (!response.ok) {
         throw new Error(data?.message || 'Unable to save preferences.')
       }
@@ -94,16 +113,27 @@ function Profile({ onBack, onLogout }) {
 
   const handleLogout = async () => {
     setActionError('')
+
     try {
-      const csrfResponse = await fetch('http://localhost:8081/api/auth/csrf', {
-        credentials: 'include',
-      })
+      const csrfResponse = await fetch(
+        'http://localhost:8081/api/auth/csrf',
+        {
+          credentials: 'include',
+        },
+      )
+
       const csrf = await csrfResponse.json()
-      const response = await fetch('http://localhost:8081/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'X-XSRF-TOKEN': csrf.token },
-      })
+
+      const response = await fetch(
+        'http://localhost:8081/api/auth/logout',
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'X-XSRF-TOKEN': csrf.token,
+          },
+        },
+      )
 
       if (!response.ok) {
         throw new Error('Unable to sign out.')
@@ -118,163 +148,219 @@ function Profile({ onBack, onLogout }) {
 
   if (error) {
     return (
-      <div className="profile-page">
-        <div className="profile-card">
-          <button type="button" className="profile-back-button" onClick={onBack}>
-            ← Back
-          </button>
-          <p role="alert">{error}</p>
-        </div>
+      <div className="min-h-screen bg-[#FAF7F0] px-8 py-10 text-[#2A3439]">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft size={20} />
+          Back
+        </button>
+
+        <p role="alert" className="mt-8 text-red-700">
+          {error}
+        </p>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="profile-page">
-        <div className="profile-card">
-          <p>Loading profile...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-[#FAF7F0] text-[#2A3439]">
+        Loading profile...
       </div>
     )
   }
 
   return (
-    <div className="profile-page">
-      <div className="profile-card">
+    <div className="min-h-screen bg-[#FAF7F0] text-[#2A3439]">
+      <main className="mx-auto max-w-4xl px-8 py-10">
 
-        <button
-          type="button"
-          className="profile-back-button"
-          onClick={onBack}
-        >
-          ← Back
-        </button>
+        {/* TOP BAR */}
+        <div className="relative mb-12 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-11 w-11 items-center justify-center rounded-full transition hover:bg-[#DCE7D2]"
+            aria-label="Go back"
+          >
+            <ArrowLeft size={22} />
+          </button>
 
-        <div className="profile-header">
-          <div className="profile-icon">👤</div>
-          <h1>My Profile</h1>
+          <h1 className="absolute left-1/2 -translate-x-1/2 text-xl font-semibold">
+            Profile
+          </h1>
+
+          <div className="h-11 w-11" />
         </div>
 
-        <div className="profile-info">
-          <div className="profile-field">
-            <span className="field-label">Name</span>
-            <span className="field-value">{user.name}</span>
+        {/* PROFILE HEADER */}
+        <section className="mb-10 text-center">
+          <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-[#DCE7D2]">
+            <User size={48} strokeWidth={1.7} />
           </div>
 
-          <div className="profile-field">
-            <span className="field-label">Email</span>
-            <span className="field-value">{user.email}</span>
+          <h2 className="mt-5 font-serif text-3xl">
+            {user.name}
+          </h2>
+        </section>
+
+        {/* PERSONAL INFORMATION */}
+        <section className="mb-12 rounded-[24px] border border-[#7A7F7A]/15 bg-white/60 px-7 py-2">
+          {user.username && (
+            <InfoRow
+              icon={<AtSign size={21} />}
+              label="Username"
+              value={user.username}
+            />
+          )}
+
+          <InfoRow
+            icon={<Mail size={21} />}
+            label="Email"
+            value={user.email}
+            last
+          />
+        </section>
+
+        {/* route pref */}
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">
+              Your Preferences
+            </h2>
           </div>
 
-          <div className="profile-field">
-            <span className="field-label">Walking Speed</span>
-            <span className="field-value">{user.walkingSpeed}</span>
-          </div>
-
-          <div className="profile-field">
-            <span className="field-label">
-              Maximum Walking Distance
-            </span>
-            <span className="field-value">
-              {user.maxWalkingDistance} m
-            </span>
-          </div>
+          {!isEditing && (
+            <button
+              type="button"
+              onClick={startEditing}
+              className="flex items-center gap-1 font-medium text-[#3E424B]"
+            >
+              Edit
+            </button>
+          )}
         </div>
 
-        <div className="profile-preferences">
-          <h2>Travel Preferences</h2>
+        {!isEditing && (
+          <div className="grid gap-4 sm:grid-cols-3">
 
-          <div className="preference">
-            <span>Avoid stairs</span>
-            <span>{user.avoidStairs ? '✓' : '✕'}</span>
+            <PreferenceCard
+              icon={<Gauge size={25} />}
+              label="Walking speed"
+              value={user.walkingSpeed}
+            />
+
+            <PreferenceCard
+              icon={<Footprints size={25} />}
+              label="Walking tolerance"
+              value={user.walkingTolerance}
+            />
+
+            <PreferenceCard
+              icon={<Umbrella size={25} />}
+              label="Sheltered paths"
+              value={user.preferSheltered ? 'Yes' : 'No'}
+            />
+
           </div>
+        )}
 
-        </div>
+        {/* EDITING PREFERENCES */}
+        {isEditing && (
+          <form
+            onSubmit={handleSavePreferences}
+            className="rounded-[24px] border border-[#7A7F7A]/15 bg-white/60 p-7"
+          >
 
-        {isEditing ? (
-          <form className="preferences-form" onSubmit={handleSavePreferences}>
-            <label>
-              Walking speed
-              <select
-                value={formValues.walkingSpeed}
-                onChange={(event) => setFormValues({
+            <PreferenceSelector
+              title="Walking speed"
+              description="How quickly do you usually walk?"
+              options={['Slow', 'Normal', 'Fast']}
+              value={formValues.walkingSpeed}
+              onChange={(value) =>
+                setFormValues({
                   ...formValues,
-                  walkingSpeed: event.target.value,
-                })}
-              >
-                <option value="Slow">Slow</option>
-                <option value="Normal">Normal</option>
-                <option value="Fast">Fast</option>
-              </select>
-            </label>
+                  walkingSpeed: value,
+                })
+              }
+            />
 
-            <label>
-              Maximum walking distance (metres)
-              <input
-                type="number"
-                min="50"
-                max="10000"
-                required
-                value={formValues.maxWalkingDistance}
-                onChange={(event) => setFormValues({
+            <div className="my-7 border-t border-[#7A7F7A]/15" />
+
+            <PreferenceSelector
+              title="Walking tolerance"
+              description="How much walking are you comfortable with?"
+              options={['Short', 'Moderate', 'Long']}
+              value={formValues.walkingTolerance}
+              onChange={(value) =>
+                setFormValues({
                   ...formValues,
-                  maxWalkingDistance: event.target.value,
-                })}
-              />
-            </label>
+                  walkingTolerance: value,
+                })
+              }
+            />
 
-            <label className="preference-checkbox">
-              <input
-                type="checkbox"
-                checked={formValues.avoidStairs}
-                onChange={(event) => setFormValues({
+            <div className="my-7 border-t border-[#7A7F7A]/15" />
+
+            <PreferenceSelector
+              title="Sheltered paths"
+              description="Would you prefer sheltered paths where possible?"
+              options={['Yes', 'No']}
+              value={formValues.preferSheltered ? 'Yes' : 'No'}
+              onChange={(value) =>
+                setFormValues({
                   ...formValues,
-                  avoidStairs: event.target.checked,
-                })}
-              />
-              Avoid stairs
-            </label>
+                  preferSheltered: value === 'Yes',
+                })
+              }
+            />
 
-            <div className="preference-form-actions">
+            <div className="mt-8 flex justify-end gap-3">
               <button
                 type="button"
-                className="cancel-preferences-button"
-                onClick={() => setIsEditing(false)}
                 disabled={isSaving}
+                onClick={() => setIsEditing(false)}
+                className="rounded-full border border-[#7A7F7A]/30 px-6 py-3 font-medium transition hover:bg-[#FAF7F0]"
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
-                className="save-preferences-button"
                 disabled={isSaving}
+                className="rounded-full bg-[#3E424B] px-7 py-3 font-medium text-white transition hover:opacity-90 disabled:opacity-60"
               >
-                {isSaving ? 'Saving...' : 'Save Preferences'}
+                {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
+
           </form>
-        ) : (
-          <button
-            type="button"
-            className="edit-profile-button"
-            onClick={startEditing}
-          >
-            Edit Preferences
-          </button>
         )}
 
-        {actionError && <p className="profile-action-error" role="alert">{actionError}</p>}
+        {actionError && (
+          <p
+            role="alert"
+            className="mt-4 text-sm text-red-700"
+          >
+            {actionError}
+          </p>
+        )}
 
-        <button
-          type="button"
-          className="logout-profile-button"
-          onClick={handleLogout}
-        >
-          Sign out
-        </button>
+        {/* SIGN OUT */}
+        <div className="mt-12 border-t border-[#7A7F7A]/20 pt-7">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center gap-3 text-[#7A7F7A] transition hover:text-[#2A3439]"
+          >
+            <LogOut size={20} />
+            <span className="font-medium">Sign out</span>
+          </button>
+        </div>
 
-      </div>
+      </main>
     </div>
   )
 }

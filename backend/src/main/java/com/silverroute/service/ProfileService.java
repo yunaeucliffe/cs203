@@ -65,6 +65,7 @@ public class ProfileService {
         return new ProfileResponse(
                 user.getId(),
                 user.getName(),
+                user.getUsername(),
                 user.getEmail(),
                 preference.getWalkingSpeed(),
                 preference.getWalkingTolerance(),
