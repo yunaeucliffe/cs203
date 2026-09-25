@@ -1,15 +1,14 @@
 package com.silverroute.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
-
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -40,14 +39,14 @@ class ProfileServiceTests {
     void getProfileCombinesUserAndPreferences() {
         User user = new User("Mary Tan", "marytan", "mary@example.com", "unused");
         ReflectionTestUtils.setField(user, "id", 1L);
-        UserPreference preference = new UserPreference(1L, "Slow", "Short", true);
+        UserPreference preference = new UserPreference(1L, "Slow", "Poor", true);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(preferenceRepository.findByUserId(1L)).thenReturn(Optional.of(preference));
 
         Optional<ProfileResponse> response = profileService.getProfile(1L);
 
         assertThat(response).contains(new ProfileResponse(
-                1L, "Mary Tan", "mary@example.com", "Slow", "Short", true));
+                1L, "Mary Tan", "marytan", "mary@example.com", "Slow", "Poor", true));
     }
 
     @Test
@@ -64,20 +63,20 @@ class ProfileServiceTests {
     void getProfileByEmailUsesTheAuthenticatedUsersEmail() {
         User user = new User("Mary Tan", "marytan", "mary@example.com", "unused");
         ReflectionTestUtils.setField(user, "id", 1L);
-        UserPreference preference = new UserPreference(1L, "Slow", "Short", true);
+        UserPreference preference = new UserPreference(1L, "Slow", "Poor", true);
         when(userRepository.findByEmail("mary@example.com")).thenReturn(Optional.of(user));
         when(preferenceRepository.findByUserId(1L)).thenReturn(Optional.of(preference));
 
         assertThat(profileService.getProfileByEmail("mary@example.com"))
                 .contains(new ProfileResponse(
-                        1L, "Mary Tan", "mary@example.com", "Slow", "Short", true));
+                        1L, "Mary Tan", "marytan", "mary@example.com", "Slow", "Poor", true));
     }
 
     @Test
     void updatePreferencesSavesAndReturnsTheUpdatedProfile() {
         User user = new User("Mary Tan", "marytan", "mary@example.com", "unused");
         ReflectionTestUtils.setField(user, "id", 1L);
-        UserPreference preference = new UserPreference(1L, "Slow", "Short", true);
+        UserPreference preference = new UserPreference(1L, "Slow", "Poor", true);
         when(userRepository.findByEmail("mary@example.com")).thenReturn(Optional.of(user));
         when(preferenceRepository.findByUserId(1L)).thenReturn(Optional.of(preference));
 
@@ -86,7 +85,7 @@ class ProfileServiceTests {
                 new UpdatePreferencesRequest("Fast", "Moderate", false));
 
         assertThat(response).contains(new ProfileResponse(
-                1L, "Mary Tan", "mary@example.com", "Fast", "Moderate", false));
+                1L, "Mary Tan", "marytan", "mary@example.com", "Fast", "Moderate", false));
         verify(preferenceRepository).save(preference);
     }
 }
