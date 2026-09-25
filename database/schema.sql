@@ -1,5 +1,6 @@
 -- Run with: psql -U postgres -d postgres -f database/schema.sql
 -- The commands below create the application database when it does not exist.
+
 \set ON_ERROR_STOP on
 \connect postgres
 
@@ -9,6 +10,7 @@ WHERE NOT EXISTS (
 )\gexec
 
 \connect silverroute
+
 
 -- 1. USERS
 
@@ -22,14 +24,20 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+
 -- 2. USER PREFERENCES
 
 CREATE TABLE IF NOT EXISTS user_preferences (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL UNIQUE,
-    walking_speed VARCHAR(20) NOT NULL DEFAULT 'Normal',
-    max_walking_distance INTEGER NOT NULL DEFAULT 500,
-    avoid_stairs BOOLEAN NOT NULL DEFAULT FALSE,
+
+    walking_speed VARCHAR(20) NOT NULL DEFAULT 'Normal'
+        CHECK (walking_speed IN ('Slow', 'Normal', 'Fast')),
+
+    walking_tolerance VARCHAR(20) NOT NULL DEFAULT 'Moderate'
+        CHECK (walking_tolerance IN ('Poor', 'Moderate', 'Good')),
+
+    prefer_sheltered BOOLEAN NOT NULL DEFAULT FALSE,
 
     CONSTRAINT fk_preferences_user
         FOREIGN KEY (user_id)
@@ -37,9 +45,6 @@ CREATE TABLE IF NOT EXISTS user_preferences (
         ON DELETE CASCADE
 );
 
--- Remove the legacy preference. Sheltered routes are chosen from rain conditions.
-ALTER TABLE user_preferences
-DROP COLUMN IF EXISTS prefer_sheltered;
 
 -- 3. SAVED PLACES
 
@@ -59,7 +64,9 @@ CREATE TABLE IF NOT EXISTS saved_places (
         ON DELETE CASCADE
 );
 
--- Prevent user from accidentally creating
--- multiple saved places with the same label.
+
+-- Prevent a user from creating multiple saved places
+-- with the same label.
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_places_user_label
 ON saved_places(user_id, label);

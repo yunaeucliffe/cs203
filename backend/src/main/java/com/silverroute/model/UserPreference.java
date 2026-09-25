@@ -18,24 +18,24 @@ public class UserPreference {
     @Column(name = "user_id", nullable = false, unique = true)
     private Long userId;
 
-    @Column(name = "walking_speed", nullable = false)
+    @Column(name = "walking_speed", nullable = false, length = 20)
     private String walkingSpeed;
 
-    @Column(name = "max_walking_distance", nullable = false)
-    private Integer maxWalkingDistance;
+    @Column(name = "walking_tolerance", nullable = false, length = 20)
+    private String walkingTolerance;
 
-    @Column(name = "avoid_stairs", nullable = false)
-    private boolean avoidStairs;
+    @Column(name = "prefer_sheltered", nullable = false)
+    private boolean preferSheltered;
 
     protected UserPreference() {
     }
 
-    public UserPreference(Long userId, String walkingSpeed, Integer maxWalkingDistance,
-            boolean avoidStairs) {
+    public UserPreference(Long userId, String walkingSpeed, String walkingTolerance,
+            boolean preferSheltered) {
         this.userId = userId;
         this.walkingSpeed = walkingSpeed;
-        this.maxWalkingDistance = maxWalkingDistance;
-        this.avoidStairs = avoidStairs;
+        this.walkingTolerance = walkingTolerance;
+        this.preferSheltered = preferSheltered;
     }
 
     public Long getId() {
@@ -50,18 +50,18 @@ public class UserPreference {
         return walkingSpeed;
     }
 
-    public Integer getMaxWalkingDistance() {
-        return maxWalkingDistance;
+    public String getWalkingTolerance() {
+        return walkingTolerance;
     }
 
-    public boolean isAvoidStairs() {
-        return avoidStairs;
+    public boolean isPreferSheltered() {
+        return preferSheltered;
     }
 
-    public void update(String walkingSpeed, Integer maxWalkingDistance, boolean avoidStairs) {
+    public void update(String walkingSpeed, String walkingTolerance, boolean preferSheltered) {
         this.walkingSpeed = walkingSpeed;
-        this.maxWalkingDistance = maxWalkingDistance;
-        this.avoidStairs = avoidStairs;
+        this.walkingTolerance = walkingTolerance;
+        this.preferSheltered = preferSheltered;
     }
 
 }
