@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Mail, ArrowRight } from 'lucide-react'
 import AuthLayout from '../components/AuthLayout'
 import Input from '../components/Input'
+import { API_URL, getCsrfToken } from '../api'
 
 function SignIn({ onSignIn, onSignUp }) {
   const [error, setError] = useState('')
@@ -15,17 +16,14 @@ function SignIn({ onSignIn, onSignUp }) {
     const formData = new FormData(event.currentTarget)
 
     try {
-      const csrfResponse = await fetch('http://localhost:8081/api/auth/csrf', {
-        credentials: 'include',
-      })
-      const csrf = await csrfResponse.json()
+      const csrfToken = await getCsrfToken()
 
-      const response = await fetch('http://localhost:8081/api/auth/login', {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'X-XSRF-TOKEN': csrf.token,
+          'X-XSRF-TOKEN': csrfToken,
         },
         body: JSON.stringify({
           email: formData.get('email'),
