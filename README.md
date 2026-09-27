@@ -8,6 +8,7 @@ SilverRoute is a route-planning prototype with a React frontend and a Spring Boo
 - Backend: Java 25 and Spring Boot
 - Database: PostgreSQL
 - Build tools: npm and Maven Wrapper
+- API Documentation: Swagger UI and OpenAPI 3.0
 - Backend URL: <http://localhost:8081>
 - Frontend URL: <http://localhost:5173>
 
@@ -102,6 +103,20 @@ npm.cmd run dev
 ```
 
 On macOS or Linux, `npm ci` and `npm run dev` can be used instead. Open <http://localhost:5173> after Vite starts.
+
+## API documentation (Swagger UI)
+
+Once the backend is running, view the interactive API documentation:
+
+- **Swagger UI:** <http://localhost:8081/swagger-ui.html>
+- **OpenAPI JSON:** <http://localhost:8081/v3/api-docs>
+
+Swagger UI allows you to explore all endpoints, view request/response schemas, and test endpoints directly with "Try it out."
+
+**Note on testing endpoints in Swagger UI:**
+- **Authentication endpoints** (`/api/auth/login`, `/api/auth/signup`) work without a session.
+- **Protected endpoints** (`/api/users/**`) require an active login session. Use the login endpoint first; the browser will maintain the session cookie for subsequent requests.
+- **Mutation endpoints** (POST, PUT, DELETE) require a valid CSRF token. Copy the `XSRF-TOKEN` cookie value and paste it into the `X-XSRF-TOKEN` header for each request. The exception is `/api/route-recommendations`, which allows CSRF-free requests.
 
 ## Development login
 
