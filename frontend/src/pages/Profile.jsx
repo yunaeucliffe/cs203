@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react'
 import InfoRow from '../components/InfoRow'
 import {PreferenceCard, PreferenceSelector} from '../components/PreferenceComponents'
+import {API_URL, getCsrfToken} from '../api'
 import {
   ArrowLeft,
   User,
@@ -28,7 +29,7 @@ function Profile({ onBack, onLogout }) {
   useEffect(() => {
     const controller = new AbortController()
 
-    fetch('http://localhost:8081/api/users/me/profile', {
+    fetch(`${API_URL}/api/users/me/profile`, {
       credentials: 'include',
       signal: controller.signal,
     })
@@ -70,23 +71,16 @@ function Profile({ onBack, onLogout }) {
     setIsSaving(true)
 
     try {
-      const csrfResponse = await fetch(
-        'http://localhost:8081/api/auth/csrf',
-        {
-          credentials: 'include',
-        },
-      )
-
-      const csrf = await csrfResponse.json()
+      const csrfToken = await getCsrfToken()
 
       const response = await fetch(
-        'http://localhost:8081/api/users/me/preferences',
+        `${API_URL}/api/users/me/preferences`,
         {
           method: 'PUT',
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            'X-XSRF-TOKEN': csrf.token,
+            'X-XSRF-TOKEN': csrfToken,
           },
           body: JSON.stringify(formValues),
         },
@@ -115,22 +109,15 @@ function Profile({ onBack, onLogout }) {
     setActionError('')
 
     try {
-      const csrfResponse = await fetch(
-        'http://localhost:8081/api/auth/csrf',
-        {
-          credentials: 'include',
-        },
-      )
-
-      const csrf = await csrfResponse.json()
+      const csrfToken = await getCsrfToken()
 
       const response = await fetch(
-        'http://localhost:8081/api/auth/logout',
+        `${API_URL}/api/auth/logout`,
         {
           method: 'POST',
           credentials: 'include',
           headers: {
-            'X-XSRF-TOKEN': csrf.token,
+            'X-XSRF-TOKEN': csrfToken,
           },
         },
       )
