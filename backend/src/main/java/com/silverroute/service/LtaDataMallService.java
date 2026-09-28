@@ -12,16 +12,14 @@ import java.util.StringJoiner;
 public class LtaDataMallService {
 
     private final RestClient restClient;
-    private final RestClient downloadClient = RestClient.create();
+    private final RestClient downloadClient = com.silverroute.routing.ProviderHttp.client("https://datamall2.mytransport.sg", 30);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${LTA_DATAMALL_API_KEY}")
     private String apiKey;
 
     public LtaDataMallService() {
-        this.restClient = RestClient.builder()
-                .baseUrl("https://datamall2.mytransport.sg")
-                .build();
+        this.restClient = com.silverroute.routing.ProviderHttp.client("https://datamall2.mytransport.sg", 10);
     }
 
     public String getBusArrivals(String busStopCode) {

@@ -13,6 +13,7 @@ import com.silverroute.service.OneMapService;
 // Searches both locations --> gets coordinates --> gets routes --> parses
 // Returns List<RouteOption> to agent
 @Component
+@org.springframework.context.annotation.Profile("!mock")
 public class OneMapRouteDataTool implements RouteDataTool {
 
     public static final String NAME = "onemap-route-data";
@@ -37,11 +38,8 @@ public class OneMapRouteDataTool implements RouteDataTool {
     @Override
     public ToolExecutionResult execute(TripRequest request) throws Exception {
 
-        String originJson = oneMapService.searchLocation(request.origin());
-        String destinationJson = oneMapService.searchLocation(request.destination());
-
-        var origin = oneMapService.parseLocation(originJson);
-        var destination = oneMapService.parseLocation(destinationJson);
+        var origin = resolve(request.origin(), request.originCoordinates());
+        var destination = resolve(request.destination(), request.destinationCoordinates());
 
         String routeJson = oneMapService.getRoute(
                 origin.latitude(),
@@ -56,5 +54,11 @@ public class OneMapRouteDataTool implements RouteDataTool {
                 NAME,
                 routes,
                 List.of());
+    }
+    private com.silverroute.api.LocationResult resolve(String name, TripRequest.Coordinates coordinates) throws Exception {
+        if (coordinates != null) {
+            return new com.silverroute.api.LocationResult(name, coordinates.latitude(), coordinates.longitude());
+        }
+        return oneMapService.parseLocation(oneMapService.searchLocation(name));
     }
 }

@@ -45,7 +45,7 @@ psql -U postgres -d postgres -f database/schema.sql
 psql -U postgres -d silverroute -f database/mockdata.sql
 ```
 
-`schema.sql` creates the `users`, `user_preferences`, and `saved_places` tables. It also removes the old `prefer_sheltered` preference because sheltered routing should be selected from current rain conditions instead of a permanent user preference.
+`schema.sql` creates the `users`, `user_preferences`, and `saved_places` tables. Saved preferences are walking speed, walking tolerance (`Poor`, `Moderate`, `Good`), and a shelter preference.
 
 `mockdata.sql` creates or updates the development user. The password is stored as a BCrypt hash; plaintext passwords are never stored.
 
@@ -190,8 +190,8 @@ Example response:
   "name": "Mary Tan",
   "email": "mary@example.com",
   "walkingSpeed": "Slow",
-  "maxWalkingDistance": 500,
-  "avoidStairs": true
+  "walkingTolerance": "Poor",
+  "preferSheltered": true
 }
 ```
 
@@ -208,12 +208,12 @@ X-XSRF-TOKEN: <csrf-token>
 ```json
 {
   "walkingSpeed": "Normal",
-  "maxWalkingDistance": 750,
-  "avoidStairs": false
+  "walkingTolerance": "Moderate",
+  "preferSheltered": false
 }
 ```
 
-Allowed walking speeds are `Slow`, `Normal`, and `Fast`. Maximum walking distance must be between 50 and 10,000 metres.
+Allowed walking speeds are `Slow`, `Normal`, and `Fast`. Allowed walking tolerances are `Poor`, `Moderate`, and `Good`.
 
 ## Saved places APIs
 
@@ -241,24 +241,21 @@ Coordinates are optional. Labels must be unique for each user. The Saved Places 
 
 ## Route-recommendation endpoint
 
-The backend also provides `POST /api/route-recommendations`. It currently uses the project's mock model and route-data tooling, so the login/profile setup does not require an AI provider.
+`POST /api/route-recommendations` loads the authenticated user's saved preferences, collects OneMap routes and relevant LTA/rainfall/shelter evidence, and uses OpenAI to rank up to three candidates. It requires a session cookie and CSRF token. The backend returns existing route details, per-route explanations, provenance and availability warnings.
 
-Example request:
+Set `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env` along with the provider credentials. For explicit demo mode only, run `./mvnw spring-boot:run -Dspring-boot.run.profiles=mock`; authentication and PostgreSQL are still required. There is no automatic mock fallback.
 
-```bash
-curl -X POST http://localhost:8081/api/route-recommendations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "origin": "Jurong East MRT",
-    "destination": "National University Hospital",
-    "departureTime": "2026-09-14T14:00:00+08:00",
-    "preferences": {
-      "maxWalkingMinutes": 10,
-      "wheelchairAccessible": true,
-      "minimizeTransfers": true
-    }
-  }'
+Request body (preferences are loaded on the server):
+
+```json
+{
+  "origin": "Jurong East MRT",
+  "destination": "National University Hospital",
+  "departureTime": "2026-09-28T08:00:00+08:00"
+}
 ```
+
+See [the frontend contract and setup guide](docs/route-recommendations.md) for CSRF usage, response fields, errors, evidence handling and tests. The Routes page displays the personalized recommendations, reasons, warnings, and selected route on the map.
 
 ## Tests and checks
 

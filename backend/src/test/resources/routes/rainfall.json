@@ -1,0 +1,39 @@
+{
+  "code": 0,
+  "data": {
+    "stations": [
+      {
+        "id": "S1",
+        "name": "Nearby",
+        "location": {
+          "latitude": 1.3,
+          "longitude": 103.8
+        }
+      },
+      {
+        "id": "S2",
+        "name": "Far",
+        "location": {
+          "latitude": 1.45,
+          "longitude": 103.99
+        }
+      }
+    ],
+    "readingUnit": "mm",
+    "readings": [
+      {
+        "timestamp": "2026-09-28T08:00:00+08:00",
+        "data": [
+          {
+            "stationId": "S1",
+            "value": 2.4
+          },
+          {
+            "stationId": "S2",
+            "value": 0
+          }
+        ]
+      }
+    ]
+  }
+}

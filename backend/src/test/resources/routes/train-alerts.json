@@ -1,0 +1,17 @@
+{
+  "value": {
+    "Status": 2,
+    "AffectedSegments": [
+      {
+        "Line": "EWL",
+        "Direction": "Both",
+        "Stations": "EW24,EW25"
+      },
+      {
+        "Line": "NEL",
+        "Stations": "NE1,NE3"
+      }
+    ],
+    "Message": []
+  }
+}
