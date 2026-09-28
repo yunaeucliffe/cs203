@@ -1,15 +1,15 @@
+# Log in using /api/auth/login and retain its session cookie first.
+# Copy the token from GET /api/auth/csrf into csrfToken below.
+@csrfToken = replace-with-current-session-token
+
 POST http://localhost:8081/api/route-recommendations
 Content-Type: application/json
+X-XSRF-TOKEN: {{csrfToken}}
 
 {
   "origin": "SMU",
   "destination": "Orchard MRT",
-  "departureTime": "2026-09-18T15:00:00+08:00",
-  "preferences": {
-    "maxWalkingMinutes": 15,
-    "wheelchairAccessible": false,
-    "minimizeTransfers": true
-  }
+  "departureTime": "2026-09-28T15:00:00+08:00"
 }
 
 ###

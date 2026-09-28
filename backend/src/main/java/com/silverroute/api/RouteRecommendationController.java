@@ -25,9 +25,10 @@ public class RouteRecommendationController {
     @PostMapping
     public ResponseEntity<RouteRecommendationResponse> recommend(
             @Valid @RequestBody TripRequest tripRequest,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest,
+            org.springframework.security.core.Authentication authentication) {
         String requestId = RequestIdFilter.from(httpRequest);
-        AgentRecommendation recommendation = agent.recommend(tripRequest);
+        AgentRecommendation recommendation = agent.recommend(tripRequest, authentication.getName());
 
         return ResponseEntity.ok(new RouteRecommendationResponse(
                 requestId,

@@ -1,10 +1,8 @@
 package com.silverroute.agent;
 
-import java.util.List;
-
-import com.silverroute.tool.ToolDefinition;
+import com.silverroute.routing.RouteContext;
 
 public interface ModelGateway {
-
-    AgentAction nextAction(AgentState state, List<ToolDefinition> availableTools);
+    RankingResult rank(RouteContext context);
+    default String engine() { return "unknown"; }
 }

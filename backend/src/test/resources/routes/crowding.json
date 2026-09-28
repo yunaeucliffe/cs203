@@ -1,0 +1,16 @@
+{
+  "value": [
+    {
+      "Station": "EW24",
+      "StartTime": "2026-09-28T07:55:00+08:00",
+      "EndTime": "2026-09-28T08:05:00+08:00",
+      "CrowdLevel": "h"
+    },
+    {
+      "Station": "EW1",
+      "StartTime": "2026-09-28T07:55:00+08:00",
+      "EndTime": "2026-09-28T08:05:00+08:00",
+      "CrowdLevel": "l"
+    }
+  ]
+}

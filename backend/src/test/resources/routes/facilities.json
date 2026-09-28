@@ -1,0 +1,17 @@
+{
+  "value": [
+    {
+      "Line": "EWL",
+      "StationCode": "EW24",
+      "StationName": "Jurong East",
+      "LiftID": "L1",
+      "LiftDesc": "Concourse lift"
+    },
+    {
+      "Line": "NEL",
+      "StationCode": "NE1",
+      "StationName": "HarbourFront",
+      "LiftDesc": "Unrelated"
+    }
+  ]
+}

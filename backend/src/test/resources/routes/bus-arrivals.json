@@ -1,0 +1,22 @@
+{
+  "BusStopCode": "01234",
+  "Services": [
+    {
+      "ServiceNo": "97",
+      "NextBus": {
+        "EstimatedArrival": "2026-09-28T08:05:00+08:00",
+        "Load": "SEA",
+        "Feature": "WAB",
+        "Type": "SD"
+      },
+      "NextBus2": {},
+      "NextBus3": {}
+    },
+    {
+      "ServiceNo": "99",
+      "NextBus": {
+        "EstimatedArrival": "2026-09-28T08:01:00+08:00"
+      }
+    }
+  ]
+}

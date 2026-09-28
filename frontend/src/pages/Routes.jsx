@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
-import { searchLocation, searchRoutes } from '../api/routes'
+import { searchRoutes } from '../api/routes'
 
 import {
   MapContainer,
@@ -25,12 +25,16 @@ import {
 
 import Navbar from '../components/Navbar'
 
+function hasCoordinates(location) {
+  return Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude)
+}
+
 function FitRoute({ origin, destination, paths }) {
   const map = useMap()
   useEffect(() => {
     const points = paths.flat()
-    if (origin) points.push([origin.latitude, origin.longitude])
-    if (destination) points.push([destination.latitude, destination.longitude])
+    if (hasCoordinates(origin)) points.push([origin.latitude, origin.longitude])
+    if (hasCoordinates(destination)) points.push([destination.latitude, destination.longitude])
     if (points.length > 0) map.fitBounds(points, { padding: [35, 35], maxZoom: 16 })
   }, [map, origin, destination, paths])
   return null
@@ -121,8 +125,8 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
   const selectedRoute = result?.routes[selectedIndex]
   const showRoute = Boolean(selectedRoute)
-  const currentLocation = deviceLocation || result?.origin
-  const destinationLocation = result?.destination
+  const currentLocation = deviceLocation || selectedRoute?.legs?.[0]?.from
+  const destinationLocation = selectedRoute?.legs?.at(-1)?.to
   const routeCoordinates = selectedRoute?.routePaths || EMPTY_PATHS
 
   const destinationIcon = L.divIcon({
@@ -209,6 +213,10 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const handleFindRoute = async () => {
     if (loading || locating) return
     clearResult()
+    if (!isAuthenticated) {
+      setError('Sign in to get routes tailored to your saved preferences.')
+      return
+    }
     if (!destination.trim() || (!deviceLocation && !originText.trim())) {
       setError('Enter a starting point and destination, or use your current location.')
       return
@@ -217,18 +225,17 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     pending.current = controller
     setLoading(true)
     try {
-      const [origin, target] = await Promise.all([
-        deviceLocation || searchLocation(originText.trim(), controller.signal),
-        searchLocation(destination.trim(), controller.signal),
-      ])
-      const routes = await searchRoutes(origin, target, controller.signal)
+      const origin = deviceLocation || { name: originText.trim() }
+      const target = { name: destination.trim() }
+      const recommendations = await searchRoutes(origin, target, controller.signal)
+      const routes = recommendations.routes
       if (controller.signal.aborted) return
       if (!Array.isArray(routes) || routes.length === 0) {
         setError('No public transport routes were found. Try another starting point or destination.')
         return
       }
       setSelectedIndex(0)
-      setResult({ origin, destination: target, routes })
+      setResult({ ...recommendations, origin, destination: target, routes })
     } catch (failure) {
       if (!controller.signal.aborted) setError(failure.message)
     } finally {
@@ -353,7 +360,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                 aria-busy={loading}
                 className="mt-5 flex h-[62px] w-full items-center justify-center gap-3 rounded-2xl bg-[#3E424B] text-lg font-semibold text-white transition hover:scale-[1.01]"
               >
-                {loading ? 'Finding routes…' : 'Find route'}
+                {loading ? 'Comparing routes…' : 'Find recommended routes'}
 
                 <Navigation size={20} />
 
@@ -361,20 +368,47 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
             </div>
 
+            {!isAuthenticated && (
+              <p className="mt-4 rounded-xl bg-amber-50 p-4 text-amber-900">
+                Sign in to get personalized recommendations.{' '}
+                <button type="button" onClick={onSignIn} className="font-semibold underline">Sign in</button>
+              </p>
+            )}
             {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
-            {loading && <p role="status" className="mt-4">Finding public transport routes…</p>}
+            {loading && <p role="status" className="mt-4">Comparing routes with your saved preferences and available travel conditions…</p>}
             {result && (
               <div className="mt-4">
                 <p className="mb-3 text-sm">{result.origin.name} → {result.destination.name}</p>
-                <label className="font-semibold" htmlFor="route-choice">Choose a route</label>
-                <select id="route-choice" className="mt-2 w-full rounded-xl border bg-white p-3"
-                  value={selectedIndex} onChange={(event) => setSelectedIndex(Number(event.target.value))}>
+                <h2 className="font-semibold">{result.routes.length === 1 ? 'Your recommended route' : `Your top ${result.routes.length} routes`}</h2>
+                <p className="mt-1 text-sm text-[#555C60]">
+                  {result.engine?.startsWith('mock')
+                    ? 'Demo recommendations using sample data. Not for navigation.'
+                    : 'Ranked for your saved walking and shelter preferences.'}
+                </p>
+                <div className="mt-3 grid gap-3" aria-label="Ranked route choices">
                   {result.routes.map((route, index) => (
-                    <option key={route.id} value={index}>
-                      Route {index + 1}: {route.durationMinutes} min · {route.transfers} transfers
-                    </option>
+                    <button key={route.id} type="button" aria-pressed={selectedIndex === index}
+                      onClick={() => setSelectedIndex(index)}
+                      className={`rounded-2xl border-2 p-4 text-left transition ${selectedIndex === index
+                        ? 'border-[#3E424B] bg-[#DCE7D2]' : 'border-[#7A7F7A]/30 bg-white hover:border-[#3E424B]'}`}>
+                      <span className="block font-bold">{index === 0 ? '1 · Recommended for you' : `${index + 1} · Alternative route`}</span>
+                      <span className="mt-1 block text-sm">
+                        {route.durationMinutes == null ? 'Time unavailable' : `${route.durationMinutes} min`}
+                        {' · '}{route.transfers == null ? 'Transfers unavailable' : `${route.transfers} transfer${route.transfers === 1 ? '' : 's'}`}
+                      </span>
+                      <span className="mt-1 block text-sm">{route.reasons?.[0] || route.summary}</span>
+                    </button>
                   ))}
-                </select>
+                </div>
+                {result.warnings?.length > 0 && (
+                  <details className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
+                    <summary className="cursor-pointer font-semibold">Travel data notices ({result.warnings.length})</summary>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
+                    </ul>
+                  </details>
+                )}
+
               </div>
             )}
 
@@ -391,14 +425,14 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                 <div>
 
                   <p className="text-xs font-extrabold tracking-[0.14em] text-[#7A7F7A]">
-                    PUBLIC TRANSPORT ROUTE
+                    {selectedIndex === 0 ? 'RECOMMENDED ROUTE' : `ALTERNATIVE ROUTE ${selectedIndex + 1}`}
                   </p>
 
                   <h2
                     className="mt-2 text-4xl text-[#2A3439]"
                     style={{ fontFamily: '"DM Serif Display", serif' }}
                   >
-                    {selectedRoute.durationMinutes} min
+                    {selectedRoute.durationMinutes == null ? 'Time unavailable' : `${selectedRoute.durationMinutes} min`}
                   </h2>
 
                   <p className="mt-1 text-[#7A7F7A]">
@@ -408,6 +442,23 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                 </div>
 
                 <p className="mt-6 font-semibold">{selectedRoute.summary}</p>
+
+                {selectedRoute.reasons?.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="font-semibold">Why this route suits you</h3>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {selectedRoute.reasons.map((reason, index) => <li key={index}>{reason}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {selectedRoute.warnings?.length > 0 && (
+                  <div className="mt-4 rounded-xl bg-white/60 p-4 text-sm">
+                    <h3 className="font-semibold">Before you travel</h3>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {selectedRoute.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
+                    </ul>
+                  </div>
+                )}
 
                 {/* ROUTE INFORMATION */}
                 <div className="mt-6 divide-y divide-[#7A7F7A]/20 border-y border-[#7A7F7A]/20">
@@ -419,12 +470,13 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                       <Umbrella size={20} />
 
                       <span className="font-medium">
-                        Sheltered route
+                        Estimated sheltered walking
                       </span>
                     </div>
 
                     <span className="font-semibold">
-                      Unavailable
+                      {selectedRoute.estimatedShelteredWalkingMeters == null
+                        ? 'Unavailable' : `${Math.round(selectedRoute.estimatedShelteredWalkingMeters)} m`}
                     </span>
 
                   </div>
@@ -441,7 +493,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     </div>
 
                     <span className="font-semibold">
-                      {selectedRoute.walkingMinutes} min
+                      {selectedRoute.walkingMinutes == null ? 'Time unavailable' : `${selectedRoute.walkingMinutes} min`}
                       {selectedRoute.walkingDistanceMeters != null && ` · ${Math.round(selectedRoute.walkingDistanceMeters)} m`}
                     </span>
 
@@ -459,7 +511,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     </div>
 
                     <span className="font-semibold">
-                      {selectedRoute.transfers}
+                      {selectedRoute.transfers ?? 'Unavailable'}
                     </span>
 
                   </div>
@@ -513,7 +565,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               />
 
               <FitRoute origin={currentLocation} destination={destinationLocation} paths={routeCoordinates} />
-              {currentLocation && (
+              {hasCoordinates(currentLocation) && (
                 <DirectionMarker
                   position={[
                     currentLocation.latitude,
@@ -526,17 +578,14 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               {showRoute && (
                 <>
                   {/* DESTINATION */}
-                  <Marker
-                    position={[
-                      destinationLocation.latitude,
-                      destinationLocation.longitude,
-                    ]}
-                    icon={destinationIcon}
-                  >
-                    <Popup>
-                      Destination
-                    </Popup>
-                  </Marker>
+                  {hasCoordinates(destinationLocation) && (
+                    <Marker
+                      position={[destinationLocation.latitude, destinationLocation.longitude]}
+                      icon={destinationIcon}
+                    >
+                      <Popup>Destination</Popup>
+                    </Marker>
+                  )}
 
                   {/* BLUE ROUTE */}
                     {routeCoordinates.length > 0 && (

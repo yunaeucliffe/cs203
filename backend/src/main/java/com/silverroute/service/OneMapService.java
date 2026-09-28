@@ -36,9 +36,7 @@ public class OneMapService {
     private static final long TOKEN_REFRESH_BUFFER_SECONDS = 60;
 
     public OneMapService() {
-        restClient = RestClient.builder()
-                .baseUrl("https://www.onemap.gov.sg")
-                .build();
+        restClient = com.silverroute.routing.ProviderHttp.client("https://www.onemap.gov.sg", 15);
 
         objectMapper = new ObjectMapper();
     }
@@ -130,16 +128,18 @@ public class OneMapService {
 
         String token = getToken();
 
-        // Temporary url
+        departureTime = singaporeDeparture(departureTime);
+        final OffsetDateTime localDeparture = departureTime;
+        // OneMap expects a Singapore local date and time.
         return restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/api/public/routingsvc/route")
                         .queryParam("start", originLat + "," + originLon)
                         .queryParam("end", destinationLat + "," + destinationLon)
                         .queryParam("routeType", "pt")
-                        .queryParam("date", departureTime.format(
+                        .queryParam("date", localDeparture.format(
                                 DateTimeFormatter.ofPattern("MM-dd-yyyy")))
-                        .queryParam("time", departureTime.toLocalTime().format(
+                        .queryParam("time", localDeparture.toLocalTime().format(
                                 DateTimeFormatter.ofPattern("HH:mm:ss")))
                         .queryParam("mode", "transit")
                         .queryParam("numItineraries", "3")
@@ -149,42 +149,14 @@ public class OneMapService {
                 .body(String.class);
     }
 
+    public static OffsetDateTime singaporeDeparture(OffsetDateTime value) {
+        return value.atZoneSameInstant(java.time.ZoneId.of("Asia/Singapore")).toOffsetDateTime();
+    }
+
     // Extracts useful route information --> turns it into "RouteOptions" format
     public List<RouteOption> parseRoutes(String json) throws Exception {
 
-        JsonNode root = objectMapper.readTree(json);
-        JsonNode itineraries = root.path("plan").path("itineraries");
-        List<RouteOption> routes = new ArrayList<>();
-
-        for (int i = 0; i < itineraries.size(); i++) {
-            JsonNode itinerary = itineraries.get(i);
-            int durationMinutes = (int) Math.round(itinerary.path("duration").asDouble() / 60);
-            int walkingMinutes = (int) Math.round(itinerary.path("walkTime").asDouble() / 60);
-            int transfers = itinerary.path("transfers").asInt();
-            String summary = buildRouteSummary(itinerary);
-
-            routes.add(new RouteOption(
-                    "onemap-route-" + (i + 1),
-                    summary,
-                    durationMinutes,
-                    walkingMinutes,
-                    transfers,
-                    false));
-        }
-
-        return routes;
-    }
-
-    // Creates summary, e.g. WALK -> BUS -> WALK
-    private String buildRouteSummary(JsonNode itinerary) {
-        List<String> modes = new ArrayList<>();
-        for (JsonNode leg : itinerary.path("legs")) {
-            String mode = leg.path("mode").asText();
-            if (!modes.contains(mode)) {
-                modes.add(mode);
-            }
-        }
-        return String.join(" → ", modes);
+        return new com.silverroute.routing.RouteParser().parse(json);
     }
 
     // OneMap response contains address, latitude, longitude
@@ -202,8 +174,18 @@ public class OneMapService {
 
         JsonNode firstResult = results.get(0);
         String name = firstResult.path("ADDRESS").asText();
-        double latitude = firstResult.path("LATITUDE").asDouble();
-        double longitude = firstResult.path("LONGITUDE").asDouble();
+        double latitude;
+        double longitude;
+        try {
+            latitude = Double.parseDouble(firstResult.path("LATITUDE").asText());
+            longitude = Double.parseDouble(firstResult.path("LONGITUDE").asText());
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Location coordinates are unavailable");
+        }
+        if (!Double.isFinite(latitude) || !Double.isFinite(longitude)
+                || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+            throw new IllegalArgumentException("Location coordinates are invalid");
+        }
 
         return new LocationResult(
                 name,

@@ -9,9 +9,7 @@ public class WeatherService {
     private final RestClient restClient;
 
     public WeatherService() {
-        restClient = RestClient.builder()
-                .baseUrl("https://api-open.data.gov.sg/v2/real-time/api")
-                .build();
+        restClient = com.silverroute.routing.ProviderHttp.client("https://api-open.data.gov.sg/v2/real-time/api", 10);
     }
 
     public String getRainfall() {

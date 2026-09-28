@@ -1,138 +1,59 @@
 package com.silverroute.agent;
 
 import java.time.OffsetDateTime;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import java.util.*;
 import org.junit.jupiter.api.Test;
-
-import com.silverroute.api.RouteOption;
-import com.silverroute.api.TripPreferences;
-import com.silverroute.api.TripRequest;
-import com.silverroute.exception.AgentLoopLimitException;
-import com.silverroute.exception.ModelAgentException;
-import com.silverroute.exception.RouteDataUnavailableException;
-import com.silverroute.exception.UnknownToolException;
-import com.silverroute.tool.RouteDataTool;
-import com.silverroute.tool.ToolExecutionResult;
-import com.silverroute.tool.ToolRegistry;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import com.silverroute.api.*;
+import com.silverroute.dto.ProfileResponse;
+import com.silverroute.exception.*;
+import com.silverroute.routing.*;
+import com.silverroute.service.*;
 
 class RouteRecommendationAgentTests {
-
-    @Test
-    void modelRequestsARegisteredToolAndUsesItsResult() {
-        TrackingTool tool = new TrackingTool("routes", false);
-        RouteRecommendationAgent agent = agent(new MockModelGateway(), tool);
-
-        AgentRecommendation result = agent.recommend(request());
-
-        assertThat(tool.calls).isEqualTo(1);
-        assertThat(result.recommendedRoute().id()).isEqualTo("accessible-route");
-        assertThat(result.sources()).containsExactly("routes");
+    private RankingResult result(String... ids) {
+        return new RankingResult(Arrays.stream(ids).map(id -> new RankingResult.Selection(id,List.of("Short walking distance"),List.of())).toList());
     }
-
-    @Test
-    void continuesToAnotherToolWhenTheFirstToolFails() {
-        TrackingTool failing = new TrackingTool("failing-routes", true);
-        TrackingTool working = new TrackingTool("working-routes", false);
-        RouteRecommendationAgent agent = agent(new MockModelGateway(), failing, working);
-
-        AgentRecommendation result = agent.recommend(request());
-
-        assertThat(failing.calls).isEqualTo(1);
-        assertThat(working.calls).isEqualTo(1);
-        assertThat(result.sources()).containsExactly("working-routes");
-        assertThat(result.warnings()).anyMatch(message -> message.contains("failing-routes"));
+    @Test void rebuildsOriginalRouteAndPreservesWarnings() throws Exception {
+        var trip=TestRoutes.trip();
+        var response=RouteRecommendationAgent.validateAndBuild(trip,result("onemap-route-1"),"test");
+        assertThat(response.recommendedRoute().durationMinutes()).isEqualTo(trip.routes().getFirst().durationMinutes());
+        assertThat(response.recommendedRoute().routePaths()).isEqualTo(trip.routes().getFirst().routePaths());
+        assertThat(response.alternatives()).isEmpty();
+        assertThat(response.warnings()).contains("Some evidence is unavailable","Accessibility has not been verified.");
     }
-
-    @Test
-    void returnsUnavailableWhenNoToolProducesData() {
-        RouteRecommendationAgent agent = agent(
-                new MockModelGateway(),
-                new TrackingTool("first", true),
-                new TrackingTool("second", true));
-
-        assertThatThrownBy(() -> agent.recommend(request()))
-                .isInstanceOf(RouteDataUnavailableException.class);
+    @Test void refusesInventedIdsAndWrongCount() throws Exception {
+        var trip=TestRoutes.trip();
+        assertThatThrownBy(() -> RouteRecommendationAgent.validateAndBuild(trip,result("invented"),"test")).isInstanceOf(ModelAgentException.class);
+        assertThatThrownBy(() -> RouteRecommendationAgent.validateAndBuild(trip,result(),"test")).isInstanceOf(ModelAgentException.class);
     }
-
-    @Test
-    void refusesAnUnknownToolRequestedByTheModel() {
-        ModelGateway unknownToolModel = (state, tools) -> new ToolCallAction("not-registered");
-        RouteRecommendationAgent agent = agent(unknownToolModel, new TrackingTool("routes", false));
-
-        assertThatThrownBy(() -> agent.recommend(request()))
-                .isInstanceOf(UnknownToolException.class);
+    @Test void refusesDuplicateIdsAndReturnsOnlyTopThree() throws Exception {
+        var one=TestRoutes.route();
+        List<RouteOption> routes=new ArrayList<>(List.of(one));
+        for(int i=2;i<=4;i++) routes.add(new RouteOption("route-"+i,one.summary(),one.durationMinutes(),one.walkingMinutes(),one.transfers(),
+                one.accessibility(),one.walkingDistanceMeters(),one.distanceMeters(),null,one.legs(),one.routePaths(),List.of(),List.of(),List.of()));
+        var trip=new AggregatedTrip(TestRoutes.trip().context(),routes,List.of("onemap"));
+        assertThatThrownBy(() -> RouteRecommendationAgent.validateAndBuild(trip,result("route-2","route-2","route-3"),"test"))
+                .isInstanceOf(ModelAgentException.class);
+        assertThat(RouteRecommendationAgent.validateAndBuild(trip,result("route-4","route-3","route-2"),"test").alternatives()).hasSize(2);
     }
-
-    @Test
-    void stopsAfterFiveToolCalls() {
-        ModelGateway loopingModel = (state, tools) -> new ToolCallAction("routes");
-        TrackingTool tool = new TrackingTool("routes", false);
-        RouteRecommendationAgent agent = agent(loopingModel, tool);
-
-        assertThatThrownBy(() -> agent.recommend(request()))
-                .isInstanceOf(AgentLoopLimitException.class);
-        assertThat(tool.calls).isEqualTo(5);
+    @Test void readsPreferencesOnlyForAuthenticatedIdentityBeforeOneRankingCall() throws Exception {
+        var model=mock(ModelGateway.class); var aggregator=mock(RouteDataAggregatorService.class); var profiles=mock(ProfileService.class);
+        var request=new TripRequest("A","B",OffsetDateTime.now()); var preferences=new SavedPreferences("Slow","Poor",true);
+        when(profiles.getProfileByEmail("signed-in@example.com")).thenReturn(Optional.of(
+                new ProfileResponse(1L,"Secret Name","secret-user","signed-in@example.com","Slow","Poor",true)));
+        when(aggregator.aggregate(request,preferences)).thenReturn(TestRoutes.trip());
+        when(model.rank(any())).thenReturn(result("onemap-route-1"));
+        new RouteRecommendationAgent(model,aggregator,profiles).recommend(request,"signed-in@example.com");
+        verify(profiles).getProfileByEmail("signed-in@example.com"); verifyNoMoreInteractions(profiles);
+        verify(aggregator).aggregate(request,preferences); verify(model,times(1)).rank(TestRoutes.trip().context());
     }
-
-    @Test
-    void wrapsUnexpectedModelFailures() {
-        ModelGateway failingModel = (state, tools) -> {
-            throw new IllegalStateException("provider outage");
-        };
-        RouteRecommendationAgent agent = agent(failingModel, new TrackingTool("routes", false));
-
-        assertThatThrownBy(() -> agent.recommend(request()))
-                .isInstanceOf(ModelAgentException.class)
-                .hasMessageContaining("could not produce");
-    }
-
-    private RouteRecommendationAgent agent(ModelGateway modelGateway, RouteDataTool... tools) {
-        return new RouteRecommendationAgent(modelGateway, new ToolRegistry(List.of(tools)));
-    }
-
-    private TripRequest request() {
-        return new TripRequest(
-                "Origin",
-                "Destination",
-                OffsetDateTime.parse("2026-09-14T14:00:00+08:00"),
-                new TripPreferences(10, true, true));
-    }
-
-    private static final class TrackingTool implements RouteDataTool {
-
-        private final String name;
-        private final boolean fail;
-        private int calls;
-
-        private TrackingTool(String name, boolean fail) {
-            this.name = name;
-            this.fail = fail;
-        }
-
-        @Override
-        public String name() {
-            return name;
-        }
-
-        @Override
-        public String description() {
-            return "Test route tool";
-        }
-
-        @Override
-        public ToolExecutionResult execute(TripRequest request) {
-            calls++;
-            if (fail) {
-                throw new IllegalStateException("simulated outage");
-            }
-            return new ToolExecutionResult(
-                    name,
-                    List.of(new RouteOption(
-                            "accessible-route", "Accessible route", 30, 4, 0, true)),
-                    List.of());
-        }
+    @Test void missingProfileDoesNotCallProvidersOrModel() {
+        var model=mock(ModelGateway.class); var aggregator=mock(RouteDataAggregatorService.class); var profiles=mock(ProfileService.class);
+        when(profiles.getProfileByEmail("missing")).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> new RouteRecommendationAgent(model,aggregator,profiles)
+                .recommend(new TripRequest("A","B",OffsetDateTime.now()),"missing")).isInstanceOf(RouteDataUnavailableException.class);
+        verifyNoInteractions(model,aggregator);
     }
 }

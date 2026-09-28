@@ -1,52 +1,22 @@
 package com.silverroute.tool;
 
 import java.util.List;
-
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
-
-import com.silverroute.api.RouteOption;
-import com.silverroute.api.TripRequest;
+import com.silverroute.api.*;
 
 @Component
+@Profile("mock")
 public class MockRouteDataTool implements RouteDataTool {
-
     public static final String NAME = "mock-route-data";
-
-    @Override
-    public String name() {
-        return NAME;
-    }
-
-    @Override
-    public String description() {
-        return "Returns deterministic sample public-transport routes for a trip request";
-    }
-
-    @Override
+    public String name() { return NAME; }
+    public String description() { return "Explicit demo routes; never live navigation data"; }
     public ToolExecutionResult execute(TripRequest request) {
-        List<RouteOption> routes = List.of(
-                new RouteOption(
-                        "route-1",
-                        "Take Bus 97 directly from " + request.origin() + " to " + request.destination(),
-                        32,
-                        5,
-                        0,
-                        true),
-                new RouteOption(
-                        "route-2",
-                        "Take the MRT and transfer to Bus 95",
-                        29,
-                        12,
-                        1,
-                        true),
-                new RouteOption(
-                        "route-3",
-                        "Take two connecting buses",
-                        38,
-                        3,
-                        1,
-                        false));
-
-        return new ToolExecutionResult(NAME, routes, List.of());
+        return new ToolExecutionResult(NAME, List.of(route("route-1",32,5,0),
+                route("route-2",29,12,1), route("route-3",38,3,1)), List.of("Mock data; not for navigation"));
+    }
+    private RouteOption route(String id, int duration, int walking, int transfers) {
+        return new RouteOption(id, "Demo itinerary", duration, walking, transfers, "unknown", null, null,
+                null, List.of(), List.of(), List.of(), List.of(), List.of("Mock data; not for navigation"));
     }
 }
