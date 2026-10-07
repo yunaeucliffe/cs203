@@ -31,18 +31,24 @@ public class RouteEnrichmentService {
     public RouteOption enrich(RouteOption route, boolean live, Map<String,EvidenceCache.Snapshot> requestCache) {
         List<RouteEvidence> evidence=new ArrayList<>();
         List<String> warnings=new ArrayList<>(route.warnings());
-        Set<String> buses=new HashSet<>(), stations=new LinkedHashSet<>(), names=new LinkedHashSet<>(), lines=new LinkedHashSet<>();
-        for(var leg:route.legs()) {
+        Set<String> stations=new LinkedHashSet<>(), names=new LinkedHashSet<>(), lines=new LinkedHashSet<>();
+        for(int legIndex=0;legIndex<route.legs().size();legIndex++) {
+            var leg=route.legs().get(legIndex);
             if("BUS".equals(leg.mode()) && live) {
                 String code=busStopCode(leg.from(),requestCache);
                 String service=leg.service();
-                if(code==null || service==null) {
+                RouteEvidence bus; if(code==null || service==null || service.isBlank()) {
                     warnings.add("Bus arrival matching is unavailable for a route leg.");
-                    evidence.add(unavailable("LTA BusArrival",null,"Bus stop or service could not be matched"));
-                } else if(buses.add(code+":"+service)) {
+                    bus=unavailable("LTA BusArrival",null,"Bus stop or service could not be matched");
+                } else {
                     var snapshot=fetch(requestCache,"bus:"+code,LIVE,() -> lta.getBusArrivals(code));
-                    evidence.add(busEvidence(snapshot,code,service));
+                    bus=busEvidence(snapshot,code,service);
                 }
+                Map<String,Object> details=new LinkedHashMap<>(bus.details());
+                details.put("legIndex",legIndex);
+                if(code!=null) details.put("busStopCode",code);
+                if(service!=null) details.put("service",service);
+                evidence.add(new RouteEvidence(bus.source(),bus.observedAt(),bus.retrievedAt(),bus.availability(),Map.copyOf(details)));
             }
             if(isRail(leg.mode())) {
                 Set<String> fromCodes=stationCodes(leg.from()),toCodes=stationCodes(leg.to());
@@ -134,7 +140,7 @@ public class RouteEnrichmentService {
             List<Map<String,Object>> arrivals=new ArrayList<>();
             for(String field:List.of("NextBus","NextBus2","NextBus3")) {
                 JsonNode bus=row.path(field); String arrival=text(bus,"EstimatedArrival");
-                if(parseTime(arrival)==null || parseTime(arrival).isBefore(clock.instant().minusSeconds(60))) continue;
+                if(parseTime(arrival)==null || parseTime(arrival).isBefore(clock.instant())) continue;
                 Map<String,Object> values=selected(bus,"EstimatedArrival","Load","Feature","Type");
                 arrivals.add(values);
             }

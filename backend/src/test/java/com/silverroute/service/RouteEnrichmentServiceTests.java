@@ -11,6 +11,21 @@ import com.silverroute.api.RouteOption;
 import com.silverroute.routing.*;
 
 class RouteEnrichmentServiceTests {
+    @Test void busEstimatesRejectOtherStopsServicesAndPastArrivals() throws Exception {
+        for(String response:List.of(
+                TestRoutes.fixture("bus-arrivals").replace("01234","54321"),
+                TestRoutes.fixture("bus-arrivals").replace("\"97\"","\"98\""),
+                TestRoutes.fixture("bus-arrivals").replace("08:05:00","07:59:59"))) {
+            var isolated=new RouteEnrichmentService(lta,weather,new EvidenceCache(clock),shelter,clock);
+            when(lta.getBusArrivals("01234")).thenReturn(response);
+            var result=isolated.enrich(TestRoutes.route(),true,new HashMap<>());
+            var bus=result.evidence().stream().filter(e -> e.source().equals("LTA BusArrival")).findFirst().orElseThrow();
+            assertThat(bus.availability()).isEqualTo("unavailable");
+            assertThat(bus.details()).containsEntry("legIndex",1).containsEntry("busStopCode","01234").containsEntry("service","97");
+            assertThat(bus.retrievedAt()).isEqualTo(clock.instant().toString());
+            assertThat(result.durationMinutes()).isEqualTo(23);
+        }
+    }
     private final Clock clock=Clock.fixed(Instant.parse("2026-09-28T00:00:00Z"),ZoneOffset.UTC);
     private final LtaDataMallService lta=mock(LtaDataMallService.class);
     private final WeatherService weather=mock(WeatherService.class);
