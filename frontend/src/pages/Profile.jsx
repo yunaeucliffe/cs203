@@ -263,7 +263,7 @@ function Profile({ onBack, onLogout }) {
 
             <PreferenceSelector
               title="Walking speed"
-              description="How quickly do you usually walk?"
+              description="How would you describe your usual walking speed?"
               options={['Slow', 'Normal', 'Fast']}
               value={formValues.walkingSpeed}
               onChange={(value) =>
@@ -278,8 +278,8 @@ function Profile({ onBack, onLogout }) {
 
             <PreferenceSelector
               title="Walking tolerance"
-              description="How much walking are you comfortable with?"
-              options={['Short', 'Moderate', 'Long']}
+              description="How would you describe your walking tolerance??"
+              options={['Poor', 'Moderate', 'Good']}
               value={formValues.walkingTolerance}
               onChange={(value) =>
                 setFormValues({
