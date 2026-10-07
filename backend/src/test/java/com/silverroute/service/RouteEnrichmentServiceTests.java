@@ -11,6 +11,17 @@ import com.silverroute.api.RouteOption;
 import com.silverroute.routing.*;
 
 class RouteEnrichmentServiceTests {
+    @Test void refreshReturnsMatchedEstimatesAndHandlesOutages() throws Exception {
+        when(lta.getBusArrivals("01234")).thenReturn(TestRoutes.fixture("bus-arrivals"));
+        var result=service.refreshBusArrivals("01234","97");
+        assertThat(result.availability()).isEqualTo("available");
+        assertThat(result.details()).containsEntry("busStopCode","01234").containsEntry("service","97");
+        assertThat(result.retrievedAt()).isEqualTo(clock.instant().toString());
+        assertThat(service.refreshBusArrivals("01234","98").availability()).isEqualTo("unavailable");
+        verify(lta,times(1)).getBusArrivals("01234");
+        when(lta.getBusArrivals("54321")).thenThrow(new IllegalStateException("outage"));
+        assertThat(service.refreshBusArrivals("54321","97").availability()).isEqualTo("unavailable");
+    }
     @Test void busEstimatesRejectOtherStopsServicesAndPastArrivals() throws Exception {
         for(String response:List.of(
                 TestRoutes.fixture("bus-arrivals").replace("01234","54321"),

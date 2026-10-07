@@ -443,7 +443,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                 </div>
 
                 <p className="mt-6 font-semibold">{selectedRoute.summary}</p>
-                <BusArrivals route={selectedRoute} />
+                <BusArrivals key={selectedRoute.id} route={selectedRoute} live={!result.engine?.startsWith('mock')} />
 
                 {selectedRoute.reasons?.length > 0 && (
                   <div className="mt-4">

@@ -11,7 +11,7 @@ import static com.silverroute.routing.RouteParser.text;
 
 @Service
 public class RouteEnrichmentService {
-    private static final Duration LIVE=Duration.ofSeconds(60), REFERENCE=Duration.ofHours(24);
+    private static final Duration BUS_LIVE=Duration.ofSeconds(20), LIVE=Duration.ofSeconds(60), REFERENCE=Duration.ofHours(24);
     private static final Pattern STATION=Pattern.compile("(?<![A-Z0-9])(?:NS|EW|CG|NE|CC|CE|DT|TE|BP|SE|SW|PE|PW)[0-9]{1,2}(?![A-Z0-9])");
     private final LtaDataMallService lta;
     private final WeatherService weather;
@@ -41,7 +41,7 @@ public class RouteEnrichmentService {
                     warnings.add("Bus arrival matching is unavailable for a route leg.");
                     bus=unavailable("LTA BusArrival",null,"Bus stop or service could not be matched");
                 } else {
-                    var snapshot=fetch(requestCache,"bus:"+code,LIVE,() -> lta.getBusArrivals(code));
+                    var snapshot=fetch(requestCache,"bus:"+code,BUS_LIVE,() -> lta.getBusArrivals(code));
                     bus=busEvidence(snapshot,code,service);
                 }
                 Map<String,Object> details=new LinkedHashMap<>(bus.details());
@@ -149,6 +149,14 @@ public class RouteEnrichmentService {
                     "note","Vehicle features do not verify accessibility of the whole journey"));
         }
         return unavailable("LTA BusArrival",snapshot,"No arrival data for the matching service "+service);
+    }
+    public RouteEvidence refreshBusArrivals(String code,String service) {
+        var snapshot=cache.get("bus:"+code,BUS_LIVE,() -> lta.getBusArrivals(code));
+        var bus=busEvidence(snapshot,code,service);
+        Map<String,Object> details=new LinkedHashMap<>(bus.details());
+        details.put("busStopCode",code);
+        details.put("service",service);
+        return new RouteEvidence(bus.source(),bus.observedAt(),bus.retrievedAt(),bus.availability(),Map.copyOf(details));
     }
     private RouteEvidence facilities(EvidenceCache.Snapshot snapshot,Set<String> stations,Set<String> names) {
         JsonNode rows=snapshot.data().path("value");
