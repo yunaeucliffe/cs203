@@ -5,6 +5,7 @@ import Profile from './Profile'
 import Routes from './Routes'
 import SavedPlaces from './SavedPlaces'
 import Navbar from '../components/Navbar'
+import LocationAutocomplete from '../components/LocationAutocomplete'
 import SavedPlacesCard from '../components/SavedPlacesCard'
 import { API_URL } from '../api'
 
@@ -16,6 +17,7 @@ import {
 
 function Home() {
     const [destination, setDestination] = useState('')
+    const [destinationPlace, setDestinationPlace] = useState(null)
     const [currentPage, setCurrentPage] = useState('home')
     const [isAuthenticated, setIsAuthenticated] = useState(false)
     const [userName, setUserName] = useState('there')
@@ -73,6 +75,8 @@ function Home() {
 
     const selectSavedPlace = (place) => {
         setDestination(place.address)
+        setDestinationPlace(Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
+            ? { name: place.address, address: place.address, latitude: place.latitude, longitude: place.longitude } : null)
         setCurrentPage('routes')
     }
 
@@ -167,6 +171,7 @@ function Home() {
                 onSavedPlaces={openSavedPlaces}
                 isAuthenticated={isAuthenticated}
                 initialDestination={destination}
+                initialDestinationPlace={destinationPlace}
             />
         )
     }
@@ -223,29 +228,27 @@ function Home() {
                             {/* SEARCH AREA */}
                             <div className="mt-10 max-w-[680px]">
 
-                                <div className="flex overflow-hidden border-2 border-[#3E424B] bg-white">
+                                <div className="flex border-2 border-[#3E424B] bg-white">
 
                                     {/* Input */}
-                                    <div className="flex flex-1 items-center gap-3 px-5">
+                                    <div className="flex min-w-0 flex-1 items-center gap-3 px-5">
 
                                         <Search
                                             size={23}
                                             className="shrink-0 text-[#7A7F7A]"
                                         />
 
-                                        <input
-                                            id="destination"
-                                            type="text"
+                                        <LocationAutocomplete
+                                            label="Destination"
                                             placeholder="Enter destination, landmark or address"
                                             value={destination}
-                                            onChange={(event) =>
-                                                setDestination(event.target.value)
-                                            }
-                                            onKeyDown={(event) => {
-                                                if (event.key === 'Enter') {
-                                                    handleSearch()
-                                                }
+                                            selectedPlace={destinationPlace}
+                                            onChange={(text) => { setDestination(text); setDestinationPlace(null) }}
+                                            onSelect={(place) => {
+                                                setDestination(place.name)
+                                                setDestinationPlace(place)
                                             }}
+                                            onSubmit={handleSearch}
                                             className="h-[70px] w-full bg-transparent text-[18px] text-[#2A3439] outline-none placeholder:text-[#7A7F7A]"
                                         />
 
