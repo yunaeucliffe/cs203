@@ -20,6 +20,10 @@ export function searchLocation(query, signal) {
   return getJson(`/api/location/parsed?${new URLSearchParams({ query })}`, signal)
 }
 
+export function fetchBusArrivals(busStopCode, service, signal) {
+  return getJson(`/api/bus-arrival-estimates?${new URLSearchParams({ busStopCode, service })}`, signal)
+}
+
 export async function searchRoutes(origin, destination, signal) {
   const token = await getCsrfToken(signal)
   const result = await getJson('/api/route-recommendations', signal, {

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 
 import Navbar from '../components/Navbar'
+import BusArrivals from '../components/BusArrivals'
 
 function hasCoordinates(location) {
   return Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude)
@@ -442,6 +443,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                 </div>
 
                 <p className="mt-6 font-semibold">{selectedRoute.summary}</p>
+                <BusArrivals key={selectedRoute.id} route={selectedRoute} live={!result.engine?.startsWith('mock')} />
 
                 {selectedRoute.reasons?.length > 0 && (
                   <div className="mt-4">

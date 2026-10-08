@@ -11,7 +11,7 @@ import static com.silverroute.routing.RouteParser.text;
 
 @Service
 public class RouteEnrichmentService {
-    private static final Duration LIVE=Duration.ofSeconds(60), REFERENCE=Duration.ofHours(24);
+    private static final Duration BUS_LIVE=Duration.ofSeconds(20), LIVE=Duration.ofSeconds(60), REFERENCE=Duration.ofHours(24);
     private static final Pattern STATION=Pattern.compile("(?<![A-Z0-9])(?:NS|EW|CG|NE|CC|CE|DT|TE|BP|SE|SW|PE|PW)[0-9]{1,2}(?![A-Z0-9])");
     private final LtaDataMallService lta;
     private final WeatherService weather;
@@ -31,18 +31,24 @@ public class RouteEnrichmentService {
     public RouteOption enrich(RouteOption route, boolean live, Map<String,EvidenceCache.Snapshot> requestCache) {
         List<RouteEvidence> evidence=new ArrayList<>();
         List<String> warnings=new ArrayList<>(route.warnings());
-        Set<String> buses=new HashSet<>(), stations=new LinkedHashSet<>(), names=new LinkedHashSet<>(), lines=new LinkedHashSet<>();
-        for(var leg:route.legs()) {
+        Set<String> stations=new LinkedHashSet<>(), names=new LinkedHashSet<>(), lines=new LinkedHashSet<>();
+        for(int legIndex=0;legIndex<route.legs().size();legIndex++) {
+            var leg=route.legs().get(legIndex);
             if("BUS".equals(leg.mode()) && live) {
                 String code=busStopCode(leg.from(),requestCache);
                 String service=leg.service();
-                if(code==null || service==null) {
+                RouteEvidence bus; if(code==null || service==null || service.isBlank()) {
                     warnings.add("Bus arrival matching is unavailable for a route leg.");
-                    evidence.add(unavailable("LTA BusArrival",null,"Bus stop or service could not be matched"));
-                } else if(buses.add(code+":"+service)) {
-                    var snapshot=fetch(requestCache,"bus:"+code,LIVE,() -> lta.getBusArrivals(code));
-                    evidence.add(busEvidence(snapshot,code,service));
+                    bus=unavailable("LTA BusArrival",null,"Bus stop or service could not be matched");
+                } else {
+                    var snapshot=fetch(requestCache,"bus:"+code,BUS_LIVE,() -> lta.getBusArrivals(code));
+                    bus=busEvidence(snapshot,code,service);
                 }
+                Map<String,Object> details=new LinkedHashMap<>(bus.details());
+                details.put("legIndex",legIndex);
+                if(code!=null) details.put("busStopCode",code);
+                if(service!=null) details.put("service",service);
+                evidence.add(new RouteEvidence(bus.source(),bus.observedAt(),bus.retrievedAt(),bus.availability(),Map.copyOf(details)));
             }
             if(isRail(leg.mode())) {
                 Set<String> fromCodes=stationCodes(leg.from()),toCodes=stationCodes(leg.to());
@@ -134,7 +140,7 @@ public class RouteEnrichmentService {
             List<Map<String,Object>> arrivals=new ArrayList<>();
             for(String field:List.of("NextBus","NextBus2","NextBus3")) {
                 JsonNode bus=row.path(field); String arrival=text(bus,"EstimatedArrival");
-                if(parseTime(arrival)==null || parseTime(arrival).isBefore(clock.instant().minusSeconds(60))) continue;
+                if(parseTime(arrival)==null || parseTime(arrival).isBefore(clock.instant())) continue;
                 Map<String,Object> values=selected(bus,"EstimatedArrival","Load","Feature","Type");
                 arrivals.add(values);
             }
@@ -143,6 +149,14 @@ public class RouteEnrichmentService {
                     "note","Vehicle features do not verify accessibility of the whole journey"));
         }
         return unavailable("LTA BusArrival",snapshot,"No arrival data for the matching service "+service);
+    }
+    public RouteEvidence refreshBusArrivals(String code,String service) {
+        var snapshot=cache.get("bus:"+code,BUS_LIVE,() -> lta.getBusArrivals(code));
+        var bus=busEvidence(snapshot,code,service);
+        Map<String,Object> details=new LinkedHashMap<>(bus.details());
+        details.put("busStopCode",code);
+        details.put("service",service);
+        return new RouteEvidence(bus.source(),bus.observedAt(),bus.retrievedAt(),bus.availability(),Map.copyOf(details));
     }
     private RouteEvidence facilities(EvidenceCache.Snapshot snapshot,Set<String> stations,Set<String> names) {
         JsonNode rows=snapshot.data().path("value");
