@@ -397,6 +397,9 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                         {' · '}{route.transfers == null ? 'Transfers unavailable' : `${route.transfers} transfer${route.transfers === 1 ? '' : 's'}`}
                       </span>
                       <span className="mt-1 block text-sm">{route.reasons?.[0] || route.summary}</span>
+                      {route.warnings?.filter(warning => warning.startsWith('MRT ') || warning.startsWith('LTA TrainServiceAlerts:')).map((warning, noticeIndex) => (
+                        <span key={noticeIndex} className="mt-2 block rounded-lg bg-amber-50 p-2 text-sm text-amber-900">{warning}</span>
+                      ))}
                     </button>
                   ))}
                 </div>

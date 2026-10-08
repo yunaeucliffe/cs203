@@ -32,6 +32,7 @@ public class RouteEnrichmentService {
         List<RouteEvidence> evidence=new ArrayList<>();
         List<String> warnings=new ArrayList<>(route.warnings());
         Set<String> buses=new HashSet<>(), stations=new LinkedHashSet<>(), names=new LinkedHashSet<>(), lines=new LinkedHashSet<>();
+        List<RailSegment> railSegments=new ArrayList<>();
         for(var leg:route.legs()) {
             if("BUS".equals(leg.mode()) && live) {
                 String code=busStopCode(leg.from(),requestCache);
@@ -55,6 +56,7 @@ public class RouteEnrichmentService {
                     common.retainAll(toCodes.stream().map(this::stationLine).toList());
                     if(common.size()==1) matchedLine=common.iterator().next();
                 }
+                railSegments.add(new RailSegment(matchedLine,fromCodes,toCodes));
                 if(matchedLine!=null) {
                     lines.add(matchedLine);
                     // Interchanges expose several line codes; keep only the line actually used by this leg.
@@ -69,7 +71,10 @@ public class RouteEnrichmentService {
             var maintenance=fetch(requestCache,"facilities",LIVE,lta::getFacilitiesMaintenance);
             evidence.add(facilities(maintenance,stations,names));
             var alerts=fetch(requestCache,"train-alerts",LIVE,lta::getTrainServiceAlerts);
-            evidence.add(alerts(alerts,lines));
+            var trainEvidence=alerts(alerts,railSegments);
+            evidence.add(trainEvidence);
+            Object notices=trainEvidence.details().get("notices");
+            if(notices instanceof List<?> items) items.forEach(item -> warnings.add(item.toString()));
             if(live) {
                 Set<String> crowdLines=new LinkedHashSet<>();
                 stations.stream().map(this::crowdLine).filter(Objects::nonNull).forEach(crowdLines::add);
@@ -158,20 +163,87 @@ public class RouteEnrichmentService {
         return available("LTA FacilitiesMaintenance",snapshot,null,Map.of("matchedMaintenance",matched,
                 "note","No matching report does not verify station or route accessibility"));
     }
-    private RouteEvidence alerts(EvidenceCache.Snapshot snapshot,Set<String> lines) {
+    private record RailSegment(String line,Set<String> from,Set<String> to) {}
+
+    private RouteEvidence alerts(EvidenceCache.Snapshot snapshot,List<RailSegment> legs) {
         JsonNode value=snapshot.data().path("value");
-        if(!snapshot.available() || !value.isObject() || !value.path("Status").isValueNode() || lines.isEmpty())
-            return unavailable("LTA TrainServiceAlerts",snapshot,"Train alert data or line matching is unavailable");
+        if(!snapshot.available())
+            return unavailable("LTA TrainServiceAlerts",snapshot,"MRT service status unknown: the alert provider could not be reached or returned invalid data");
+        if(!value.isObject() || !value.path("Status").isValueNode())
+            return unavailable("LTA TrainServiceAlerts",snapshot,"MRT service status unknown: invalid train alert response");
         String status=value.path("Status").asText();
-        if(!Set.of("1","2").contains(status)) return unavailable("LTA TrainServiceAlerts",snapshot,"Unknown train service status");
+        if(!Set.of("1","2").contains(status)) return unavailable("LTA TrainServiceAlerts",snapshot,"MRT service status unknown: unrecognized provider status");
         List<Map<String,Object>> matched=new ArrayList<>();
+        List<String> notices=new ArrayList<>();
+        boolean unknown=legs.stream().anyMatch(leg -> leg.line()==null);
+        if(unknown) notices.add("MRT service status unknown for a route leg: its train line could not be matched.");
         JsonNode segments=value.path("AffectedSegments");
         if(!segments.isArray() && status.equals("2"))
-            return unavailable("LTA TrainServiceAlerts",snapshot,"Disruption reported but affected lines could not be matched");
-        for(JsonNode segment:segments) if(lines.contains(text(segment,"Line")))
-            matched.add(selected(segment,"Line","Direction","Stations","FreePublicBus","FreeMRTShuttle"));
+            return unavailable("LTA TrainServiceAlerts",snapshot,"MRT service status unknown: disruption reported but affected segments are missing");
+        if(status.equals("2") && segments.isEmpty()) {
+            unknown=true;
+            notices.add("MRT service status unknown: disruption reported without affected lines or stations.");
+        }
+        for(JsonNode segment:segments) {
+            String line=serviceLine(text(segment,"Line"));
+            if(line==null) {
+                unknown=true;
+                notices.add("MRT service status unknown: an alert's affected line could not be matched.");
+                continue;
+            }
+            var used=legs.stream().filter(leg -> line.equals(leg.line())).toList();
+            if(used.isEmpty()) continue;
+            String stationText=text(segment,"Stations");
+            Set<String> affected=new LinkedHashSet<>();
+            if(stationText!=null) {
+                var matcher=STATION.matcher(stationText.toUpperCase(Locale.ROOT));
+                while(matcher.find()) affected.add(matcher.group());
+            }
+            boolean overlaps=false,unmatched=false;
+            for(var leg:used) {
+                Boolean overlap=overlaps(leg,affected);
+                overlaps|=Boolean.TRUE.equals(overlap);
+                unmatched|=overlap==null;
+            }
+            if(overlaps) {
+                matched.add(selected(segment,"Line","Direction","Stations","FreePublicBus","FreeMRTShuttle"));
+                notices.add("MRT disruption on "+line+" affecting "+stationText+". Current snapshot; journey time may be affected.");
+            } else if(unmatched) {
+                unknown=true;
+                notices.add("MRT service status unknown on "+line+": a reported disruption could not be matched to this route's stations"
+                        +(stationText==null?" (affected stations not supplied).":" (reported segment: "+stationText+")."));
+            }
+        }
+        // Preserve provider messages only when there is a relevant matched segment.
+        List<Map<String,Object>> messages=new ArrayList<>();
+        if(!matched.isEmpty()) for(JsonNode message:value.path("Message")) {
+            var detail=selected(message,"Content","CreatedDate");
+            if(!detail.isEmpty()) messages.add(detail);
+        }
         return available("LTA TrainServiceAlerts",snapshot,null,Map.of("networkStatus",status,"matchingSegments",matched,
+                "routeStatus",!matched.isEmpty()?"disrupted":unknown?"unknown":"no_matching_alert",
+                "notices",notices,"messages",messages,"matchingIncomplete",unknown,
                 "note","Status 1 includes normal service or minor delays; this is a current snapshot, not a forecast"));
+    }
+
+    /** Only infer intermediate stations on a single numbered branch; cross-branch paths remain unknown. */
+    private Boolean overlaps(RailSegment leg,Set<String> affected) {
+        if(affected.isEmpty()) return null;
+        var from=leg.from().stream().filter(code -> leg.line().equals(stationLine(code))).toList();
+        var to=leg.to().stream().filter(code -> leg.line().equals(stationLine(code))).toList();
+        if(from.stream().anyMatch(affected::contains) || to.stream().anyMatch(affected::contains)) return true;
+        if(from.size()!=1 || to.size()!=1) return null;
+        String a=from.getFirst(),b=to.getFirst(),prefix=a.replaceAll("[0-9]", "");
+        if(!prefix.equals(b.replaceAll("[0-9]", "")) || Set.of("BP","SE","SW","PE","PW").contains(prefix)) return null;
+        int start=Integer.parseInt(a.substring(prefix.length())),end=Integer.parseInt(b.substring(prefix.length()));
+        for(String code:affected) {
+            if(!leg.line().equals(stationLine(code))) return null;
+            if(prefix.equals(code.replaceAll("[0-9]", ""))) {
+                int number=Integer.parseInt(code.substring(prefix.length()));
+                if(number>=Math.min(start,end) && number<=Math.max(start,end)) return true;
+            } else return null;
+        }
+        return false;
     }
     private RouteEvidence crowding(EvidenceCache.Snapshot snapshot,Set<String> stations,String line) {
         JsonNode rows=snapshot.data().path("value");

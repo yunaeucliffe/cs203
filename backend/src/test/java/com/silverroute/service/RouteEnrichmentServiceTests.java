@@ -76,4 +76,56 @@ class RouteEnrichmentServiceTests {
         service.enrich(new RouteParser().parse(root.toString()).getFirst(),true,new HashMap<>());
         verify(lta).getBusArrivals("01234");
     }
+
+    private RouteOption rail(String line,String from,String to) {
+        var leg=new RouteLeg("MRT",line,new RouteLeg.Stop(from,null,from,null,null),
+                new RouteLeg.Stop(to,null,to,null,null),1200.0,1000.0,null,null,List.of());
+        return new RouteOption("rail","MRT",20,0,0,"unknown",0.0,1000.0,null,List.of(leg),List.of(),List.of(),List.of(),List.of());
+    }
+    private RouteEvidence train(RouteOption route,String json) {
+        when(lta.getTrainServiceAlerts()).thenReturn(json);
+        return service.enrich(route,true,new HashMap<>()).evidence().stream()
+                .filter(item -> item.source().equals("LTA TrainServiceAlerts")).findFirst().orElseThrow();
+    }
+    private String alert(String line,String stations) {
+        return "{\"value\":{\"Status\":2,\"AffectedSegments\":[{\"Line\":\""+line+"\",\"Stations\":\""+stations+"\"}]}}";
+    }
+    @Test void detectsIntermediateStationsAndDisplaysSegmentWarning() {
+        when(lta.getTrainServiceAlerts()).thenReturn(alert("EWL","EW24,EW25"));
+        var result=service.enrich(rail("EWL","EW23","EW26"),true,new HashMap<>());
+        assertThat(result.warnings()).anyMatch(warning -> warning.contains("MRT disruption on EWL affecting EW24,EW25"));
+        assertThat(result.evidence()).filteredOn(item -> item.source().equals("LTA TrainServiceAlerts"))
+                .allMatch(item -> item.details().get("routeStatus").equals("disrupted"));
+    }
+    @Test void excludesNonOverlappingStationsOnSameLine() {
+        assertThat(train(rail("EWL","EW1","EW3"),alert("EWL","EW24,EW25")).details())
+                .containsEntry("routeStatus","no_matching_alert").containsEntry("matchingSegments",List.of());
+    }
+    @Test void excludesUnrelatedLineEvenAtInterchange() {
+        assertThat(train(rail("EWL","EW24/NS1","EW25"),alert("NSL","NS1,NS2")).details())
+                .containsEntry("routeStatus","no_matching_alert");
+    }
+    @Test void missingAffectedStationsIsUnknownWithReason() {
+        var evidence=train(rail("EWL","EW24","EW25"),alert("EWL",""));
+        assertThat(evidence.details()).containsEntry("routeStatus","unknown");
+        assertThat(evidence.details().get("notices").toString()).contains("affected stations not supplied");
+    }
+    @Test void missingLineOnOneLegDoesNotHideKnownDisruption() {
+        var known=rail("EWL","EW24","EW25");
+        var missing=rail(null,"Unknown A","Unknown B");
+        var combined=new RouteOption("rail","MRT",40,0,1,"unknown",0.0,2000.0,null,
+                List.of(known.legs().getFirst(),missing.legs().getFirst()),List.of(),List.of(),List.of(),List.of());
+        assertThat(train(combined,alert("EWL","EW24,EW25")).details())
+                .containsEntry("routeStatus","disrupted").containsEntry("matchingIncomplete",true);
+    }
+    @Test void malformedAlertLineIsUnknownRatherThanUnaffected() {
+        assertThat(train(rail("EWL","EW24","EW25"),alert("Unknown","EW24")).details())
+                .containsEntry("routeStatus","unknown");
+    }
+    @Test void providerFailureHasUnknownReasonAndNoSecretDiagnostics() {
+        when(lta.getTrainServiceAlerts()).thenThrow(new IllegalStateException("secret diagnostics"));
+        var result=service.enrich(rail("EWL","EW24","EW25"),true,new HashMap<>());
+        assertThat(result.warnings().toString()).contains("MRT service status unknown","provider")
+                .doesNotContain("secret diagnostics");
+    }
 }
