@@ -20,17 +20,6 @@ export function searchLocation(query, signal) {
   return getJson(`/api/location/parsed?${new URLSearchParams({ query })}`, signal)
 }
 
-export async function searchLocationCandidates(query, signal) {
-  const locations = await getJson(`/api/location/candidates?${new URLSearchParams({ query })}`, signal)
-  if (!Array.isArray(locations) || locations.length === 0 || locations.some(location =>
-    !location || typeof location.name !== 'string' || !location.name.trim() ||
-    !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude) ||
-    Math.abs(location.latitude) > 90 || Math.abs(location.longitude) > 180)) {
-    throw new Error('No valid address matches were returned. Try a postal code or building and street name.')
-  }
-  return locations
-}
-
 export async function searchRoutes(origin, destination, signal) {
   const token = await getCsrfToken(signal)
   const result = await getJson('/api/route-recommendations', signal, {

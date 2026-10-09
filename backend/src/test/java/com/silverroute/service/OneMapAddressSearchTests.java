@@ -11,9 +11,13 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class OneMapAddressSearchTests {
+    private final java.time.Clock clock = mock(java.time.Clock.class);
     private final RestClient.Builder builder = RestClient.builder().baseUrl("https://www.onemap.gov.sg");
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-    private final OneMapService service = spy(new OneMapService(builder.build()));
+    private final OneMapService service = spy(new OneMapService(builder.build(), clock));
+    @org.junit.jupiter.api.BeforeEach void setTime() {
+        when(clock.instant()).thenReturn(java.time.Instant.parse("2026-10-09T00:00:00Z"));
+    }
     private static final String MATCH = """
             {"results":[{"ADDRESS":"640 ROWELL ROAD SINGAPORE 200640",
             "LATITUDE":"1.3074","LONGITUDE":"103.8547"}]}
@@ -73,6 +77,39 @@ class OneMapAddressSearchTests {
     @Test void originalAddressMatchPreventsPostalFallback() {
         expectSearch("640%20Rowell%20Road%2C%20200640", MATCH);
         assertThat(service.searchLocation("640 Rowell Road, 200640")).isEqualTo(MATCH);
+        server.verify();
+    }
+
+    @Test void successfulFallbackIsCachedUnderOriginalAddress() {
+        expectSearch("640%20Rowell%20Road%2C%20200640", "{\"results\":[]}");
+        expectSearch("200640", MATCH);
+        assertThat(service.searchLocation("640 Rowell Road, 200640")).isEqualTo(MATCH);
+        assertThat(service.searchLocation(" 640  ROWELL ROAD, 200640 ")).isEqualTo(MATCH);
+        server.verify();
+    }
+
+    @Test void cachedAddressExpiresAfterThirtyMinutes() {
+        expectSearch("Hospital", MATCH);
+        expectSearch("Hospital", MATCH);
+        service.searchLocation("Hospital");
+        when(clock.instant()).thenReturn(java.time.Instant.parse("2026-10-09T00:30:00Z"));
+        assertThat(service.searchLocation("Hospital")).isEqualTo(MATCH);
+        server.verify();
+    }
+
+    @Test void emptyResultsAreNotCached() {
+        expectSearch("Unknown", "{\"results\":[]}");
+        expectSearch("Unknown", MATCH);
+        service.searchLocation("Unknown");
+        assertThat(service.searchLocation("Unknown")).isEqualTo(MATCH);
+        server.verify();
+    }
+
+    @Test void leastRecentlyUsedAddressIsEvictedAtLimit() {
+        for (int index = 0; index <= 500; index++) expectSearch("Place" + index, MATCH);
+        expectSearch("Place0", MATCH);
+        for (int index = 0; index <= 500; index++) service.searchLocation("Place" + index);
+        assertThat(service.searchLocation("Place0")).isEqualTo(MATCH);
         server.verify();
     }
 

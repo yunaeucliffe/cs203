@@ -25,11 +25,6 @@ public class LocationController {
     }
 
     // Returns simplified LocationResult
-    @GetMapping("/candidates")
-    public java.util.List<LocationResult> searchLocationCandidates(@RequestParam String query) throws Exception {
-        return oneMapService.parseLocations(oneMapService.searchLocation(query));
-    }
-
     @GetMapping("/parsed")
     public LocationResult searchLocationParsed(@RequestParam String query) throws Exception {
         String json = oneMapService.searchLocation(query);

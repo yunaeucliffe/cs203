@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
-import { searchRoutes, searchLocationCandidates } from '../api/routes'
+import { searchRoutes } from '../api/routes'
 
 import {
   MapContainer,
@@ -106,9 +106,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const [loading, setLoading] = useState(false)
   const [locating, setLocating] = useState(false)
   const [error, setError] = useState('')
-  const [addressReview, setAddressReview] = useState(null)
-  const [originChoice, setOriginChoice] = useState('')
-  const [destinationChoice, setDestinationChoice] = useState('')
   const pending = useRef(null)
   const locationRequest = useRef(0)
   const previousLocation = useRef(null)
@@ -159,17 +156,13 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     iconAnchor: [16, 32],
   })
 
-  const clearResult = (resetAddresses = true) => {
+  const clearResult = () => {
     pending.current?.abort()
     pending.current = null
     setLoading(false)
     setResult(null)
     setError('')
-    if (resetAddresses) {
-      setAddressReview(null)
-      setOriginChoice('')
-      setDestinationChoice('')
-    }
+
   }
 
   const useMyLocation = () => {
@@ -220,7 +213,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
   const handleFindRoute = async () => {
     if (loading || locating) return
-    clearResult(false)
+    clearResult()
     if (!isAuthenticated) {
       setError('Sign in to get routes tailored to your saved preferences.')
       return
@@ -233,25 +226,8 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     pending.current = controller
     setLoading(true)
     try {
-      if (!addressReview) {
-        const [origins, destinations] = await Promise.all([
-          deviceLocation ? Promise.resolve([deviceLocation]) : searchLocationCandidates(originText.trim(), controller.signal),
-          searchLocationCandidates(destination.trim(), controller.signal),
-        ])
-        if (controller.signal.aborted) return
-        setAddressReview({ origins, destinations })
-        setOriginChoice(origins.length === 1 ? '0' : '')
-        setDestinationChoice(destinations.length === 1 ? '0' : '')
-        return
-      }
-      if (originChoice === '' || destinationChoice === '') {
-        setError('Choose a matched address for both your starting point and destination.')
-        return
-      }
-      const originMatch = addressReview.origins[Number(originChoice)]
-      const destinationMatch = addressReview.destinations[Number(destinationChoice)]
-      const origin = { ...originMatch, matchedName: originMatch.name, name: originText.trim() }
-      const target = { ...destinationMatch, matchedName: destinationMatch.name, name: destination.trim() }
+      const origin = deviceLocation || { name: originText.trim() }
+      const target = { name: destination.trim() }
       const recommendations = await searchRoutes(origin, target, controller.signal)
       const routes = recommendations.routes
       if (controller.signal.aborted) return
@@ -378,36 +354,14 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               </div>
 
               {/* FIND ROUTE */}
-              {addressReview && (
-                <div className="mt-5 space-y-4 rounded-2xl bg-[#FAF7F0] p-4">
-                  <p className="font-semibold">Check the matched addresses before finding routes.</p>
-                  {[
-                    ['Starting point', addressReview.origins, originChoice, setOriginChoice],
-                    ['Destination', addressReview.destinations, destinationChoice, setDestinationChoice],
-                  ].map(([label, matches, choice, setChoice]) => (
-                    <fieldset key={label} disabled={loading} className="space-y-2">
-                      <legend className="mb-2 text-sm font-bold">{label}</legend>
-                      {matches.length > 1 && <p className="text-sm">Several addresses match. Choose the correct one.</p>}
-                      {matches.map((match, index) => (
-                        <label key={`${match.name}-${index}`} className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#7A7F7A]/20 bg-white p-3">
-                          <input type="radio" name={`matched-${label}`} value={index}
-                            checked={choice === String(index)} onChange={() => { setChoice(String(index)); setResult(null); setError('') }}
-                            className="mt-1" />
-                          <span>{match.name}</span>
-                        </label>
-                      ))}
-                    </fieldset>
-                  ))}
-                </div>
-              )}
               <button
                 type="button"
                 onClick={handleFindRoute}
-                disabled={loading || locating || Boolean(addressReview && (originChoice === '' || destinationChoice === ''))}
+                disabled={loading || locating}
                 aria-busy={loading}
                 className="mt-5 flex h-[62px] w-full items-center justify-center gap-3 rounded-2xl bg-[#3E424B] text-lg font-semibold text-white transition hover:scale-[1.01]"
               >
-                {loading ? (addressReview ? 'Comparing routes…' : 'Checking addresses…') : (addressReview ? 'Find recommended routes' : 'Check addresses')}
+                {loading ? 'Comparing routes…' : 'Find recommended routes'}
 
                 <Navigation size={20} />
 
@@ -422,13 +376,10 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               </p>
             )}
             {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
-            {loading && <p role="status" className="mt-4">{addressReview ? 'Comparing routes with your saved preferences and available travel conditions…' : 'Looking up your starting point and destination…'}</p>}
+            {loading && <p role="status" className="mt-4">Comparing routes with your saved preferences and available travel conditions…</p>}
             {result && (
               <div className="mt-4">
                 <p className="mb-3 text-sm">{result.origin.name} → {result.destination.name}</p>
-                <p className="mb-3 text-sm text-[#7A7F7A]">
-                  Matched addresses: {result.origin.matchedName} → {result.destination.matchedName}
-                </p>
                 <h2 className="font-semibold">{result.routes.length === 1 ? 'Your recommended route' : `Your top ${result.routes.length} routes`}</h2>
                 <p className="mt-1 text-sm text-[#555C60]">
                   {result.engine?.startsWith('mock')
