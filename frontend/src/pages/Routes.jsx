@@ -162,6 +162,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     setLoading(false)
     setResult(null)
     setError('')
+
   }
 
   const useMyLocation = () => {

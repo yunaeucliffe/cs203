@@ -26,6 +26,7 @@ public class RouteDataAggregatorService {
         var localRequest=new TripRequest(request.origin(),request.destination(),localTime,request.originCoordinates(),request.destinationCoordinates());
         ToolExecutionResult result;
         try { result=routes.execute(localRequest); }
+        catch(RouteDataUnavailableException exception) { throw exception; }
         catch(Exception exception) { throw new RouteDataUnavailableException("Route data could not be retrieved from OneMap"); }
         if(result==null || result.routes().isEmpty()) throw new RouteDataUnavailableException("No public transport routes were found");
         boolean live=!request.departureTime().toInstant().isAfter(clock.instant().plusSeconds(900))

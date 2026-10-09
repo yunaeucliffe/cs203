@@ -82,3 +82,27 @@ test('place names go directly to recommendations without separate geocoding', as
   assert.equal(result.routes.length, 1)
   assert.equal(calls.length, 2)
 })
+
+test('location lookup safely sends the original address', async () => {
+  const query = '640 Rowell Road, #01-02, Singapore 200640'
+  const signal = new AbortController().signal
+  globalThis.fetch = async (url, options) => {
+    assert.equal(new URL(url).pathname, '/api/location/parsed')
+    assert.equal(new URL(url).searchParams.get('query'), query)
+    assert.equal(options.signal, signal)
+    return ok(destination)
+  }
+  assert.deepEqual(await searchLocation(query, signal), destination)
+})
+
+test('routing uses the chosen coordinates while preserving original address text', async () => {
+  const query = '640 Rowell Road, #01-02, Singapore 200640'
+  globalThis.fetch = async (url, options) => {
+    if (url.endsWith('/csrf')) return ok({ token: 'token' })
+    const body = JSON.parse(options.body)
+    assert.equal(body.destination, query)
+    assert.deepEqual(body.destinationCoordinates, { latitude: destination.latitude, longitude: destination.longitude })
+    return ok({ recommendedRoute: { id: 'chosen' }, alternatives: [] })
+  }
+  await searchRoutes(origin, { ...destination, name: query })
+})
