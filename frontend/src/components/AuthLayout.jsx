@@ -21,9 +21,9 @@ function AuthLayout({ title, description, children }) {
 
 
         {/* RIGHT SIDE */}
-        <div className="flex items-center rounded-[32px] bg-white p-16">
+        <div className="flex items-center justify-center rounded-[32px] bg-white p-12">
 
-          <div>
+          <div className="w-full max-w-[520px]">
             <h1
               className="text-5xl"
               style={{ fontFamily: '"DM Serif Display", serif' }}

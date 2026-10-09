@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import SignIn from './SignIn'
 import SignUp from './SignUp'
+import Preferences from './Preferences'
 import Profile from './Profile'
 import Routes from './Routes'
 import SavedPlaces from './SavedPlaces'
@@ -108,11 +109,19 @@ function Home() {
                     setCurrentPage('signIn')
                 }}
                 onSignUp={(account) => {
-                    setCurrentPage('home')
+                    setCurrentPage('preferences')
                     setIsAuthenticated(true)
                     setUserName(account.name.split(' ')[0])
                     setSavedPlaces([])
                 }}
+            />
+        )
+    }
+
+    if (currentPage === 'preferences') {
+        return (
+            <Preferences
+                onComplete={() => setCurrentPage('home')}
             />
         )
     }
@@ -164,7 +173,6 @@ function Home() {
     if (currentPage === 'routes') {
         return (
             <Routes
-                destination={destination}
                 onBack={() => setCurrentPage('home')}
                 onSignIn={() => setCurrentPage('signIn')}
                 onProfile={() => setCurrentPage('profile')}
