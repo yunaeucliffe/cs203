@@ -1,6 +1,6 @@
 import { afterEach, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { searchRoutes, searchLocation } from '../src/api/routes.js'
+import { searchRoutes, searchLocation, searchLocationCandidates } from '../src/api/routes.js'
 
 const originalFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = originalFetch })
@@ -81,4 +81,35 @@ test('place names go directly to recommendations without separate geocoding', as
   const result = await searchRoutes({ name: 'Jurong East MRT' }, { name: 'Hospital' })
   assert.equal(result.routes.length, 1)
   assert.equal(calls.length, 2)
+})
+
+test('candidate lookup safely sends the original address and returns all choices', async () => {
+  const query = '640 Rowell Road, #01-02, Singapore 200640'
+  const signal = new AbortController().signal
+  globalThis.fetch = async (url, options) => {
+    assert.equal(new URL(url).pathname, '/api/location/candidates')
+    assert.equal(new URL(url).searchParams.get('query'), query)
+    assert.equal(options.signal, signal)
+    return ok([origin, destination])
+  }
+  assert.deepEqual(await searchLocationCandidates(query, signal), [origin, destination])
+})
+
+test('candidate lookup rejects missing and invalid coordinates', async () => {
+  for (const response of [[], {}, [{ name: 'Unknown' }], [{ name: 'Invalid', latitude: 91, longitude: 103 }]]) {
+    globalThis.fetch = async () => ok(response)
+    await assert.rejects(searchLocationCandidates('Unknown'), /No valid address matches/)
+  }
+})
+
+test('routing uses the chosen coordinates while preserving original address text', async () => {
+  const query = '640 Rowell Road, #01-02, Singapore 200640'
+  globalThis.fetch = async (url, options) => {
+    if (url.endsWith('/csrf')) return ok({ token: 'token' })
+    const body = JSON.parse(options.body)
+    assert.equal(body.destination, query)
+    assert.deepEqual(body.destinationCoordinates, { latitude: destination.latitude, longitude: destination.longitude })
+    return ok({ recommendedRoute: { id: 'chosen' }, alternatives: [] })
+  }
+  await searchRoutes(origin, { ...destination, name: query })
 })

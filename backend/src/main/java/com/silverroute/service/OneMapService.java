@@ -35,9 +35,13 @@ public class OneMapService {
     private volatile CachedToken cachedToken;
     private static final long TOKEN_REFRESH_BUFFER_SECONDS = 60;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public OneMapService() {
-        restClient = com.silverroute.routing.ProviderHttp.client("https://www.onemap.gov.sg", 15);
+        this(com.silverroute.routing.ProviderHttp.client("https://www.onemap.gov.sg", 15));
+    }
 
+    OneMapService(RestClient restClient) {
+        this.restClient = restClient;
         objectMapper = new ObjectMapper();
     }
 
@@ -107,16 +111,50 @@ public class OneMapService {
 
     // Searches a place name --> gets raw JSON
     public String searchLocation(String query) {
+        String original = query == null ? "" : query.trim();
+        String cleaned = original
+                .replaceAll("(?i)#\\s*\\d+[A-Z]?\\s*-\\s*\\d+[A-Z]?", " ")
+                .replaceAll("[,;]", " ").replaceAll("\\s+", " ").trim();
+        if (cleaned.isEmpty()) {
+            throw new com.silverroute.exception.RouteDataUnavailableException(
+                    "Enter an address, building name or six-digit postal code.");
+        }
+        // A postal code identifies the building even when the input includes unit numbers
+        // or a building name that does not match OneMap's indexed address.
+        var postal = java.util.regex.Pattern.compile("(?<!\\d)\\d{6}(?!\\d)").matcher(cleaned);
+        Set<String> searches = new LinkedHashSet<>();
+        searches.add(original);
+        if (postal.find()) searches.add(postal.group());
+        searches.add(cleaned);
+        searches.add(cleaned.replaceAll("(?i)\\bSingapore\\b", " ").replaceAll("\\s+", " ").trim());
+        String response = null;
+        for (String search : searches) {
+            if (search.isEmpty()) continue;
+            response = searchLocationKeywords(search);
+            try {
+                JsonNode root = objectMapper.readTree(response);
+                if (root == null || !root.path("results").isArray()) {
+                    throw new IllegalStateException("OneMap did not return address search results");
+                }
+                if (!root.path("results").isEmpty()) return response;
+            } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+                throw new IllegalStateException("OneMap returned invalid address search data", exception);
+            }
+        }
+        return response;
+    }
+
+    private String searchLocationKeywords(String query) {
 
         String token = getToken();
 
         return restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/api/common/elastic/search")
-                        .queryParam("searchVal", query)
+                        .queryParam("searchVal", "{query}")
                         .queryParam("returnGeom", "Y")
                         .queryParam("getAddrDetails", "Y")
-                        .build())
+                        .build(query))
                 .header("Authorization", token)
                 .retrieve()
                 .body(String.class);
@@ -164,15 +202,27 @@ public class OneMapService {
     // Get its latitude
     // Turn it into own Java object
     public LocationResult parseLocation(String json) throws Exception {
+        return parseLocations(json).getFirst();
+    }
+
+    public List<LocationResult> parseLocations(String json) throws Exception {
 
         JsonNode root = objectMapper.readTree(json);
         JsonNode results = root.path("results");
 
         if (!results.isArray() || results.isEmpty()) {
-            throw new IllegalArgumentException("Location not found");
+            throw new com.silverroute.exception.RouteDataUnavailableException(
+                    "Address could not be found. Try its six-digit postal code or building and street name.");
         }
 
-        JsonNode firstResult = results.get(0);
+        Set<LocationResult> locations = new LinkedHashSet<>();
+        for (JsonNode result : results) {
+            locations.add(parseLocationResult(result));
+        }
+        return List.copyOf(locations);
+    }
+
+    private LocationResult parseLocationResult(JsonNode firstResult) {
         String name = firstResult.path("ADDRESS").asText();
         double latitude;
         double longitude;
