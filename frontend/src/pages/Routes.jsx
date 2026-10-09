@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import { searchRoutes } from '../api/routes'
+import RouteCard from '../components/RouteCard'
 
 import {
   MapContainer,
@@ -17,10 +18,6 @@ import {
   MapPin,
   Navigation,
   LocateFixed,
-  Footprints,
-  Bus,
-  Umbrella,
-  Accessibility,
 } from 'lucide-react'
 
 import Navbar from '../components/Navbar'
@@ -97,7 +94,7 @@ function DirectionMarker({ position, heading }) {
 
 const EMPTY_PATHS = []
 
-function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = ''}) {
+function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = '' }) {
   const [destination, setDestination] = useState(initialDestination)
   const [originText, setOriginText] = useState('')
   const [deviceLocation, setDeviceLocation] = useState(null)
@@ -112,16 +109,16 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const locationWatch = useRef(null)
 
   useEffect(() => {
-  return () => {
-    pending.current?.abort()
+    return () => {
+      pending.current?.abort()
 
-    if (locationWatch.current !== null) {
-      navigator.geolocation.clearWatch(locationWatch.current)
+      if (locationWatch.current !== null) {
+        navigator.geolocation.clearWatch(locationWatch.current)
+      }
+
+      locationRequest.current += 1
     }
-
-    locationRequest.current += 1
-  }
-}, [])
+  }, [])
 
   const selectedRoute = result?.routes[selectedIndex]
   const showRoute = Boolean(selectedRoute)
@@ -253,7 +250,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
       <Navbar
         activePage="routes"
         onHome={onBack}
-        onRoutes={() => {}}
+        onRoutes={() => { }}
         onSavedPlaces={onSavedPlaces}
         onSignIn={onSignIn}
         onProfile={onProfile}
@@ -376,172 +373,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
             )}
             {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
             {loading && <p role="status" className="mt-4">Comparing routes with your saved preferences and available travel conditions…</p>}
-            {result && (
-              <div className="mt-4">
-                <p className="mb-3 text-sm">{result.origin.name} → {result.destination.name}</p>
-                <h2 className="font-semibold">{result.routes.length === 1 ? 'Your recommended route' : `Your top ${result.routes.length} routes`}</h2>
-                <p className="mt-1 text-sm text-[#555C60]">
-                  {result.engine?.startsWith('mock')
-                    ? 'Demo recommendations using sample data. Not for navigation.'
-                    : 'Ranked for your saved walking and shelter preferences.'}
-                </p>
-                <div className="mt-3 grid gap-3" aria-label="Ranked route choices">
-                  {result.routes.map((route, index) => (
-                    <button key={route.id} type="button" aria-pressed={selectedIndex === index}
-                      onClick={() => setSelectedIndex(index)}
-                      className={`rounded-2xl border-2 p-4 text-left transition ${selectedIndex === index
-                        ? 'border-[#3E424B] bg-[#DCE7D2]' : 'border-[#7A7F7A]/30 bg-white hover:border-[#3E424B]'}`}>
-                      <span className="block font-bold">{index === 0 ? '1 · Recommended for you' : `${index + 1} · Alternative route`}</span>
-                      <span className="mt-1 block text-sm">
-                        {route.durationMinutes == null ? 'Time unavailable' : `${route.durationMinutes} min`}
-                        {' · '}{route.transfers == null ? 'Transfers unavailable' : `${route.transfers} transfer${route.transfers === 1 ? '' : 's'}`}
-                      </span>
-                      <span className="mt-1 block text-sm">{route.reasons?.[0] || route.summary}</span>
-                    </button>
-                  ))}
-                </div>
-                {result.warnings?.length > 0 && (
-                  <details className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
-                    <summary className="cursor-pointer font-semibold">Travel data notices ({result.warnings.length})</summary>
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
-                      {result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
-                    </ul>
-                  </details>
-                )}
-
-              </div>
-            )}
-
-            {/* ====================================== */}
-            {/* ROUTE RESULT */}
-            {/* Only appears after Find route is clicked */}
-            {/* ====================================== */}
-
-            {showRoute && (
-
-              <div className="mt-6 rounded-[24px] border-2 border-[#3E424B]/80 bg-[#DCE7D2] p-6">
-
-                {/* ROUTE HEADER */}
-                <div>
-
-                  <p className="text-xs font-extrabold tracking-[0.14em] text-[#7A7F7A]">
-                    {selectedIndex === 0 ? 'RECOMMENDED ROUTE' : `ALTERNATIVE ROUTE ${selectedIndex + 1}`}
-                  </p>
-
-                  <h2
-                    className="mt-2 text-4xl text-[#2A3439]"
-                    style={{ fontFamily: '"DM Serif Display", serif' }}
-                  >
-                    {selectedRoute.durationMinutes == null ? 'Time unavailable' : `${selectedRoute.durationMinutes} min`}
-                  </h2>
-
-                  <p className="mt-1 text-[#7A7F7A]">
-                    {selectedRoute.distanceMeters == null ? 'Distance unavailable' : `${(selectedRoute.distanceMeters / 1000).toFixed(1)} km total journey`}
-                  </p>
-
-                </div>
-
-                <p className="mt-6 font-semibold">{selectedRoute.summary}</p>
-
-                {selectedRoute.reasons?.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="font-semibold">Why this route suits you</h3>
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
-                      {selectedRoute.reasons.map((reason, index) => <li key={index}>{reason}</li>)}
-                    </ul>
-                  </div>
-                )}
-                {selectedRoute.warnings?.length > 0 && (
-                  <div className="mt-4 rounded-xl bg-white/60 p-4 text-sm">
-                    <h3 className="font-semibold">Before you travel</h3>
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
-                      {selectedRoute.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
-                    </ul>
-                  </div>
-                )}
-
-                {/* ROUTE INFORMATION */}
-                <div className="mt-6 divide-y divide-[#7A7F7A]/20 border-y border-[#7A7F7A]/20">
-
-                  {/* SHELTERED */}
-                  <div className="flex items-center justify-between py-4">
-
-                    <div className="flex items-center gap-3">
-                      <Umbrella size={20} />
-
-                      <span className="font-medium">
-                        Estimated sheltered walking
-                      </span>
-                    </div>
-
-                    <span className="font-semibold">
-                      {selectedRoute.estimatedShelteredWalkingMeters == null
-                        ? 'Unavailable' : `${Math.round(selectedRoute.estimatedShelteredWalkingMeters)} m`}
-                    </span>
-
-                  </div>
-
-                  {/* WALKING */}
-                  <div className="flex items-center justify-between py-4">
-
-                    <div className="flex items-center gap-3">
-                      <Footprints size={20} />
-
-                      <span className="font-medium">
-                        Walking
-                      </span>
-                    </div>
-
-                    <span className="font-semibold">
-                      {selectedRoute.walkingMinutes == null ? 'Time unavailable' : `${selectedRoute.walkingMinutes} min`}
-                      {selectedRoute.walkingDistanceMeters != null && ` · ${Math.round(selectedRoute.walkingDistanceMeters)} m`}
-                    </span>
-
-                  </div>
-
-                  {/* TRANSFERS */}
-                  <div className="flex items-center justify-between py-4">
-
-                    <div className="flex items-center gap-3">
-                      <Bus size={20} />
-
-                      <span className="font-medium">
-                        Transfers
-                      </span>
-                    </div>
-
-                    <span className="font-semibold">
-                      {selectedRoute.transfers ?? 'Unavailable'}
-                    </span>
-
-                  </div>
-
-                  {/* ACCESSIBILITY */}
-                  <div className="flex items-center justify-between py-4">
-
-                    <div className="flex items-center gap-3">
-                      <Accessibility size={20} />
-
-                      <span className="font-medium">
-                        Accessibility
-                      </span>
-                    </div>
-
-                    <span className="text-right font-semibold">
-                      Not verified
-                    </span>
-
-                  </div>
-
-                </div>
-
-                {routeCoordinates.length === 0 && (
-                  <p className="mt-4 text-sm">Map geometry is unavailable for this route.</p>
-                )}
-
-              </div>
-
-            )}
 
           </section>
 
@@ -588,33 +419,33 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                   )}
 
                   {/* BLUE ROUTE */}
-                    {routeCoordinates.length > 0 && (
-                      <>
-                        {/* White outline */}
-                        <Polyline
-                          positions={routeCoordinates}
-                          pathOptions={{
-                            color: 'white',
-                            weight: 10,
-                            opacity: 0.9,
-                            lineCap: 'round',
-                            lineJoin: 'round',
-                          }}
-                        />
+                  {routeCoordinates.length > 0 && (
+                    <>
+                      {/* White outline */}
+                      <Polyline
+                        positions={routeCoordinates}
+                        pathOptions={{
+                          color: 'white',
+                          weight: 10,
+                          opacity: 0.9,
+                          lineCap: 'round',
+                          lineJoin: 'round',
+                        }}
+                      />
 
-                        {/* Main route */}
-                        <Polyline
-                          positions={routeCoordinates}
-                          pathOptions={{
-                            color: '#2F6FED',
-                            weight: 6,
-                            opacity: 0.95,
-                            lineCap: 'round',
-                            lineJoin: 'round',
-                          }}
-                        />
-                      </>
-                    )}
+                      {/* Main route */}
+                      <Polyline
+                        positions={routeCoordinates}
+                        pathOptions={{
+                          color: '#2F6FED',
+                          weight: 6,
+                          opacity: 0.95,
+                          lineCap: 'round',
+                          lineJoin: 'round',
+                        }}
+                      />
+                    </>
+                  )}
                 </>
               )}
 
@@ -623,7 +454,91 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
           </section>
 
         </div>
+        {/* ROUTE COMPARISON CARDS */}
 
+        {result && (
+
+          <section className="mt-8">
+
+            <h2
+
+              className="text-3xl text-[#2A3439]"
+
+              style={{ fontFamily: '"DM Serif Display", serif' }}
+
+            >
+
+              Your recommended routes
+
+            </h2>
+
+            <p className="mt-2 text-[#7A7F7A]">
+
+              {result.origin.name} → {result.destination.name}
+
+            </p>
+
+            <p className="mt-2 text-sm text-[#555C60]">
+
+              {result.engine?.startsWith('mock')
+
+                ? 'Demo recommendations using sample data. Not for navigation.'
+
+                : 'Ranked for your saved walking and shelter preferences.'}
+
+            </p>
+
+            <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-3">
+
+              {result.routes.map((route, index) => (
+
+                <RouteCard
+
+                  key={route.id}
+
+                  route={route}
+
+                  index={index}
+
+                  selected={selectedIndex === index}
+
+                  onClick={() => setSelectedIndex(index)}
+
+                />
+
+              ))}
+
+            </div>
+
+            {/* TRAVEL WARNINGS */}
+
+            {result.warnings?.length > 0 && (
+
+              <details className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
+
+                <summary className="cursor-pointer font-semibold">
+
+                  Travel data notices ({result.warnings.length})
+
+                </summary>
+
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+
+                  {result.warnings.map((warning, index) => (
+
+                    <li key={index}>{warning}</li>
+
+                  ))}
+
+                </ul>
+
+              </details>
+
+            )}
+
+          </section>
+
+        )}
       </main>
 
     </div>
