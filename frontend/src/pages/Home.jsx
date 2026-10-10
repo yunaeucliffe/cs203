@@ -251,8 +251,9 @@ function Home() {
                                             placeholder="Enter destination, landmark or address"
                                             value={destination}
                                             selectedPlace={destinationPlace}
-                                            onChange={(text, place) => {
-                                                setDestination(text)
+                                            onChange={(text) => { setDestination(text); setDestinationPlace(null) }}
+                                            onSelect={(place) => {
+                                                setDestination(place.name)
                                                 setDestinationPlace(place)
                                             }}
                                             onSubmit={handleSearch}

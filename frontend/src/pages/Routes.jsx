@@ -169,7 +169,10 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
   const useMyLocation = () => {
     clearResult()
-    if (locationWatch.current !== null) navigator.geolocation.clearWatch(locationWatch.current)
+    if (locationWatch.current !== null) {
+      navigator.geolocation.clearWatch(locationWatch.current)
+      locationWatch.current = null
+    }
 
     if (!navigator.geolocation) {
       setError('Location is unavailable in this browser. Enter a starting point instead.')
@@ -299,17 +302,29 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     value={originText}
                     placeholder="Enter starting point"
                     selectedPlace={deviceLocation || originPlace}
-                    onChange={(text, place) => {
+                    onChange={(text) => {
                       clearResult()
                       locationRequest.current += 1
                       setLocating(false)
                       setDeviceLocation(null)
+                      setOriginPlace(null)
                       setOriginText(text)
-                      setOriginPlace(place)
                       if (locationWatch.current !== null) {
                         navigator.geolocation.clearWatch(locationWatch.current)
                         locationWatch.current = null
                       }
+                    }}
+                    onSelect={(place) => {
+                      clearResult()
+                      locationRequest.current += 1
+                      if (locationWatch.current !== null) {
+                        navigator.geolocation.clearWatch(locationWatch.current)
+                        locationWatch.current = null
+                      }
+                      setLocating(false)
+                      setDeviceLocation(null)
+                      setOriginText(place.name)
+                      setOriginPlace(place)
                     }}
                     onSubmit={handleFindRoute}
                     className="w-full bg-transparent text-base outline-none"
@@ -346,9 +361,14 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     label="Destination"
                     value={destination}
                     selectedPlace={destinationPlace}
-                    onChange={(text, place) => {
+                    onChange={(text) => {
                       clearResult()
                       setDestination(text)
+                      setDestinationPlace(null)
+                    }}
+                    onSelect={(place) => {
+                      clearResult()
+                      setDestination(place.name)
                       setDestinationPlace(place)
                     }}
                     onSubmit={handleFindRoute}
