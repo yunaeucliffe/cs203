@@ -7,5 +7,5 @@ Shape references:
 - https://datamall.lta.gov.sg/content/dam/datamall/datasets/LTA_DataMall_API_User_Guide.pdf (BusArrival v3, FacilitiesMaintenance v2, TrainServiceAlerts, PCDRealTime)
 - https://api-open.data.gov.sg/v2/real-time/api/rainfall (NEA v2 rainfall)
 
-Clock used in enrichment tests: 2026-09-28T00:00:00Z (08:00 Singapore).
+Clock used in route conditions tests: 2026-09-28T00:00:00Z (08:00 Singapore).
 Before release, add sanitized recordings from the configured accounts and run the same adapter assertions, especially for OneMap station identifiers and DataMall service permissions.
