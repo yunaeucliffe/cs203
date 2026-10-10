@@ -1,6 +1,6 @@
 # Personalized route recommendations — backend and frontend contract
 
-The backend resolves a trip with OneMap, enriches candidate routes with relevant evidence, loads the signed-in user's saved preferences, and makes one OpenAI ranking request. The model selects existing route IDs and supplies explanations. The backend validates those IDs and restores original route metrics and geometry. It never accepts model-generated itineraries.
+The backend resolves a trip with OneMap, attaches relevant conditions and evidence to candidate routes, loads the signed-in user's saved preferences, and makes one OpenAI ranking request. The model selects existing route IDs and supplies explanations. The backend validates those IDs and restores original route metrics and geometry. It never accepts model-generated itineraries.
 
 ## Configuration
 
@@ -130,7 +130,7 @@ Application errors contain `status`, `message`, `requestId`, and `timestamp`. Sp
 Run `./mvnw test` in `backend`. Application-context tests require the configured PostgreSQL database. Focused route tests can run without PostgreSQL:
 
 ```sh
-./mvnw test -Dtest='RouteParserTests,EvidenceCacheTests,RouteEnrichmentServiceTests,ShelterEstimatorTests,RouteDataAggregatorServiceTests,RouteRecommendationAgentTests,OpenAiModelGatewayTests,RouteRecommendationSecurityTests'
+./mvnw test -Dtest='RouteParserTests,EvidenceCacheTests,RouteConditionsServiceTests,ShelterEstimatorTests,RouteDataAggregatorServiceTests,RouteRecommendationAgentTests,OpenAiModelGatewayTests,RouteRecommendationSecurityTests'
 ```
 
 Fixtures in `src/test/resources/routes` are synthetic provider-shaped cases. Credentials were not configured during implementation, so live provider schemas, account permissions and live model quality still need verification. Record sanitized provider responses from a configured account and rerun adapter tests before release.
