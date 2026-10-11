@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import { API_URL, getCsrfToken } from '../api'
+import { lookupPostalCode } from '../api/locations'
 
 const emptyForm = {
   label: '',
@@ -26,6 +27,53 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
   const [editingPlace, setEditingPlace] = useState(startAdding ? { id: null } : null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [postalCode, setPostalCode] = useState('')
+  const [lookup, setLookup] = useState({ status: 'idle', matches: [] })
+  const [retry, setRetry] = useState(0)
+  const postalRequest = useRef(null)
+  const formOpen = editingPlace !== null
+
+  useEffect(() => {
+    if (!formOpen || !/^[0-9]{6}$/.test(postalCode)) return
+    const controller = new AbortController()
+    postalRequest.current = controller
+    const timer = setTimeout(async () => {
+      try {
+        const matches = await lookupPostalCode(postalCode, controller.signal)
+        if (controller.signal.aborted) return
+        if (matches.length === 1) {
+          const place = matches[0]
+          setForm(current => ({ ...current, address: place.address, latitude: place.latitude, longitude: place.longitude }))
+        }
+        setLookup({ status: matches.length === 1 ? 'resolved' : matches.length ? 'choose' : 'empty', matches })
+      } catch (failure) {
+        if (!controller.signal.aborted) setLookup({ status: 'error', matches: [], message: failure.message })
+      }
+    }, 300)
+    return () => { clearTimeout(timer); controller.abort() }
+  }, [postalCode, formOpen, retry])
+
+  const changePostalCode = (value) => {
+    const code = value.replace(/\D/g, '').slice(0, 6)
+    if (code === postalCode) return
+    postalRequest.current?.abort()
+    setPostalCode(code)
+    setLookup({ status: code.length === 6 ? 'loading' : 'idle', matches: [] })
+    setForm(current => ({ ...current, address: '', latitude: '', longitude: '' }))
+  }
+
+  const chooseAddress = (place) => {
+    setForm(current => ({ ...current, address: place.address, latitude: place.latitude, longitude: place.longitude }))
+    setLookup({ status: 'resolved', matches: [] })
+  }
+
+  const changeAddress = (address) => {
+    // Manual edits cancel autofill and must not retain coordinates for an old address.
+    postalRequest.current?.abort()
+    setPostalCode('')
+    setLookup({ status: 'idle', matches: [] })
+    setForm(current => ({ ...current, address, latitude: '', longitude: '' }))
+  }
 
 
   // Show saved places when this page first loads
@@ -64,6 +112,9 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
 
   // OPEN ADD / EDIT FORM
   const openForm = (place = null) => {
+    postalRequest.current?.abort()
+    setPostalCode('')
+    setLookup({ status: 'idle', matches: [] })
 
     if (place) {
       // Editing an existing place
@@ -86,6 +137,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
   // SAVE PLACE
   const savePlace = async (event) => {
     event.preventDefault()
+    if (saving || lookup.status === 'loading' || lookup.status === 'choose') return
     setSaving(true)
     setError('')
 
@@ -271,6 +323,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
               onSubmit={savePlace}
               className="mt-10"
             >
+              <fieldset disabled={saving} className="min-w-0">
 
               {/* LABEL */}
               <div>
@@ -299,6 +352,45 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
 
               </div>
 
+              <div className="mt-5">
+                <label htmlFor="place-postal-code" className="mb-2 block font-semibold">
+                  Postal code <span className="ml-2 text-sm font-normal text-[#7A7F7A]">Optional</span>
+                </label>
+                <input id="place-postal-code" type="text" inputMode="numeric" autoComplete="postal-code"
+                  maxLength={6} pattern="[0-9]{6}" value={postalCode}
+                  onChange={event => changePostalCode(event.target.value)}
+                  aria-describedby="postal-code-status" aria-busy={lookup.status === 'loading'}
+                  placeholder="Enter 6 digits to fill your address"
+                  className="h-[60px] w-full rounded-xl border border-[#7A7F7A]/40 bg-white px-5 outline-none transition focus:border-[#3E424B]" />
+                <p id="postal-code-status" role="status" className="mt-2 text-sm text-[#59605B]">
+                  {lookup.status === 'idle' && 'Enter your postal code, or type the address below.'}
+                  {lookup.status === 'loading' && 'Looking up your address…'}
+                  {lookup.status === 'resolved' && 'Address filled in. Check it before saving.'}
+                  {lookup.status === 'choose' && 'Choose your address below.'}
+                  {lookup.status === 'empty' && 'No address found. Check the postal code or enter the address yourself.'}
+                  {lookup.status === 'error' && lookup.message}
+                </p>
+                {lookup.status === 'error' && (
+                  <button type="button" className="mt-2 font-semibold underline" onClick={() => {
+                    setLookup({ status: 'loading', matches: [] })
+                    setRetry(count => count + 1)
+                  }}>Try again</button>
+                )}
+                {lookup.status === 'choose' && (
+                  <ul className="mt-3 space-y-2" aria-label="Matching addresses">
+                    {lookup.matches.map(place => (
+                      <li key={`${place.address}:${place.latitude}:${place.longitude}`}>
+                        <button type="button" onClick={() => chooseAddress(place)}
+                          className="w-full rounded-xl border border-[#7A7F7A]/40 bg-white px-5 py-4 text-left hover:bg-[#DCE7D2]">
+                          <span className="block font-semibold">{place.name}</span>
+                          {place.name !== place.address && <span className="mt-1 block text-sm">{place.address}</span>}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
               {/* ADDRESS */}
               <div className="mt-5">
                 <label
@@ -314,86 +406,11 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                   maxLength="500"
                   rows="3"
                   value={form.address}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      address: event.target.value,
-                    })
-                  }
+                  onChange={event => changeAddress(event.target.value)}
                   placeholder="Enter the full address"
                   className="w-full resize-none rounded-xl border border-[#7A7F7A]/40 bg-white px-5 py-4 outline-none transition focus:border-[#3E424B]"
                 />
               </div>
-
-              {/* LATITUDE + LONGITUDE */}
-              <div className="mt-5 grid grid-cols-2 gap-4">
-
-                {/* LATITUDE */}
-                <div>
-                  <label
-                    htmlFor="latitude"
-                    className="mb-2 block font-semibold"
-                  >
-                    Latitude
-                    <span className="ml-2 text-sm font-normal text-[#7A7F7A]">
-                      Optional
-                    </span>
-                  </label>
-
-                  <input
-                    id="latitude"
-                    type="number"
-                    step="any"
-                    min="-90"
-                    max="90"
-                    value={form.latitude}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        latitude: event.target.value,
-                      })
-                    }
-                    className="h-[60px] w-full rounded-xl border border-[#7A7F7A]/40 bg-white px-5 outline-none transition focus:border-[#3E424B]"
-                  />
-
-                </div>
-
-                {/* LONGITUDE */}
-                <div>
-
-                  <label
-                    htmlFor="longitude"
-                    className="mb-2 block font-semibold"
-                  >
-                    Longitude
-
-                    <span className="ml-2 text-sm font-normal text-[#7A7F7A]">
-                      Optional
-                    </span>
-
-                  </label>
-
-                  <input
-                    id="longitude"
-                    type="number"
-                    step="any"
-                    min="-180"
-                    max="180"
-                    value={form.longitude}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        longitude: event.target.value,
-                      })
-                    }
-                    className="h-[60px] w-full rounded-xl border border-[#7A7F7A]/40 bg-white px-5 outline-none transition focus:border-[#3E424B]"
-                  />
-
-                </div>
-
-              </div>
-
-
 
               {/* ERROR */}
 
@@ -426,7 +443,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
 
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || lookup.status === 'loading' || lookup.status === 'choose'}
                   className="flex-1 rounded-xl bg-[#3E424B] px-5 py-4 font-bold text-white transition hover:bg-[#2A3439] disabled:opacity-60"
                 >
                   {saving
@@ -435,7 +452,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                 </button>
 
               </div>
-
+              </fieldset>
             </form>
 
           </section>
