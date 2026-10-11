@@ -55,12 +55,30 @@ function calculateHeading(previous, current) {
 
   return (angle + 360) % 360
 }
+function LocationDot({ position }) {
+  const icon = L.divIcon({
+    className: '',
+    html: `
+      <div style="
+        width: 16px;
+        height: 16px;
+        background: #2F6FED;
+        border: 3px solid white;
+        border-radius: 50%;
+      "></div>
+    `,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  })
+
+  return <Marker position={position} icon={icon} zIndexOffset={1000} />
+}
 
 function DirectionMarker({ position, heading }) {
   const rotation = heading ?? 0
 
   const icon = L.divIcon({
-    className: '',
+    className: 'direction-marker-icon',
     html: `
       <svg
         width="80"
@@ -76,15 +94,6 @@ function DirectionMarker({ position, heading }) {
             C19 27, 27 14, 40 4 Z"
           fill="rgba(47, 111, 237, 0.25)"
           transform="rotate(${rotation} 40 40)"
-        />
-
-        <circle
-          cx="40"
-          cy="40"
-          r="9"
-          fill="#2F6FED"
-          stroke="white"
-          strokeWidth="3"
         />
       </svg>
     `,
@@ -113,6 +122,25 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const locationRequest = useRef(0)
   const previousLocation = useRef(null)
   const locationWatch = useRef(null)
+  const [isMobileDevice, setIsMobileDevice] = useState(false)
+
+useEffect(() => {
+  const mediaQuery = window.matchMedia(
+    '(max-width: 768px) and (pointer: coarse)'
+  )
+
+  const updateDeviceType = () => {
+    setIsMobileDevice(mediaQuery.matches)
+  }
+
+  updateDeviceType()
+
+  mediaQuery.addEventListener('change', updateDeviceType)
+
+  return () => {
+    mediaQuery.removeEventListener('change', updateDeviceType)
+  }
+}, [])
 
   useEffect(() => {
   return () => {
@@ -593,7 +621,19 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               />
 
               <FitRoute origin={currentLocation} destination={destinationLocation} paths={routeCoordinates} />
+
+              {/* Blue dot on PC and mobile */}
               {hasCoordinates(currentLocation) && (
+                <LocationDot
+                  position={[
+                    currentLocation.latitude,
+                    currentLocation.longitude,
+                  ]}
+                />
+              )}
+
+              {/* Direction cone on mobile only */}
+              {isMobileDevice && hasCoordinates(currentLocation) && (
                 <DirectionMarker
                   position={[
                     currentLocation.latitude,
