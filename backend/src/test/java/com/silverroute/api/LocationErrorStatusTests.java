@@ -57,4 +57,16 @@ class LocationErrorStatusTests {
                 .andExpect(jsonPath("$.suggestions[0].name").value("640 ROWELL ROAD SINGAPORE 200640"))
                 .andExpect(jsonPath("$.suggestions[0].latitude").value(1.3074));
     }
+
+    @Test void autocompleteOffersPostalFallbackForExplicitSelection() throws Exception {
+        String query = "10 Example Road 200640";
+        doThrow(new com.silverroute.exception.AddressConfirmationRequiredException(query,
+                java.util.List.of(new LocationResult("640 ROWELL ROAD SINGAPORE 200640", 1.3074, 103.8547))))
+                .when(service).searchLocation(query);
+        mvc.perform(get("/api/location/suggestions").param("query", query))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("640 ROWELL ROAD SINGAPORE 200640"))
+                .andExpect(jsonPath("$[0].address").value("640 ROWELL ROAD SINGAPORE 200640"))
+                .andExpect(jsonPath("$[0].latitude").value(1.3074));
+    }
 }

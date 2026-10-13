@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 
 import Navbar from '../components/Navbar'
+import LocationAutocomplete from '../components/LocationAutocomplete'
 
 function hasCoordinates(location) {
   return Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude)
@@ -97,9 +98,11 @@ function DirectionMarker({ position, heading }) {
 
 const EMPTY_PATHS = []
 
-function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = ''}) {
+function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = '', initialDestinationPlace = null }) {
   const [destination, setDestination] = useState(initialDestination)
   const [originText, setOriginText] = useState('')
+  const [originPlace, setOriginPlace] = useState(null)
+  const [destinationPlace, setDestinationPlace] = useState(initialDestinationPlace)
   const [deviceLocation, setDeviceLocation] = useState(null)
   const [result, setResult] = useState(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -107,8 +110,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const [locating, setLocating] = useState(false)
   const [error, setError] = useState('')
   const [addressSuggestion, setAddressSuggestion] = useState(null)
-  const [confirmedOrigin, setConfirmedOrigin] = useState(null)
-  const [confirmedDestination, setConfirmedDestination] = useState(null)
   const pending = useRef(null)
   const locationRequest = useRef(0)
   const previousLocation = useRef(null)
@@ -171,6 +172,10 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
   const useMyLocation = () => {
     clearResult()
+    if (locationWatch.current !== null) {
+      navigator.geolocation.clearWatch(locationWatch.current)
+      locationWatch.current = null
+    }
 
     if (!navigator.geolocation) {
       setError('Location is unavailable in this browser. Enter a starting point instead.')
@@ -210,6 +215,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
         previousLocation.current = newLocation
 
         setOriginText('Current location')
+        setOriginPlace(null)
         setLocating(false)
       },
     )
@@ -222,15 +228,15 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
       setError('Sign in to get routes tailored to your saved preferences.')
       return
     }
-    if (!destination.trim() || (!deviceLocation && !originText.trim())) {
-      setError('Enter a starting point and destination, or use your current location.')
+    if (!destinationPlace || (!deviceLocation && !originPlace)) {
+      setError('Choose your starting point and destination from the suggestions, or use your current location for the starting point.')
       return
     }
     const controller = new AbortController()
     pending.current = controller
     setLoading(true)
-    const origin = deviceLocation || confirmedOrigin || { name: originText.trim() }
-    const target = confirmedDestination || { name: destination.trim() }
+    const origin = deviceLocation || originPlace
+    const target = destinationPlace
     try {
       const recommendations = await searchRoutes(origin, target, controller.signal)
       const routes = recommendations.routes
@@ -302,19 +308,36 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     className="shrink-0 text-[#7A7F7A]"
                   />
 
-                  <input
-                    type="text"
-                    aria-label="Starting point"
+                  <LocationAutocomplete
+                    label="Starting point"
                     value={originText}
                     placeholder="Enter starting point"
-                    onChange={(event) => {
+                    selectedPlace={deviceLocation || originPlace}
+                    onChange={(text) => {
                       clearResult()
                       locationRequest.current += 1
                       setLocating(false)
                       setDeviceLocation(null)
-                      setConfirmedOrigin(null)
-                      setOriginText(event.target.value)
+                      setOriginPlace(null)
+                      setOriginText(text)
+                      if (locationWatch.current !== null) {
+                        navigator.geolocation.clearWatch(locationWatch.current)
+                        locationWatch.current = null
+                      }
                     }}
+                    onSelect={(place) => {
+                      clearResult()
+                      locationRequest.current += 1
+                      if (locationWatch.current !== null) {
+                        navigator.geolocation.clearWatch(locationWatch.current)
+                        locationWatch.current = null
+                      }
+                      setLocating(false)
+                      setDeviceLocation(null)
+                      setOriginText(place.name)
+                      setOriginPlace(place)
+                    }}
+                    onSubmit={handleFindRoute}
                     className="w-full bg-transparent text-base outline-none"
                   />
 
@@ -345,20 +368,21 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     className="shrink-0 text-[#7A7F7A]"
                   />
 
-                  <input
-                    type="text"
-                    aria-label="Destination"
+                  <LocationAutocomplete
+                    label="Destination"
                     value={destination}
-                    onChange={(event) => {
+                    selectedPlace={destinationPlace}
+                    onChange={(text) => {
                       clearResult()
-                      setConfirmedDestination(null)
-                      setDestination(event.target.value)
+                      setDestination(text)
+                      setDestinationPlace(null)
                     }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        handleFindRoute()
-                      }
+                    onSelect={(place) => {
+                      clearResult()
+                      setDestination(place.name)
+                      setDestinationPlace(place)
                     }}
+                    onSubmit={handleFindRoute}
                     placeholder="Enter destination, landmark or address"
                     className="w-full bg-transparent text-base outline-none placeholder:text-[#7A7F7A]"
                   />
@@ -400,10 +424,10 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                       clearResult()
                       if (addressSuggestion.field === 'origin') {
                         setOriginText(location.name)
-                        setConfirmedOrigin(location)
+                        setOriginPlace(location)
                       } else {
                         setDestination(location.name)
-                        setConfirmedDestination(location)
+                        setDestinationPlace(location)
                       }
                     }}>
                     {location.name}
@@ -433,6 +457,9 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                         {' · '}{route.transfers == null ? 'Transfers unavailable' : `${route.transfers} transfer${route.transfers === 1 ? '' : 's'}`}
                       </span>
                       <span className="mt-1 block text-sm">{route.reasons?.[0] || route.summary}</span>
+                      {route.warnings?.filter(warning => warning.startsWith('MRT ') || warning.startsWith('LTA TrainServiceAlerts:')).map((warning, noticeIndex) => (
+                        <span key={noticeIndex} className="mt-2 block rounded-lg bg-amber-50 p-2 text-sm text-amber-900">{warning}</span>
+                      ))}
                     </button>
                   ))}
                 </div>

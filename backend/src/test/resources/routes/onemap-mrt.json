@@ -1,0 +1,176 @@
+{
+  "plan": {
+    "itineraries": [
+      {
+        "duration": 2033,
+        "walkTime": 95,
+        "walkDistance": 109.01,
+        "transfers": 1,
+        "legs": [
+          {
+            "mode": "WALK",
+            "route": "",
+            "duration": 20,
+            "distance": 19.42,
+            "startTime": 1791770528000,
+            "endTime": 1791770548000,
+            "from": {
+              "name": "Origin",
+              "lat": 1.3331,
+              "lon": 103.7422
+            },
+            "to": {
+              "name": "JURONG EAST MRT STATION",
+              "stopId": "FERRY:EW24",
+              "stopCode": "EW24",
+              "lat": 1.3330748,
+              "lon": 103.7422654
+            }
+          },
+          {
+            "mode": "SUBWAY",
+            "route": "EAST WEST LINE",
+            "routeShortName": "EW",
+            "routeLongName": "EAST WEST LINE",
+            "duration": 1482,
+            "distance": 15117.14,
+            "startTime": 1791770548000,
+            "endTime": 1791772030000,
+            "from": {
+              "name": "JURONG EAST MRT STATION",
+              "stopId": "FERRY:EW24",
+              "stopCode": "EW24",
+              "lat": 1.3330748,
+              "lon": 103.7422654
+            },
+            "to": {
+              "name": "RAFFLES PLACE MRT STATION",
+              "stopId": "FERRY:EW14",
+              "stopCode": "EW14",
+              "lat": 1.2839333,
+              "lon": 103.8514631
+            },
+            "intermediateStops": [
+              {
+                "name": "CLEMENTI MRT STATION",
+                "stopId": "FERRY:EW23",
+                "stopCode": "EW23",
+                "lat": 1.3151999,
+                "lon": 103.7652135
+              },
+              {
+                "name": "DOVER MRT STATION",
+                "stopId": "FERRY:EW22",
+                "stopCode": "EW22",
+                "lat": 1.3114548,
+                "lon": 103.7785844
+              },
+              {
+                "name": "BUONA VISTA MRT STATION",
+                "stopId": "FERRY:EW21",
+                "stopCode": "EW21",
+                "lat": 1.3072658,
+                "lon": 103.790017
+              },
+              {
+                "name": "COMMONWEALTH MRT STATION",
+                "stopId": "FERRY:EW20",
+                "stopCode": "EW20",
+                "lat": 1.3024474,
+                "lon": 103.798295
+              },
+              {
+                "name": "QUEENSTOWN MRT STATION",
+                "stopId": "FERRY:EW19",
+                "stopCode": "EW19",
+                "lat": 1.2948146,
+                "lon": 103.8059227
+              },
+              {
+                "name": "REDHILL MRT STATION",
+                "stopId": "FERRY:EW18",
+                "stopCode": "EW18",
+                "lat": 1.2896751,
+                "lon": 103.8166904
+              },
+              {
+                "name": "TIONG BAHRU MRT STATION",
+                "stopId": "FERRY:EW17",
+                "stopCode": "EW17",
+                "lat": 1.2862186,
+                "lon": 103.8269134
+              },
+              {
+                "name": "OUTRAM PARK MRT STATION",
+                "stopId": "FERRY:EW16",
+                "stopCode": "EW16",
+                "lat": 1.2815273,
+                "lon": 103.8389844
+              },
+              {
+                "name": "TANJONG PAGAR MRT STATION",
+                "stopId": "FERRY:EW15",
+                "stopCode": "EW15",
+                "lat": 1.2766035,
+                "lon": 103.8459617
+              }
+            ]
+          },
+          {
+            "mode": "SUBWAY",
+            "route": "NORTH SOUTH LINE",
+            "routeShortName": "NS",
+            "routeLongName": "NORTH SOUTH LINE",
+            "duration": 191,
+            "distance": 2053.85,
+            "startTime": 1791772295000,
+            "endTime": 1791772486000,
+            "from": {
+              "name": "RAFFLES PLACE MRT STATION",
+              "stopId": "FERRY:NS26",
+              "stopCode": "NS26",
+              "lat": 1.2839333,
+              "lon": 103.8514631
+            },
+            "to": {
+              "name": "DHOBY GHAUT MRT STATION",
+              "stopId": "FERRY:NS24",
+              "stopCode": "NS24",
+              "lat": 1.2986887,
+              "lon": 103.8461228
+            },
+            "intermediateStops": [
+              {
+                "name": "CITY HALL MRT STATION",
+                "stopId": "FERRY:NS25",
+                "stopCode": "NS25",
+                "lat": 1.2929048,
+                "lon": 103.8525964
+              }
+            ]
+          },
+          {
+            "mode": "WALK",
+            "route": "",
+            "duration": 75,
+            "distance": 89.59,
+            "startTime": 1791772486000,
+            "endTime": 1791772561000,
+            "from": {
+              "name": "DHOBY GHAUT MRT STATION",
+              "stopId": "FERRY:NS24",
+              "stopCode": "NS24",
+              "lat": 1.2986887,
+              "lon": 103.8461228
+            },
+            "to": {
+              "name": "Destination",
+              "lat": 1.299,
+              "lon": 103.8455
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

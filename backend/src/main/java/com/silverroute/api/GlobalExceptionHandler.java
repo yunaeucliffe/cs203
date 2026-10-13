@@ -10,7 +10,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.silverroute.exception.AgentLoopLimitException;
 import com.silverroute.exception.DuplicateSavedPlaceException;
 import com.silverroute.exception.ModelAgentException;
 import com.silverroute.exception.RouteDataUnavailableException;
@@ -18,7 +17,6 @@ import com.silverroute.exception.InvalidAddressException;
 import com.silverroute.exception.AddressConfirmationRequiredException;
 import com.silverroute.exception.AddressNotFoundException;
 import com.silverroute.exception.RegistrationConflictException;
-import com.silverroute.exception.UnknownToolException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -86,11 +84,7 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), request);
     }
 
-    @ExceptionHandler({
-            ModelAgentException.class,
-            UnknownToolException.class,
-            AgentLoopLimitException.class
-    })
+    @ExceptionHandler(ModelAgentException.class)
     public ResponseEntity<ApiError> handleAgentFailure(
             RuntimeException exception,
             HttpServletRequest request) {

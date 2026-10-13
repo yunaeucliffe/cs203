@@ -15,7 +15,7 @@ public record RouteOption(String id, String summary, Integer durationMinutes, In
         reasons = List.copyOf(reasons);
         warnings = List.copyOf(warnings);
     }
-    public RouteOption enrich(Double shelter, List<RouteEvidence> evidence, List<String> warnings) {
+    public RouteOption attachConditions(Double shelter, List<RouteEvidence> evidence, List<String> warnings) {
         return new RouteOption(id, summary, durationMinutes, walkingMinutes, transfers, accessibility,
                 walkingDistanceMeters, distanceMeters, shelter, legs, routePaths, evidence, reasons, warnings);
     }
