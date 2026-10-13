@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import { searchRoutes } from '../api/routes'
 import RouteCard from '../components/RouteCard'
+import RouteDetails from '../components/RouteDetails'
 
 import {
   MapContainer,
@@ -110,6 +111,14 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const locationRequest = useRef(0)
   const previousLocation = useRef(null)
   const locationWatch = useRef(null)
+  const [viewingDetails, setViewingDetails] = useState(false)
+
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'instant',
+    })
+  }, [viewingDetails])
 
   useEffect(() => {
     return () => {
@@ -161,6 +170,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     pending.current = null
     setLoading(false)
     setResult(null)
+    setViewingDetails(false)
     setError('')
   }
 
@@ -268,477 +278,331 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
       {/* MAIN PAGE */}
       <main className="mx-auto max-w-7xl px-8 pb-10 pt-10">
 
-        {/* TWO-COLUMN LAYOUT */}
-        <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+        {viewingDetails && selectedRoute ? (
+          <RouteDetails
+            route={selectedRoute}
+            index={selectedIndex}
+            origin={result.origin}
+            destination={result.destination}
+            engine={result.engine}
+            warnings={result.warnings}
+            sources={result.sources}
+            onBack={() => setViewingDetails(false)}
+          />
+        ) : (
+          <>
 
-          {/* ====================================== */}
-          {/* LEFT SIDE */}
-          {/* ====================================== */}
+            {/* SEARCH LAYOUT */}
+            <div
+              className={
+                result
+                  ? 'grid gap-6'
+                  : 'grid gap-6 lg:grid-cols-[0.8fr_1.2fr]'
+              }
+            >
+              {/* ====================================== */}
+              {/* LEFT SIDE */}
+              {/* ====================================== */}
 
-          <section>
+              <section>
 
-            {/* SEARCH AREA */}
-            <div className="rounded-[24px] border border-[#7A7F7A]/20 bg-white p-6">
+                {/* SEARCH AREA */}
+                <div className="rounded-[24px] border border-[#7A7F7A]/20 bg-white p-6">
 
-              {/* CURRENT LOCATION */}
-              <div className="mb-5">
+                  {/* CURRENT LOCATION */}
+                  <div className="mb-5">
 
-                <label className="mb-2 block text-sm font-bold text-[#2A3439]">
-                  From
-                </label>
+                    <label className="mb-2 block text-sm font-bold text-[#2A3439]">
+                      From
+                    </label>
 
-                <div className="flex h-[62px] items-center gap-3 rounded-2xl bg-[#FAF7F0] px-4">
+                    <div className="flex h-[62px] items-center gap-3 rounded-2xl bg-[#FAF7F0] px-4">
 
-                  <LocateFixed
-                    size={21}
-                    className="shrink-0 text-[#7A7F7A]"
-                  />
+                      <LocateFixed
+                        size={21}
+                        className="shrink-0 text-[#7A7F7A]"
+                      />
 
-                  <LocationAutocomplete
-                    label="Starting point"
-                    value={originText}
-                    placeholder="Enter starting point"
-                    selectedPlace={deviceLocation || originPlace}
-                    onChange={(text) => {
-                      clearResult()
-                      locationRequest.current += 1
-                      setLocating(false)
-                      setDeviceLocation(null)
-                      setOriginPlace(null)
-                      setOriginText(text)
-                      if (locationWatch.current !== null) {
-                        navigator.geolocation.clearWatch(locationWatch.current)
-                        locationWatch.current = null
-                      }
-                    }}
-                    onSelect={(place) => {
-                      clearResult()
-                      locationRequest.current += 1
-                      if (locationWatch.current !== null) {
-                        navigator.geolocation.clearWatch(locationWatch.current)
-                        locationWatch.current = null
-                      }
-                      setLocating(false)
-                      setDeviceLocation(null)
-                      setOriginText(place.name)
-                      setOriginPlace(place)
-                    }}
-                    onSubmit={handleFindRoute}
-                    className="w-full bg-transparent text-base outline-none"
-                  />
+                      <LocationAutocomplete
+                        label="Starting point"
+                        value={originText}
+                        placeholder="Enter starting point"
+                        selectedPlace={deviceLocation || originPlace}
+                        onChange={(text) => {
+                          clearResult()
+                          locationRequest.current += 1
+                          setLocating(false)
+                          setDeviceLocation(null)
+                          setOriginPlace(null)
+                          setOriginText(text)
+                          if (locationWatch.current !== null) {
+                            navigator.geolocation.clearWatch(locationWatch.current)
+                            locationWatch.current = null
+                          }
+                        }}
+                        onSelect={(place) => {
+                          clearResult()
+                          locationRequest.current += 1
+                          if (locationWatch.current !== null) {
+                            navigator.geolocation.clearWatch(locationWatch.current)
+                            locationWatch.current = null
+                          }
+                          setLocating(false)
+                          setDeviceLocation(null)
+                          setOriginText(place.name)
+                          setOriginPlace(place)
+                        }}
+                        onSubmit={handleFindRoute}
+                        className="w-full bg-transparent text-base outline-none"
+                      />
 
+                      <button
+                        type="button"
+                        onClick={useMyLocation}
+                        disabled={locating || loading}
+                        className="shrink-0 text-sm font-semibold text-[#7A7F7A] transition hover:text-[#2A3439]"
+                      >
+                        {locating ? 'Locating…' : 'Use my location'}
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                  {/* DESTINATION */}
+                  <div>
+
+                    <label className="mb-2 block text-sm font-bold text-[#2A3439]">
+                      To
+                    </label>
+
+                    <div className="flex h-[62px] items-center gap-3 rounded-2xl bg-[#FAF7F0] px-4">
+
+                      <MapPin
+                        size={21}
+                        className="shrink-0 text-[#7A7F7A]"
+                      />
+
+                      <LocationAutocomplete
+                        label="Destination"
+                        value={destination}
+                        selectedPlace={destinationPlace}
+                        onChange={(text) => {
+                          clearResult()
+                          setDestination(text)
+                          setDestinationPlace(null)
+                        }}
+                        onSelect={(place) => {
+                          clearResult()
+                          setDestination(place.name)
+                          setDestinationPlace(place)
+                        }}
+                        onSubmit={handleFindRoute}
+                        placeholder="Enter destination, landmark or address"
+                        className="w-full bg-transparent text-base outline-none placeholder:text-[#7A7F7A]"
+                      />
+
+                    </div>
+
+                  </div>
+
+                  {/* FIND ROUTE */}
                   <button
                     type="button"
-                    onClick={useMyLocation}
-                    disabled={locating || loading}
-                    className="shrink-0 text-sm font-semibold text-[#7A7F7A] transition hover:text-[#2A3439]"
+                    onClick={handleFindRoute}
+                    disabled={loading || locating}
+                    aria-busy={loading}
+                    className="mt-5 flex h-[62px] w-full items-center justify-center gap-3 rounded-2xl bg-[#3E424B] text-lg font-semibold text-white transition hover:scale-[1.01]"
                   >
-                    {locating ? 'Locating…' : 'Use my location'}
+                    {loading ? 'Comparing routes…' : 'Find recommended routes'}
+
+                    <Navigation size={20} />
+
                   </button>
 
                 </div>
 
-              </div>
+                {!isAuthenticated && (
+                  <p className="mt-4 rounded-xl bg-amber-50 p-4 text-amber-900">
+                    Sign in to get personalized recommendations.{' '}
+                    <button type="button" onClick={onSignIn} className="font-semibold underline">Sign in</button>
+                  </p>
+                )}
+                {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
+                {loading && <p role="status" className="mt-4">Comparing routes with your saved preferences and available travel conditions…</p>}
 
-              {/* DESTINATION */}
-              <div>
+              </section>
 
-                <label className="mb-2 block text-sm font-bold text-[#2A3439]">
-                  To
-                </label>
+              {/* ====================================== */}
+              {/* RIGHT SIDE - MAP */}
+              {/* ====================================== */}
 
-                <div className="flex h-[62px] items-center gap-3 rounded-2xl bg-[#FAF7F0] px-4">
+              {!result && (
 
-                  <MapPin
-                    size={21}
-                    className="shrink-0 text-[#7A7F7A]"
-                  />
+                <section className="overflow-hidden rounded-[28px] border border-[#7A7F7A]/20">
 
-                  <LocationAutocomplete
-                    label="Destination"
-                    value={destination}
-                    selectedPlace={destinationPlace}
-                    onChange={(text) => {
-                      clearResult()
-                      setDestination(text)
-                      setDestinationPlace(null)
-                    }}
-                    onSelect={(place) => {
-                      clearResult()
-                      setDestination(place.name)
-                      setDestinationPlace(place)
-                    }}
-                    onSubmit={handleFindRoute}
-                    placeholder="Enter destination, landmark or address"
-                    className="w-full bg-transparent text-base outline-none placeholder:text-[#7A7F7A]"
-                  />
+                  <MapContainer
+                    center={[1.3521, 103.8198]}
+                    zoom={15}
+                    scrollWheelZoom={true}
+                    className="h-[650px] w-full"
+                  >
 
-                </div>
+                    {/* OneMap Singapore map */}
+                    <TileLayer
+                      url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.onemap.gov.sg/">OneMap</a> contributors | Singapore Land Authority'
+                    />
 
-              </div>
+                    <FitRoute origin={currentLocation} destination={destinationLocation} paths={routeCoordinates} />
+                    {hasCoordinates(currentLocation) && (
+                      <DirectionMarker
+                        position={[
+                          currentLocation.latitude,
+                          currentLocation.longitude,
+                        ]}
+                        heading={currentLocation.heading}
+                      />
+                    )}
 
-              {/* FIND ROUTE */}
-              <button
-                type="button"
-                onClick={handleFindRoute}
-                disabled={loading || locating}
-                aria-busy={loading}
-                className="mt-5 flex h-[62px] w-full items-center justify-center gap-3 rounded-2xl bg-[#3E424B] text-lg font-semibold text-white transition hover:scale-[1.01]"
-              >
-                {loading ? 'Comparing routes…' : 'Find recommended routes'}
+                    {showRoute && (
+                      <>
+                        {/* DESTINATION */}
+                        {hasCoordinates(destinationLocation) && (
+                          <Marker
+                            position={[destinationLocation.latitude, destinationLocation.longitude]}
+                            icon={destinationIcon}
+                          >
+                            <Popup>Destination</Popup>
+                          </Marker>
+                        )}
 
-                <Navigation size={20} />
+                        {/* BLUE ROUTE */}
+                        {routeCoordinates.length > 0 && (
+                          <>
+                            {/* White outline */}
+                            <Polyline
+                              positions={routeCoordinates}
+                              pathOptions={{
+                                color: 'white',
+                                weight: 10,
+                                opacity: 0.9,
+                                lineCap: 'round',
+                                lineJoin: 'round',
+                              }}
+                            />
 
-              </button>
+                            {/* Main route */}
+                            <Polyline
+                              positions={routeCoordinates}
+                              pathOptions={{
+                                color: '#2F6FED',
+                                weight: 6,
+                                opacity: 0.95,
+                                lineCap: 'round',
+                                lineJoin: 'round',
+                              }}
+                            />
+                          </>
+                        )}
+                      </>
+                    )}
+
+                  </MapContainer>
+
+                </section>
+
+              )}
 
             </div>
+            {/* ROUTE COMPARISON CARDS */}
 
-            {!isAuthenticated && (
-              <p className="mt-4 rounded-xl bg-amber-50 p-4 text-amber-900">
-                Sign in to get personalized recommendations.{' '}
-                <button type="button" onClick={onSignIn} className="font-semibold underline">Sign in</button>
-              </p>
-            )}
-            {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
-            {loading && <p role="status" className="mt-4">Comparing routes with your saved preferences and available travel conditions…</p>}
-            {result && (
-              <div className="mt-4">
-                <p className="mb-3 text-sm">{result.origin.name} → {result.destination.name}</p>
-                <h2 className="font-semibold">{result.routes.length === 1 ? 'Your recommended route' : `Your top ${result.routes.length} routes`}</h2>
-                <p className="mt-1 text-sm text-[#555C60]">
-                  {result.engine?.startsWith('mock')
-                    ? 'Demo recommendations using sample data. Not for navigation.'
-                    : 'Ranked for your saved walking and shelter preferences.'}
-                </p>
-                <div className="mt-3 grid gap-3" aria-label="Ranked route choices">
-                  {result.routes.map((route, index) => (
-                    <button key={route.id} type="button" aria-pressed={selectedIndex === index}
-                      onClick={() => setSelectedIndex(index)}
-                      className={`rounded-2xl border-2 p-4 text-left transition ${selectedIndex === index
-                        ? 'border-[#3E424B] bg-[#DCE7D2]' : 'border-[#7A7F7A]/30 bg-white hover:border-[#3E424B]'}`}>
-                      <span className="block font-bold">{index === 0 ? '1 · Recommended for you' : `${index + 1} · Alternative route`}</span>
-                      <span className="mt-1 block text-sm">
-                        {route.durationMinutes == null ? 'Time unavailable' : `${route.durationMinutes} min`}
-                        {' · '}{route.transfers == null ? 'Transfers unavailable' : `${route.transfers} transfer${route.transfers === 1 ? '' : 's'}`}
-                      </span>
-                      <span className="mt-1 block text-sm">{route.reasons?.[0] || route.summary}</span>
-                      {route.warnings?.filter(warning => warning.startsWith('MRT ') || warning.startsWith('LTA TrainServiceAlerts:')).map((warning, noticeIndex) => (
-                        <span key={noticeIndex} className="mt-2 block rounded-lg bg-amber-50 p-2 text-sm text-amber-900">{warning}</span>
-                      ))}
-                    </button>
-                  ))}
-                </div>
-                {result.warnings?.length > 0 && (
-                  <details className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
-                    <summary className="cursor-pointer font-semibold">Travel data notices ({result.warnings.length})</summary>
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
-                      {result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
-                    </ul>
-                  </details>
-                )}
+            {
+              result && (
 
-              </div>
-            )}
-
-            {/* ====================================== */}
-            {/* ROUTE RESULT */}
-            {/* Only appears after Find route is clicked */}
-            {/* ====================================== */}
-
-            {showRoute && (
-
-              <div className="mt-6 rounded-[24px] border-2 border-[#3E424B]/80 bg-[#DCE7D2] p-6">
-
-                {/* ROUTE HEADER */}
-                <div>
-
-                  <p className="text-xs font-extrabold tracking-[0.14em] text-[#7A7F7A]">
-                    {selectedIndex === 0 ? 'RECOMMENDED ROUTE' : `ALTERNATIVE ROUTE ${selectedIndex + 1}`}
-                  </p>
+                <section className="mt-8">
 
                   <h2
-                    className="mt-2 text-4xl text-[#2A3439]"
+
+                    className="text-3xl text-[#2A3439]"
+
                     style={{ fontFamily: '"DM Serif Display", serif' }}
+
                   >
-                    {selectedRoute.durationMinutes == null ? 'Time unavailable' : `${selectedRoute.durationMinutes} min`}
+
+                    Your recommended routes
+
                   </h2>
 
-                  <p className="mt-1 text-[#7A7F7A]">
-                    {selectedRoute.distanceMeters == null ? 'Distance unavailable' : `${(selectedRoute.distanceMeters / 1000).toFixed(1)} km total journey`}
-                  </p>
+                  {/* <p className="mt-2 text-[#7A7F7A]">
 
-                </div>
+                {result.origin.name} → {result.destination.name}
 
-                <p className="mt-6 font-semibold">{selectedRoute.summary}</p>
+              </p>
 
-                {selectedRoute.reasons?.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="font-semibold">Why this route suits you</h3>
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
-                      {selectedRoute.reasons.map((reason, index) => <li key={index}>{reason}</li>)}
-                    </ul>
-                  </div>
-                )}
-                {selectedRoute.warnings?.length > 0 && (
-                  <div className="mt-4 rounded-xl bg-white/60 p-4 text-sm">
-                    <h3 className="font-semibold">Before you travel</h3>
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
-                      {selectedRoute.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
-                    </ul>
-                  </div>
-                )}
+              <p className="mt-2 text-sm text-[#555C60]">
 
-                {/* ROUTE INFORMATION */}
-                <div className="mt-6 divide-y divide-[#7A7F7A]/20 border-y border-[#7A7F7A]/20">
+                {result.engine?.startsWith('mock')
 
-                  {/* SHELTERED */}
-                  <div className="flex items-center justify-between py-4">
+                  ? 'Demo recommendations using sample data. Not for navigation.'
 
-                    <div className="flex items-center gap-3">
-                      <Umbrella size={20} />
+                  : 'Ranked for your saved walking and shelter preferences.'}
 
-                      <span className="font-medium">
-                        Estimated sheltered walking
-                      </span>
-                    </div>
+              </p> */}
 
-                    <span className="font-semibold">
-                      {selectedRoute.estimatedShelteredWalkingMeters == null
-                        ? 'Unavailable' : `${Math.round(selectedRoute.estimatedShelteredWalkingMeters)} m`}
-                    </span>
+                  <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-3">
 
-                  </div>
+                    {result.routes.map((route, index) => (
 
-                  {/* WALKING */}
-                  <div className="flex items-center justify-between py-4">
-
-                    <div className="flex items-center gap-3">
-                      <Footprints size={20} />
-
-                      <span className="font-medium">
-                        Walking
-                      </span>
-                    </div>
-
-                    <span className="font-semibold">
-                      {selectedRoute.walkingMinutes == null ? 'Time unavailable' : `${selectedRoute.walkingMinutes} min`}
-                      {selectedRoute.walkingDistanceMeters != null && ` · ${Math.round(selectedRoute.walkingDistanceMeters)} m`}
-                    </span>
-
-                  </div>
-
-                  {/* TRANSFERS */}
-                  <div className="flex items-center justify-between py-4">
-
-                    <div className="flex items-center gap-3">
-                      <Bus size={20} />
-
-                      <span className="font-medium">
-                        Transfers
-                      </span>
-                    </div>
-
-                    <span className="font-semibold">
-                      {selectedRoute.transfers ?? 'Unavailable'}
-                    </span>
-
-                  </div>
-
-                  {/* ACCESSIBILITY */}
-                  <div className="flex items-center justify-between py-4">
-
-                    <div className="flex items-center gap-3">
-                      <Accessibility size={20} />
-
-                      <span className="font-medium">
-                        Accessibility
-                      </span>
-                    </div>
-
-                    <span className="text-right font-semibold">
-                      Not verified
-                    </span>
-
-                  </div>
-
-                </div>
-
-                {routeCoordinates.length === 0 && (
-                  <p className="mt-4 text-sm">Map geometry is unavailable for this route.</p>
-                )}
-
-              </div>
-
-            )}
-
-          </section>
-
-          {/* ====================================== */}
-          {/* RIGHT SIDE - MAP */}
-          {/* ====================================== */}
-
-          <section className="overflow-hidden rounded-[28px] border border-[#7A7F7A]/20">
-
-            <MapContainer
-              center={[1.3521, 103.8198]}
-              zoom={15}
-              scrollWheelZoom={true}
-              className="h-[650px] w-full"
-            >
-
-              {/* OneMap Singapore map */}
-              <TileLayer
-                url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.onemap.gov.sg/">OneMap</a> contributors | Singapore Land Authority'
-              />
-
-              <FitRoute origin={currentLocation} destination={destinationLocation} paths={routeCoordinates} />
-              {hasCoordinates(currentLocation) && (
-                <DirectionMarker
-                  position={[
-                    currentLocation.latitude,
-                    currentLocation.longitude,
-                  ]}
-                  heading={currentLocation.heading}
-                />
-              )}
-
-              {showRoute && (
-                <>
-                  {/* DESTINATION */}
-                  {hasCoordinates(destinationLocation) && (
-                    <Marker
-                      position={[destinationLocation.latitude, destinationLocation.longitude]}
-                      icon={destinationIcon}
-                    >
-                      <Popup>Destination</Popup>
-                    </Marker>
-                  )}
-
-                  {/* BLUE ROUTE */}
-                  {routeCoordinates.length > 0 && (
-                    <>
-                      {/* White outline */}
-                      <Polyline
-                        positions={routeCoordinates}
-                        pathOptions={{
-                          color: 'white',
-                          weight: 10,
-                          opacity: 0.9,
-                          lineCap: 'round',
-                          lineJoin: 'round',
+                      <RouteCard
+                        key={route.id}
+                        route={route}
+                        index={index}
+                        onClick={() => {
+                          setSelectedIndex(index)
+                          setViewingDetails(true)
                         }}
                       />
 
-                      {/* Main route */}
-                      <Polyline
-                        positions={routeCoordinates}
-                        pathOptions={{
-                          color: '#2F6FED',
-                          weight: 6,
-                          opacity: 0.95,
-                          lineCap: 'round',
-                          lineJoin: 'round',
-                        }}
-                      />
-                    </>
+                    ))}
+
+                  </div>
+
+                  {/* TRAVEL WARNINGS */}
+
+                  {result.warnings?.length > 0 && (
+
+                    <details className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
+
+                      <summary className="cursor-pointer font-semibold">
+
+                        Travel data notices ({result.warnings.length})
+
+                      </summary>
+
+                      <ul className="mt-2 list-disc space-y-1 pl-5">
+
+                        {result.warnings.map((warning, index) => (
+
+                          <li key={index}>{warning}</li>
+
+                        ))}
+
+                      </ul>
+
+                    </details>
+
                   )}
-                </>
-              )}
 
-            </MapContainer>
+                </section>
 
-          </section>
-
-        </div>
-        {/* ROUTE COMPARISON CARDS */}
-
-        {result && (
-
-          <section className="mt-8">
-
-            <h2
-
-              className="text-3xl text-[#2A3439]"
-
-              style={{ fontFamily: '"DM Serif Display", serif' }}
-
-            >
-
-              Your recommended routes
-
-            </h2>
-
-            <p className="mt-2 text-[#7A7F7A]">
-
-              {result.origin.name} → {result.destination.name}
-
-            </p>
-
-            <p className="mt-2 text-sm text-[#555C60]">
-
-              {result.engine?.startsWith('mock')
-
-                ? 'Demo recommendations using sample data. Not for navigation.'
-
-                : 'Ranked for your saved walking and shelter preferences.'}
-
-            </p>
-
-            <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-3">
-
-              {result.routes.map((route, index) => (
-
-                <RouteCard
-
-                  key={route.id}
-
-                  route={route}
-
-                  index={index}
-
-                  selected={selectedIndex === index}
-
-                  onClick={() => setSelectedIndex(index)}
-
-                />
-
-              ))}
-
-            </div>
-
-            {/* TRAVEL WARNINGS */}
-
-            {result.warnings?.length > 0 && (
-
-              <details className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
-
-                <summary className="cursor-pointer font-semibold">
-
-                  Travel data notices ({result.warnings.length})
-
-                </summary>
-
-                <ul className="mt-2 list-disc space-y-1 pl-5">
-
-                  {result.warnings.map((warning, index) => (
-
-                    <li key={index}>{warning}</li>
-
-                  ))}
-
-                </ul>
-
-              </details>
-
-            )}
-
-          </section>
-
+              )
+            }
+          </>
         )}
-      </main>
+      </main >
 
-    </div>
+    </div >
   )
 }
 
