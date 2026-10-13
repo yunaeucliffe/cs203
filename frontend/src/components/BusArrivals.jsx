@@ -55,16 +55,22 @@ export default function BusArrivals({ route, live = true }) {
   if (!buses.length) return null
   return (
     <section className="mt-5 rounded-xl bg-white/70 p-4" aria-label="Bus arrival estimates">
-      <h3 className="font-semibold">Bus arrival estimates</h3>
+      <h3 className="font-semibold">Bus arrivals for your journey</h3>
+      <p className="mt-1 text-sm">Only arrivals at or after your route's estimated stop arrival are shown. These estimates follow your planned journey.</p>
       {live && <p className="mt-1 text-xs">Updates automatically every 20 seconds while this page is visible.</p>}
-      {buses.map(({ leg, index, evidence, arrivals, stale }) => (
+      {buses.map(({ leg, index, evidence, arrivals, stale, expectedAtStop, readyAt, noCatchableArrivals }) => (
         <div key={index} className="mt-4 border-t border-[#7A7F7A]/20 pt-3">
           <p className="font-semibold">Bus {leg.service || '(service unavailable)'} at {leg.from?.name || 'boarding stop'}{evidence?.details?.busStopCode && ` (${evidence.details.busStopCode})`}</p>
+          {expectedAtStop !== null && <p className="mt-1 text-sm">Estimated at this stop: {time(expectedAtStop)} SGT, based on your route.</p>}
           {arrivals.length ? (
             <ul className="mt-2 space-y-1 text-sm">
-              {arrivals.map(arrival => <li key={arrival}>Estimated {time(arrival)} SGT · {Math.ceil((Date.parse(arrival) - now) / 60000)} min</li>)}
+              {arrivals.map(arrival => <li key={arrival}>Estimated {time(arrival)} SGT · about {Math.ceil((Date.parse(arrival) - readyAt) / 60000)} min {expectedAtStop > now ? 'wait after reaching the stop' : 'from now, if you have reached the stop'}</li>)}
             </ul>
-          ) : <p className="mt-2 text-sm">Arrival information unavailable.{stale ? ' Estimates have expired.' : ''}{live ? ' Retrying automatically.' : ''}</p>}
+          ) : <p className="mt-2 text-sm">{expectedAtStop === null
+            ? 'Journey timing unavailable. Bus times are hidden because we cannot estimate when you will reach this stop.'
+            : noCatchableArrivals
+              ? 'No live arrivals are currently available at or after your estimated stop arrival. Later buses may not yet appear in the live data.'
+              : 'Arrival information unavailable.'}{stale ? ' Estimates have expired.' : ''}{live ? ' Updates automatically.' : ''}</p>}
           {Number.isFinite(Date.parse(evidence?.retrievedAt)) && <p className="mt-1 text-xs">Retrieved {time(evidence.retrievedAt)} SGT</p>}
         </div>
       ))}
