@@ -12,14 +12,14 @@ import com.silverroute.exception.RouteDataUnavailableException;
 @Service
 public class RouteDataAggregatorService {
     private final RouteDataTool routes;
-    private final RouteEnrichmentService enrichment;
+    private final RouteConditionsService conditions;
     private final Clock clock;
     @org.springframework.beans.factory.annotation.Autowired
-    public RouteDataAggregatorService(RouteDataTool routes,RouteEnrichmentService enrichment) {
-        this(routes,enrichment,Clock.systemUTC());
+    public RouteDataAggregatorService(RouteDataTool routes,RouteConditionsService conditions) {
+        this(routes,conditions,Clock.systemUTC());
     }
-    public RouteDataAggregatorService(RouteDataTool routes,RouteEnrichmentService enrichment,Clock clock) {
-        this.routes=routes; this.enrichment=enrichment; this.clock=clock;
+    public RouteDataAggregatorService(RouteDataTool routes,RouteConditionsService conditions,Clock clock) {
+        this.routes=routes; this.conditions=conditions; this.clock=clock;
     }
     public AggregatedTrip aggregate(TripRequest request,SavedPreferences preferences) {
         var localTime=OneMapService.singaporeDeparture(request.departureTime());
@@ -32,19 +32,19 @@ public class RouteDataAggregatorService {
                 && !request.departureTime().toInstant().isBefore(clock.instant().minusSeconds(900));
         List<String> warnings=new ArrayList<>(result.warnings());
         if(!live) warnings.add("Live bus arrivals, rainfall and crowding are excluded: departure is outside the current 15-minute window; future or historical conditions are unavailable.");
-        List<RouteOption> enriched=new ArrayList<>();
+        List<RouteOption> routesWithConditions=new ArrayList<>();
         Map<String,EvidenceCache.Snapshot> requestCache=new HashMap<>();
         for(var route:result.routes()) {
-            if(MockRouteDataTool.NAME.equals(result.source())) enriched.add(route);
-            else enriched.add(enrichment.enrich(route,live,requestCache));
+            if(MockRouteDataTool.NAME.equals(result.source())) routesWithConditions.add(route);
+            else routesWithConditions.add(conditions.attachConditions(route,live,requestCache));
         }
         Set<String> sources=new LinkedHashSet<>(List.of(result.source()));
-        for(var route:enriched) {
+        for(var route:routesWithConditions) {
             warnings.addAll(route.warnings());
             route.evidence().stream().filter(e -> "available".equals(e.availability())).map(RouteEvidence::source).forEach(sources::add);
         }
         var context=new RouteContext(new RouteContext.Trip(request.origin(),request.destination(),localTime.toString()),
-                preferences,enriched.stream().map(RouteContext.Candidate::from).toList(),List.copyOf(new LinkedHashSet<>(warnings)));
-        return new AggregatedTrip(context,List.copyOf(enriched),List.copyOf(sources));
+                preferences,routesWithConditions.stream().map(RouteContext.Candidate::from).toList(),List.copyOf(new LinkedHashSet<>(warnings)));
+        return new AggregatedTrip(context,List.copyOf(routesWithConditions),List.copyOf(sources));
     }
 }

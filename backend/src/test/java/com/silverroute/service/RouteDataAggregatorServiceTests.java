@@ -13,31 +13,31 @@ import com.silverroute.exception.RouteDataUnavailableException;
 
 class RouteDataAggregatorServiceTests {
     @Test void normalizesTimeAndCollectsBeforeRankingWithFutureWarning() throws Exception {
-        var tool=mock(RouteDataTool.class); var enrichment=mock(RouteEnrichmentService.class);
+        var tool=mock(RouteDataTool.class); var conditions=mock(RouteConditionsService.class);
         var clock=Clock.fixed(Instant.parse("2026-09-28T00:00:00Z"),ZoneOffset.UTC);
         var route=TestRoutes.route();
         when(tool.execute(any())).thenReturn(new ToolExecutionResult("OneMap",List.of(route),List.of()));
-        when(enrichment.enrich(eq(route),eq(false),anyMap())).thenReturn(route);
+        when(conditions.attachConditions(eq(route),eq(false),anyMap())).thenReturn(route);
         var request=new TripRequest("A","B",OffsetDateTime.parse("2026-09-28T01:00:00Z"));
-        var result=new RouteDataAggregatorService(tool,enrichment,clock).aggregate(request,new SavedPreferences("Slow","Poor",true));
+        var result=new RouteDataAggregatorService(tool,conditions,clock).aggregate(request,new SavedPreferences("Slow","Poor",true));
         assertThat(result.context().trip().departureTime()).isEqualTo("2026-09-28T09:00+08:00");
         assertThat(result.context().dataWarnings()).anyMatch(w -> w.contains("future or historical"));
         verify(tool).execute(new TripRequest("A","B",OffsetDateTime.parse("2026-09-28T09:00:00+08:00")));
-        verify(enrichment).enrich(eq(route),eq(false),anyMap());
+        verify(conditions).attachConditions(eq(route),eq(false),anyMap());
     }
-    @Test void noCandidatesFailsWithoutEnrichment() throws Exception {
-        var tool=mock(RouteDataTool.class); var enrichment=mock(RouteEnrichmentService.class);
+    @Test void noCandidatesFailsWithoutConditions() throws Exception {
+        var tool=mock(RouteDataTool.class); var conditions=mock(RouteConditionsService.class);
         when(tool.execute(any())).thenReturn(new ToolExecutionResult("OneMap",List.of(),List.of()));
-        assertThatThrownBy(() -> new RouteDataAggregatorService(tool,enrichment).aggregate(
+        assertThatThrownBy(() -> new RouteDataAggregatorService(tool,conditions).aggregate(
                 new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal","Moderate",false)))
                 .isInstanceOf(RouteDataUnavailableException.class);
-        verifyNoInteractions(enrichment);
+        verifyNoInteractions(conditions);
     }
-    @Test void explicitMockProfileDataNeverCallsLiveEnrichment() {
-        var enrichment=mock(RouteEnrichmentService.class);
-        var result=new RouteDataAggregatorService(new MockRouteDataTool(),enrichment).aggregate(
+    @Test void explicitMockProfileDataNeverCallsLiveConditions() {
+        var conditions=mock(RouteConditionsService.class);
+        var result=new RouteDataAggregatorService(new MockRouteDataTool(),conditions).aggregate(
                 new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal","Moderate",false));
         assertThat(result.routes()).hasSize(3);
-        verifyNoInteractions(enrichment);
+        verifyNoInteractions(conditions);
     }
 }

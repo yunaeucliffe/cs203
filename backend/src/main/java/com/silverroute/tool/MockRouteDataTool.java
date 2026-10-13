@@ -9,8 +9,6 @@ import com.silverroute.api.*;
 @Profile("mock")
 public class MockRouteDataTool implements RouteDataTool {
     public static final String NAME = "mock-route-data";
-    public String name() { return NAME; }
-    public String description() { return "Explicit demo routes; never live navigation data"; }
     public ToolExecutionResult execute(TripRequest request) {
         return new ToolExecutionResult(NAME, List.of(route("route-1",32,5,0),
                 route("route-2",29,12,1), route("route-3",38,3,1)), List.of("Mock data; not for navigation"));
