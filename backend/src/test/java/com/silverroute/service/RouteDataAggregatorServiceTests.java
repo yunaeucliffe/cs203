@@ -19,7 +19,7 @@ class RouteDataAggregatorServiceTests {
         when(tool.execute(any())).thenReturn(new ToolExecutionResult("OneMap",List.of(route),List.of()));
         when(conditions.attachConditions(eq(route),eq(false),anyMap())).thenReturn(route);
         var request=new TripRequest("A","B",OffsetDateTime.parse("2026-09-28T01:00:00Z"));
-        var result=new RouteDataAggregatorService(tool,conditions,clock).aggregate(request,new SavedPreferences("Slow","Poor",true));
+        var result=new RouteDataAggregatorService(tool,conditions,clock).aggregate(request,new SavedPreferences("Slow",80, 80));
         assertThat(result.context().trip().departureTime()).isEqualTo("2026-09-28T09:00+08:00");
         assertThat(result.context().dataWarnings()).anyMatch(w -> w.contains("future or historical"));
         verify(tool).execute(new TripRequest("A","B",OffsetDateTime.parse("2026-09-28T09:00:00+08:00")));
@@ -29,14 +29,14 @@ class RouteDataAggregatorServiceTests {
         var tool=mock(RouteDataTool.class); var conditions=mock(RouteConditionsService.class);
         when(tool.execute(any())).thenReturn(new ToolExecutionResult("OneMap",List.of(),List.of()));
         assertThatThrownBy(() -> new RouteDataAggregatorService(tool,conditions).aggregate(
-                new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal","Moderate",false)))
+                new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal",50, 20)))
                 .isInstanceOf(RouteDataUnavailableException.class);
         verifyNoInteractions(conditions);
     }
     @Test void explicitMockProfileDataNeverCallsLiveConditions() {
         var conditions=mock(RouteConditionsService.class);
         var result=new RouteDataAggregatorService(new MockRouteDataTool(),conditions).aggregate(
-                new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal","Moderate",false));
+                new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal",50, 20));
         assertThat(result.routes()).hasSize(3);
         verifyNoInteractions(conditions);
     }

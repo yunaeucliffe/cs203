@@ -28,14 +28,16 @@ class RouteRecommendationSecurityTests {
     @Configuration @EnableWebMvc @EnableWebSecurity
     @Import({SecurityConfig.class,RouteRecommendationController.class,GlobalExceptionHandler.class})
     static class Config {
+        @Bean com.silverroute.service.RouteChoiceService choices() { return mock(com.silverroute.service.RouteChoiceService.class); }
         @Bean RouteRecommendationAgent agent() { return mock(RouteRecommendationAgent.class); }
     }
     @Autowired WebApplicationContext context;
     @Autowired RouteRecommendationAgent agent;
+    @Autowired com.silverroute.service.RouteChoiceService choices;
     MockMvc mvc;
     String body="{\"origin\":\"A\",\"destination\":\"B\",\"departureTime\":\"2026-09-28T08:00:00+08:00\"}";
     @BeforeEach void setup() {
-        reset(agent); mvc=MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        reset(agent,choices); mvc=MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
     }
     @Test void anonymousRequestWithCsrfIsRejected() throws Exception {
         mvc.perform(post("/api/route-recommendations").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body))
@@ -66,5 +68,40 @@ class RouteRecommendationSecurityTests {
         mvc.perform(post("/api/route-recommendations").with(user("alice")).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content(body.replace("\"origin\":\"A\"","\"origin\":\"\""))).andExpect(status().isBadRequest());
         verifyNoInteractions(agent);
+    }
+
+    @Test void choiceRequiresAuthenticationAndCsrfAndUsesSessionIdentity() throws Exception {
+        String id=java.util.UUID.randomUUID().toString();
+        String path="/api/route-recommendations/"+id+"/choice";
+        mvc.perform(post(path).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"routeId\":\"alt\",\"choiceVersion\":0}"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post(path).with(user("alice")).contentType(MediaType.APPLICATION_JSON).content("{\"routeId\":\"alt\",\"choiceVersion\":0}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(choices);
+        mvc.perform(post(path).with(user("alice")).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"routeId\":\"alt\",\"choiceVersion\":0}"))
+                .andExpect(status().isOk());
+        verify(choices).choose("alice",java.util.UUID.fromString(id),"alt",0);
+    }
+
+    @Test void malformedChoiceIdIsBadRequest() throws Exception {
+        mvc.perform(post("/api/route-recommendations/not-a-uuid/choice").with(user("alice")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"routeId\":\"alt\",\"choiceVersion\":0}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(choices);
+    }
+
+    @Test void undoRequiresAuthenticationCsrfAndConfirmedVersion() throws Exception {
+        String id=java.util.UUID.randomUUID().toString();
+        String path="/api/route-recommendations/"+id+"/choice/undo";
+        mvc.perform(post(path).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"choiceVersion\":1}"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post(path).with(user("alice")).contentType(MediaType.APPLICATION_JSON).content("{\"choiceVersion\":1}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(path).with(user("alice")).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"choiceVersion\":0}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(choices);
+        mvc.perform(post(path).with(user("alice")).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"choiceVersion\":1}"))
+                .andExpect(status().isOk());
+        verify(choices).undo("alice",java.util.UUID.fromString(id),1);
     }
 }

@@ -40,16 +40,15 @@ public class ProfileService {
             return Optional.empty();
         }
 
-        Optional<UserPreference> preference = preferenceRepository.findByUserId(user.get().getId());
+        Optional<UserPreference> preference = preferenceRepository.lockByUserId(user.get().getId());
         if (preference.isEmpty()) {
             return Optional.empty();
         }
 
         UserPreference foundPreference = preference.get();
-        foundPreference.update(
-                request.walkingSpeed(),
-                request.walkingTolerance(),
-                request.preferSheltered());
+        foundPreference.resetLearning(request.automaticLearning());
+        foundPreference.updatePriorities(request.minimizeWalkingPriority(), request.shelterPriority());
+        foundPreference.updateWalkingSpeed(request.walkingSpeed());
         preferenceRepository.save(foundPreference);
 
         return Optional.of(toResponse(user.get(), foundPreference));
@@ -68,7 +67,6 @@ public class ProfileService {
                 user.getUsername(),
                 user.getEmail(),
                 preference.getWalkingSpeed(),
-                preference.getWalkingTolerance(),
-                preference.isPreferSheltered());
+                preference.getMinimizeWalkingPriority(), preference.getShelterPriority(), preference.isAutomaticLearning());
     }
 }

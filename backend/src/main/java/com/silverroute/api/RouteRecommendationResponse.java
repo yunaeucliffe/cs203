@@ -9,5 +9,5 @@ public record RouteRecommendationResponse(
         List<String> reasons,
         List<String> warnings,
         List<String> sources,
-        String engine) {
+        String engine, java.util.UUID recommendationId) {
 }

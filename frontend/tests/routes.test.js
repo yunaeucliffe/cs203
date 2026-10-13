@@ -1,6 +1,6 @@
 import { afterEach, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { searchRoutes, searchLocation } from '../src/api/routes.js'
+import { searchRoutes, searchLocation, chooseRoute, undoRouteChoice } from '../src/api/routes.js'
 
 const originalFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = originalFetch })
@@ -81,4 +81,42 @@ test('place names go directly to recommendations without separate geocoding', as
   const result = await searchRoutes({ name: 'Jurong East MRT' }, { name: 'Hospital' })
   assert.equal(result.routes.length, 1)
   assert.equal(calls.length, 2)
+})
+
+
+test('confirmed choices send only identifiers with authentication, CSRF and cancellation', async () => {
+  const signal = new AbortController().signal
+  let choices = 0
+  globalThis.fetch = async (url, options) => {
+    if (url.endsWith('/csrf')) return ok({ token: 'token' })
+    choices++
+    assert.equal(new URL(url).pathname, '/api/route-recommendations/offer-1/choice')
+    assert.equal(options.method, 'POST')
+    assert.equal(options.credentials, 'include')
+    assert.equal(options.headers['X-XSRF-TOKEN'], 'token')
+    assert.equal(options.signal, signal)
+    assert.deepEqual(JSON.parse(options.body), { routeId: 'alt', choiceVersion: 0 })
+    return ok({ routeId: 'alt', preferencesUpdated: true })
+  }
+  assert.equal((await chooseRoute('offer-1', 'alt', signal)).preferencesUpdated, true)
+  assert.equal(choices, 1)
+})
+
+test('undo uses CSRF and the confirmed version, and reselection sends the returned version', async () => {
+  const signal = new AbortController().signal
+  const calls = []
+  globalThis.fetch = async (url, options) => {
+    if (url.endsWith('/csrf')) return ok({ token: 'token' })
+    assert.equal(options.signal, signal)
+    assert.equal(options.credentials, 'include')
+    assert.equal(options.headers['X-XSRF-TOKEN'], 'token')
+    calls.push({ path: new URL(url).pathname, body: JSON.parse(options.body) })
+    return ok({ choiceVersion: url.endsWith('/undo') ? 2 : 3 })
+  }
+  const undone = await undoRouteChoice('offer-1', 1, signal)
+  await chooseRoute('offer-1', 'best', signal, undone.choiceVersion)
+  assert.deepEqual(calls, [
+    { path: '/api/route-recommendations/offer-1/choice/undo', body: { choiceVersion: 1 } },
+    { path: '/api/route-recommendations/offer-1/choice', body: { routeId: 'best', choiceVersion: 2 } },
+  ])
 })

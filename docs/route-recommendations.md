@@ -59,7 +59,7 @@ Adjust the import path for the consuming file. Log in first using the existing s
 | originCoordinates / destinationCoordinates | Optional `{ latitude, longitude }` | Use resolved coordinates or GPS; supplied coordinates take precedence over geocoding the display name |
 | departureTime | ISO 8601 timestamp with offset | Required; UTC is accepted and converted to Singapore time |
 
-Do not send user ID, email, walking limits or preferences. Preferences come from the authenticated profile (`walkingSpeed`, `walkingTolerance`, `preferSheltered`). The old `preferences` request object is no longer part of the contract. The backend does not map qualitative tolerance to invented numerical limits.
+Do not send user ID, email, walking limits or preferences. Preferences come from the authenticated profile (`walkingSpeed`, `minimizeWalkingPriority`, `shelterPriority`). The old `preferences` request object is no longer part of the contract. Priority scores express importance, not physical ability or numerical walking limits.
 
 ### Response
 
@@ -79,11 +79,11 @@ Do not send user ID, email, walking limits or preferences. Preferences come from
     "legs": [],
     "routePaths": [],
     "evidence": [],
-    "reasons": ["Short walking distance suits your walking tolerance."],
+    "reasons": ["Short walking distance suits your preference for less walking."],
     "warnings": ["Accessibility has not been verified."]
   },
   "alternatives": [],
-  "reasons": ["Short walking distance suits your walking tolerance."],
+  "reasons": ["Short walking distance suits your preference for less walking."],
   "warnings": ["Accessibility has not been verified."],
   "sources": ["onemap-route-data"],
   "engine": "openai:configured-model"
@@ -137,8 +137,8 @@ Fixtures in `src/test/resources/routes` are synthetic provider-shaped cases. Cre
 
 The opt-in `RouteRankingLiveEvaluationTests` makes paid OpenAI requests and is disabled by default. Export `RUN_OPENAI_EVAL=true`, `OPENAI_API_KEY`, and `OPENAI_MODEL`, then run `./mvnw test -Dtest=RouteRankingLiveEvaluationTests`. This evaluates preference scenarios separately from API parsing/validation. Inspect the report in `target/route-ranking-evaluation.json` for:
 
-1. Poor tolerance + Slow: less walking outranks a slightly faster itinerary with substantially more walking.
-2. Prefer sheltered: with equal journey/walking metrics, the more sheltered option ranks first.
+1. High walking priority + Slow: less walking outranks a slightly faster itinerary with substantially more walking.
+2. High shelter priority: with equal journey/walking metrics, the more sheltered option ranks first.
 3. Unknown accessibility/shelter: explanations must not claim verified access or guaranteed shelter.
 
 Review each explanation against the supplied evidence, including units, stale data, and uncertainty. Repeat across representative Singapore trips and compare model changes against this baseline; passing structural tests alone is not evidence of ranking quality.

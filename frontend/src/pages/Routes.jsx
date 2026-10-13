@@ -1,3 +1,4 @@
+import RouteChoice from '../components/RouteChoice'
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import { searchRoutes } from '../api/routes'
@@ -473,6 +474,8 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                 </div>
 
                 <p className="mt-6 font-semibold">{selectedRoute.summary}</p>
+                {result.recommendationId && <RouteChoice key={result.recommendationId}
+                  recommendationId={result.recommendationId} routeId={selectedRoute.id} />}
 
                 {selectedRoute.reasons?.length > 0 && (
                   <div className="mt-4">

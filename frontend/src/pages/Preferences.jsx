@@ -1,3 +1,4 @@
+import PrioritySettings from '../components/PrioritySettings'
 import { useState } from 'react'
 import { API_URL, getCsrfToken } from '../api'
 import { PreferenceSelector } from '../components/PreferenceComponents'
@@ -5,8 +6,11 @@ import { PreferenceSelector } from '../components/PreferenceComponents'
 function Preferences({ onComplete }) {
     const [formValues, setFormValues] = useState({
         walkingSpeed: 'Normal',
-        walkingTolerance: 'Moderate',
-        preferSheltered: false,
+
+
+    minimizeWalkingPriority: 50,
+    shelterPriority: 20,
+    automaticLearning: true,
     })
 
     const [error, setError] = useState('')
@@ -77,33 +81,7 @@ function Preferences({ onComplete }) {
 
                     <div className="my-8 border-t border-[#7A7F7A]/15" />
 
-                    <PreferenceSelector
-                        title="Walking tolerance"
-                        description="How would you describe your walking tolerance?"
-                        options={['Poor', 'Moderate', 'Good']}
-                        value={formValues.walkingTolerance}
-                        onChange={(value) =>
-                            setFormValues({
-                                ...formValues,
-                                walkingTolerance: value,
-                            })
-                        }
-                    />
-
-                    <div className="my-8 border-t border-[#7A7F7A]/15" />
-
-                    <PreferenceSelector
-                        title="Sheltered paths"
-                        description="Would you prefer sheltered paths where possible?"
-                        options={['Yes', 'No']}
-                        value={formValues.preferSheltered ? 'Yes' : 'No'}
-                        onChange={(value) =>
-                            setFormValues({
-                                ...formValues,
-                                preferSheltered: value === 'Yes',
-                            })
-                        }
-                    />
+                    <PrioritySettings values={formValues} onChange={setFormValues} />
 
                     {error && (
                         <p role="alert" className="mt-6 text-center text-red-700">

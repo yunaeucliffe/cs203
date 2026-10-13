@@ -17,13 +17,13 @@ class RouteRankingLiveEvaluationTests {
         assertThat(model).as("Export OPENAI_MODEL for paid live evaluation").isNotBlank();
         var gateway=new OpenAiModelGateway(key,model);
         List<Map<String,Object>> report=new ArrayList<>();
-        var lowWalking=new RouteContext(TestRoutes.trip().context().trip(),new SavedPreferences("Slow","Poor",false),
+        var lowWalking=new RouteContext(TestRoutes.trip().context().trip(),new SavedPreferences("Slow",80, 20),
                 List.of(candidate("short-walk",30,2,100.0,null),candidate("fast",27,15,1100.0,null),candidate("middle",32,8,600.0,null)),
                 List.of("All accessibility and shelter are unknown; these are synthetic evaluation routes"));
-        var preferShelter=new RouteContext(TestRoutes.trip().context().trip(),new SavedPreferences("Normal","Moderate",true),
+        var preferShelter=new RouteContext(TestRoutes.trip().context().trip(),new SavedPreferences("Normal",50, 80),
                 List.of(candidate("covered",30,5,300.0,280.0),candidate("exposed",30,5,300.0,10.0),candidate("partial",30,5,300.0,100.0)),
                 List.of("Shelter is estimated geometric overlap, accessibility unknown; synthetic evaluation routes"));
-        var missingEvidence=new RouteContext(TestRoutes.trip().context().trip(),new SavedPreferences("Normal","Moderate",true),
+        var missingEvidence=new RouteContext(TestRoutes.trip().context().trip(),new SavedPreferences("Normal",50, 80),
                 List.of(candidate("unknown-data",30,5,300.0,null)),List.of("Shelter and accessibility could not be verified"));
         for(var scenario:List.of(lowWalking,preferShelter,missingEvidence)) {
             var result=gateway.rank(scenario);

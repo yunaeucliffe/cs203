@@ -34,10 +34,8 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     walking_speed VARCHAR(20) NOT NULL DEFAULT 'Normal'
         CHECK (walking_speed IN ('Slow', 'Normal', 'Fast')),
 
-    walking_tolerance VARCHAR(20) NOT NULL DEFAULT 'Moderate'
-        CHECK (walking_tolerance IN ('Poor', 'Moderate', 'Good')),
-
-    prefer_sheltered BOOLEAN NOT NULL DEFAULT FALSE,
+    minimize_walking_priority INTEGER NOT NULL DEFAULT 50,
+    shelter_priority INTEGER NOT NULL DEFAULT 20,
 
     CONSTRAINT fk_preferences_user
         FOREIGN KEY (user_id)
@@ -70,3 +68,6 @@ CREATE TABLE IF NOT EXISTS saved_places (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_places_user_label
 ON saved_places(user_id, label);
+
+-- Also upgrades existing installations; paths are relative to this file.
+\ir migrations/001_preference_priorities.sql
