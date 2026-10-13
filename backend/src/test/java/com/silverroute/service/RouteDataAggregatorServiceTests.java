@@ -10,14 +10,25 @@ import com.silverroute.api.*;
 import com.silverroute.routing.*;
 import com.silverroute.tool.*;
 import com.silverroute.exception.RouteDataUnavailableException;
+import com.silverroute.exception.AddressNotFoundException;
+import com.silverroute.exception.InvalidAddressException;
 
 class RouteDataAggregatorServiceTests {
     @Test void addressLookupFailureKeepsActionableMessage() throws Exception {
         var tool=mock(RouteDataTool.class); var enrichment=mock(RouteEnrichmentService.class);
-        when(tool.execute(any())).thenThrow(new RouteDataUnavailableException("Address could not be found. Try its six-digit postal code."));
+        when(tool.execute(any())).thenThrow(new AddressNotFoundException("Address could not be found. Try its six-digit postal code."));
         assertThatThrownBy(() -> new RouteDataAggregatorService(tool,enrichment).aggregate(
                 new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal","Moderate",false)))
-                .isInstanceOf(RouteDataUnavailableException.class).hasMessageContaining("postal code");
+                .isInstanceOf(AddressNotFoundException.class).hasMessageContaining("postal code");
+        verifyNoInteractions(enrichment);
+    }
+    @Test void invalidAddressIsNotWrappedAsProviderFailure() throws Exception {
+        var tool=mock(RouteDataTool.class); var enrichment=mock(RouteEnrichmentService.class);
+        var failure=new InvalidAddressException("Enter an address.");
+        when(tool.execute(any())).thenThrow(failure);
+        assertThatThrownBy(() -> new RouteDataAggregatorService(tool,enrichment).aggregate(
+                new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal","Moderate",false)))
+                .isSameAs(failure);
         verifyNoInteractions(enrichment);
     }
     @Test void normalizesTimeAndCollectsBeforeRankingWithFutureWarning() throws Exception {

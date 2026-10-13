@@ -14,6 +14,8 @@ import com.silverroute.exception.AgentLoopLimitException;
 import com.silverroute.exception.DuplicateSavedPlaceException;
 import com.silverroute.exception.ModelAgentException;
 import com.silverroute.exception.RouteDataUnavailableException;
+import com.silverroute.exception.InvalidAddressException;
+import com.silverroute.exception.AddressNotFoundException;
 import com.silverroute.exception.RegistrationConflictException;
 import com.silverroute.exception.UnknownToolException;
 
@@ -52,6 +54,18 @@ public class GlobalExceptionHandler {
             RegistrationConflictException exception,
             HttpServletRequest request) {
         return error(HttpStatus.CONFLICT, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidAddressException.class)
+    public ResponseEntity<ApiError> handleInvalidAddress(
+            InvalidAddressException exception, HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(AddressNotFoundException.class)
+    public ResponseEntity<ApiError> handleAddressNotFound(
+            AddressNotFoundException exception, HttpServletRequest request) {
+        return error(HttpStatus.NOT_FOUND, exception.getMessage(), request);
     }
 
     @ExceptionHandler(RouteDataUnavailableException.class)

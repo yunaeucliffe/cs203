@@ -132,7 +132,7 @@ public class OneMapService {
                 .replaceAll("(?i)#\\s*\\d+[A-Z]?\\s*-\\s*\\d+[A-Z]?", " ")
                 .replaceAll("[,;]", " ").replaceAll("\\s+", " ").trim();
         if (cleaned.isEmpty()) {
-            throw new com.silverroute.exception.RouteDataUnavailableException(
+            throw new com.silverroute.exception.InvalidAddressException(
                     "Enter an address, building name or six-digit postal code.");
         }
         // A postal code identifies the building even when the input includes unit numbers
@@ -237,7 +237,7 @@ public class OneMapService {
         JsonNode results = root.path("results");
 
         if (!results.isArray() || results.isEmpty()) {
-            throw new com.silverroute.exception.RouteDataUnavailableException(
+            throw new com.silverroute.exception.AddressNotFoundException(
                     "Address could not be found. Try its six-digit postal code or building and street name.");
         }
 

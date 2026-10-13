@@ -4,7 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
-import com.silverroute.exception.RouteDataUnavailableException;
+import com.silverroute.exception.AddressNotFoundException;
+import com.silverroute.exception.InvalidAddressException;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
@@ -64,8 +65,17 @@ class OneMapAddressSearchTests {
     @Test void noMatchesExplainHowToCorrectAddress() {
         expectSearch("Unknown%20Building", "{\"results\":[]}");
         assertThatThrownBy(() -> service.parseLocation(service.searchLocation("Unknown Building")))
-                .isInstanceOf(RouteDataUnavailableException.class).hasMessageContaining("postal code");
+                .isInstanceOf(AddressNotFoundException.class).hasMessageContaining("postal code");
         server.verify();
+    }
+
+    @Test void blankInputIsRejectedWithoutCallingProvider() {
+        for (String query : new String[] {null, "", "   "}) {
+            assertThatThrownBy(() -> service.searchLocation(query))
+                    .isInstanceOf(InvalidAddressException.class);
+        }
+        server.verify();
+        verify(service, never()).getToken();
     }
 
     @Test void providerErrorsAreNotTreatedAsUnmatchedAddresses() {
