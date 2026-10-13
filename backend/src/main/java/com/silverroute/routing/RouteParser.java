@@ -25,7 +25,8 @@ public final class RouteParser {
                 }
                 legs.add(new RouteLeg(text(leg,"mode"), first(text(leg,"routeShortName"), text(leg,"route")),
                         stop(leg.path("from")), stop(leg.path("to")), number(leg,"duration"),
-                        number(leg,"distance"), time(leg.get("startTime")), time(leg.get("endTime")), path));
+                        number(leg,"distance"), time(leg.get("startTime")), time(leg.get("endTime")), path,
+                        intermediateStops(leg.path("intermediateStops"))));
             }
             Integer duration = minutes(itinerary,"duration");
             Integer walking = minutes(itinerary,"walkTime");
@@ -49,6 +50,12 @@ public final class RouteParser {
     private RouteLeg.Stop stop(JsonNode node) {
         return new RouteLeg.Stop(text(node,"stopId"), text(node,"stopCode"), text(node,"name"),
                 coordinate(node,"lat",90), coordinate(node,"lon",180));
+    }
+    private List<RouteLeg.Stop> intermediateStops(JsonNode nodes) {
+        if (!nodes.isArray()) return List.of();
+        List<RouteLeg.Stop> stops = new ArrayList<>();
+        for (JsonNode node : nodes) stops.add(stop(node));
+        return stops;
     }
     private Double coordinate(JsonNode node, String key, int max) {
         JsonNode value = node.get(key);

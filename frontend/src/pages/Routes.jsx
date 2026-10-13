@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 
 import Navbar from '../components/Navbar'
+import LocationAutocomplete from '../components/LocationAutocomplete'
 
 function hasCoordinates(location) {
   return Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude)
@@ -94,9 +95,11 @@ function DirectionMarker({ position, heading }) {
 
 const EMPTY_PATHS = []
 
-function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = '' }) {
+function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = '', initialDestinationPlace = null }) {
   const [destination, setDestination] = useState(initialDestination)
   const [originText, setOriginText] = useState('')
+  const [originPlace, setOriginPlace] = useState(null)
+  const [destinationPlace, setDestinationPlace] = useState(initialDestinationPlace)
   const [deviceLocation, setDeviceLocation] = useState(null)
   const [result, setResult] = useState(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -163,6 +166,10 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
   const useMyLocation = () => {
     clearResult()
+    if (locationWatch.current !== null) {
+      navigator.geolocation.clearWatch(locationWatch.current)
+      locationWatch.current = null
+    }
 
     if (!navigator.geolocation) {
       setError('Location is unavailable in this browser. Enter a starting point instead.')
@@ -202,6 +209,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
         previousLocation.current = newLocation
 
         setOriginText('Current location')
+        setOriginPlace(null)
         setLocating(false)
       },
     )
@@ -214,16 +222,16 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
       setError('Sign in to get routes tailored to your saved preferences.')
       return
     }
-    if (!destination.trim() || (!deviceLocation && !originText.trim())) {
-      setError('Enter a starting point and destination, or use your current location.')
+    if (!destinationPlace || (!deviceLocation && !originPlace)) {
+      setError('Choose your starting point and destination from the suggestions, or use your current location for the starting point.')
       return
     }
     const controller = new AbortController()
     pending.current = controller
     setLoading(true)
     try {
-      const origin = deviceLocation || { name: originText.trim() }
-      const target = { name: destination.trim() }
+      const origin = deviceLocation || originPlace
+      const target = destinationPlace
       const recommendations = await searchRoutes(origin, target, controller.signal)
       const routes = recommendations.routes
       if (controller.signal.aborted) return
@@ -286,18 +294,36 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     className="shrink-0 text-[#7A7F7A]"
                   />
 
-                  <input
-                    type="text"
-                    aria-label="Starting point"
+                  <LocationAutocomplete
+                    label="Starting point"
                     value={originText}
                     placeholder="Enter starting point"
-                    onChange={(event) => {
+                    selectedPlace={deviceLocation || originPlace}
+                    onChange={(text) => {
                       clearResult()
                       locationRequest.current += 1
                       setLocating(false)
                       setDeviceLocation(null)
-                      setOriginText(event.target.value)
+                      setOriginPlace(null)
+                      setOriginText(text)
+                      if (locationWatch.current !== null) {
+                        navigator.geolocation.clearWatch(locationWatch.current)
+                        locationWatch.current = null
+                      }
                     }}
+                    onSelect={(place) => {
+                      clearResult()
+                      locationRequest.current += 1
+                      if (locationWatch.current !== null) {
+                        navigator.geolocation.clearWatch(locationWatch.current)
+                        locationWatch.current = null
+                      }
+                      setLocating(false)
+                      setDeviceLocation(null)
+                      setOriginText(place.name)
+                      setOriginPlace(place)
+                    }}
+                    onSubmit={handleFindRoute}
                     className="w-full bg-transparent text-base outline-none"
                   />
 
@@ -328,19 +354,21 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     className="shrink-0 text-[#7A7F7A]"
                   />
 
-                  <input
-                    type="text"
-                    aria-label="Destination"
+                  <LocationAutocomplete
+                    label="Destination"
                     value={destination}
-                    onChange={(event) => {
+                    selectedPlace={destinationPlace}
+                    onChange={(text) => {
                       clearResult()
-                      setDestination(event.target.value)
+                      setDestination(text)
+                      setDestinationPlace(null)
                     }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        handleFindRoute()
-                      }
+                    onSelect={(place) => {
+                      clearResult()
+                      setDestination(place.name)
+                      setDestinationPlace(place)
                     }}
+                    onSubmit={handleFindRoute}
                     placeholder="Enter destination, landmark or address"
                     className="w-full bg-transparent text-base outline-none placeholder:text-[#7A7F7A]"
                   />
@@ -373,6 +401,175 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
             )}
             {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
             {loading && <p role="status" className="mt-4">Comparing routes with your saved preferences and available travel conditions…</p>}
+            {result && (
+              <div className="mt-4">
+                <p className="mb-3 text-sm">{result.origin.name} → {result.destination.name}</p>
+                <h2 className="font-semibold">{result.routes.length === 1 ? 'Your recommended route' : `Your top ${result.routes.length} routes`}</h2>
+                <p className="mt-1 text-sm text-[#555C60]">
+                  {result.engine?.startsWith('mock')
+                    ? 'Demo recommendations using sample data. Not for navigation.'
+                    : 'Ranked for your saved walking and shelter preferences.'}
+                </p>
+                <div className="mt-3 grid gap-3" aria-label="Ranked route choices">
+                  {result.routes.map((route, index) => (
+                    <button key={route.id} type="button" aria-pressed={selectedIndex === index}
+                      onClick={() => setSelectedIndex(index)}
+                      className={`rounded-2xl border-2 p-4 text-left transition ${selectedIndex === index
+                        ? 'border-[#3E424B] bg-[#DCE7D2]' : 'border-[#7A7F7A]/30 bg-white hover:border-[#3E424B]'}`}>
+                      <span className="block font-bold">{index === 0 ? '1 · Recommended for you' : `${index + 1} · Alternative route`}</span>
+                      <span className="mt-1 block text-sm">
+                        {route.durationMinutes == null ? 'Time unavailable' : `${route.durationMinutes} min`}
+                        {' · '}{route.transfers == null ? 'Transfers unavailable' : `${route.transfers} transfer${route.transfers === 1 ? '' : 's'}`}
+                      </span>
+                      <span className="mt-1 block text-sm">{route.reasons?.[0] || route.summary}</span>
+                      {route.warnings?.filter(warning => warning.startsWith('MRT ') || warning.startsWith('LTA TrainServiceAlerts:')).map((warning, noticeIndex) => (
+                        <span key={noticeIndex} className="mt-2 block rounded-lg bg-amber-50 p-2 text-sm text-amber-900">{warning}</span>
+                      ))}
+                    </button>
+                  ))}
+                </div>
+                {result.warnings?.length > 0 && (
+                  <details className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
+                    <summary className="cursor-pointer font-semibold">Travel data notices ({result.warnings.length})</summary>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
+                    </ul>
+                  </details>
+                )}
+
+              </div>
+            )}
+
+            {/* ====================================== */}
+            {/* ROUTE RESULT */}
+            {/* Only appears after Find route is clicked */}
+            {/* ====================================== */}
+
+            {showRoute && (
+
+              <div className="mt-6 rounded-[24px] border-2 border-[#3E424B]/80 bg-[#DCE7D2] p-6">
+
+                {/* ROUTE HEADER */}
+                <div>
+
+                  <p className="text-xs font-extrabold tracking-[0.14em] text-[#7A7F7A]">
+                    {selectedIndex === 0 ? 'RECOMMENDED ROUTE' : `ALTERNATIVE ROUTE ${selectedIndex + 1}`}
+                  </p>
+
+                  <h2
+                    className="mt-2 text-4xl text-[#2A3439]"
+                    style={{ fontFamily: '"DM Serif Display", serif' }}
+                  >
+                    {selectedRoute.durationMinutes == null ? 'Time unavailable' : `${selectedRoute.durationMinutes} min`}
+                  </h2>
+
+                  <p className="mt-1 text-[#7A7F7A]">
+                    {selectedRoute.distanceMeters == null ? 'Distance unavailable' : `${(selectedRoute.distanceMeters / 1000).toFixed(1)} km total journey`}
+                  </p>
+
+                </div>
+
+                <p className="mt-6 font-semibold">{selectedRoute.summary}</p>
+
+                {selectedRoute.reasons?.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="font-semibold">Why this route suits you</h3>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {selectedRoute.reasons.map((reason, index) => <li key={index}>{reason}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {selectedRoute.warnings?.length > 0 && (
+                  <div className="mt-4 rounded-xl bg-white/60 p-4 text-sm">
+                    <h3 className="font-semibold">Before you travel</h3>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {selectedRoute.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {/* ROUTE INFORMATION */}
+                <div className="mt-6 divide-y divide-[#7A7F7A]/20 border-y border-[#7A7F7A]/20">
+
+                  {/* SHELTERED */}
+                  <div className="flex items-center justify-between py-4">
+
+                    <div className="flex items-center gap-3">
+                      <Umbrella size={20} />
+
+                      <span className="font-medium">
+                        Estimated sheltered walking
+                      </span>
+                    </div>
+
+                    <span className="font-semibold">
+                      {selectedRoute.estimatedShelteredWalkingMeters == null
+                        ? 'Unavailable' : `${Math.round(selectedRoute.estimatedShelteredWalkingMeters)} m`}
+                    </span>
+
+                  </div>
+
+                  {/* WALKING */}
+                  <div className="flex items-center justify-between py-4">
+
+                    <div className="flex items-center gap-3">
+                      <Footprints size={20} />
+
+                      <span className="font-medium">
+                        Walking
+                      </span>
+                    </div>
+
+                    <span className="font-semibold">
+                      {selectedRoute.walkingMinutes == null ? 'Time unavailable' : `${selectedRoute.walkingMinutes} min`}
+                      {selectedRoute.walkingDistanceMeters != null && ` · ${Math.round(selectedRoute.walkingDistanceMeters)} m`}
+                    </span>
+
+                  </div>
+
+                  {/* TRANSFERS */}
+                  <div className="flex items-center justify-between py-4">
+
+                    <div className="flex items-center gap-3">
+                      <Bus size={20} />
+
+                      <span className="font-medium">
+                        Transfers
+                      </span>
+                    </div>
+
+                    <span className="font-semibold">
+                      {selectedRoute.transfers ?? 'Unavailable'}
+                    </span>
+
+                  </div>
+
+                  {/* ACCESSIBILITY */}
+                  <div className="flex items-center justify-between py-4">
+
+                    <div className="flex items-center gap-3">
+                      <Accessibility size={20} />
+
+                      <span className="font-medium">
+                        Accessibility
+                      </span>
+                    </div>
+
+                    <span className="text-right font-semibold">
+                      Not verified
+                    </span>
+
+                  </div>
+
+                </div>
+
+                {routeCoordinates.length === 0 && (
+                  <p className="mt-4 text-sm">Map geometry is unavailable for this route.</p>
+                )}
+
+              </div>
+
+            )}
 
           </section>
 
