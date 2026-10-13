@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.silverroute.api.RouteOption;
 import com.silverroute.api.LocationResult;
+import com.silverroute.api.LocationSuggestion;
 
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -159,7 +160,33 @@ public class OneMapService {
         return new com.silverroute.routing.RouteParser().parse(json);
     }
 
-    // OneMap response contains address, latitude, longitude
+    // Preserve provider ranking while skipping malformed and duplicate results.
+    public List<LocationSuggestion> parseSuggestions(String json) throws Exception {
+        JsonNode results = objectMapper.readTree(json).path("results");
+        if (!results.isArray()) throw new IllegalArgumentException("Invalid location search response");
+        var suggestions = new ArrayList<LocationSuggestion>();
+        var seen = new HashSet<String>();
+        for (JsonNode result : results) {
+            String address = result.path("ADDRESS").asText("").trim();
+            String building = result.path("BUILDING").asText("").trim();
+            String name = building.isBlank() || building.equalsIgnoreCase("NIL")
+                    || building.equalsIgnoreCase("null") ? address : building;
+            try {
+                double latitude = Double.parseDouble(result.path("LATITUDE").asText());
+                double longitude = Double.parseDouble(result.path("LONGITUDE").asText());
+                if (name.isBlank() || !Double.isFinite(latitude) || !Double.isFinite(longitude)
+                        || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) continue;
+                String key = address.toLowerCase(Locale.ROOT) + ":" + latitude + ":" + longitude;
+                if (seen.add(key)) suggestions.add(new LocationSuggestion(
+                        name, address, latitude, longitude));
+                if (suggestions.size() == 5) break;
+            } catch (NumberFormatException ignored) {
+                // A malformed provider result must not hide other usable matches.
+            }
+        }
+        return suggestions;
+    }
+
     // Take first search result
     // Get its latitude
     // Turn it into own Java object
