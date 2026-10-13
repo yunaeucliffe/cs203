@@ -15,6 +15,7 @@ import com.silverroute.exception.DuplicateSavedPlaceException;
 import com.silverroute.exception.ModelAgentException;
 import com.silverroute.exception.RouteDataUnavailableException;
 import com.silverroute.exception.InvalidAddressException;
+import com.silverroute.exception.AddressConfirmationRequiredException;
 import com.silverroute.exception.AddressNotFoundException;
 import com.silverroute.exception.RegistrationConflictException;
 import com.silverroute.exception.UnknownToolException;
@@ -54,6 +55,16 @@ public class GlobalExceptionHandler {
             RegistrationConflictException exception,
             HttpServletRequest request) {
         return error(HttpStatus.CONFLICT, exception.getMessage(), request);
+    }
+
+    public record AddressSuggestionError(int status, String message, String requestId,
+            OffsetDateTime timestamp, String query, java.util.List<LocationResult> suggestions) {}
+
+    @ExceptionHandler(AddressConfirmationRequiredException.class)
+    public ResponseEntity<AddressSuggestionError> handleAddressConfirmation(
+            AddressConfirmationRequiredException exception, HttpServletRequest request) {
+        return ResponseEntity.status(422).body(new AddressSuggestionError(422, exception.getMessage(),
+                RequestIdFilter.from(request), OffsetDateTime.now(), exception.query(), exception.suggestions()));
     }
 
     @ExceptionHandler(InvalidAddressException.class)

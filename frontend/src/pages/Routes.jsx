@@ -106,6 +106,9 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const [loading, setLoading] = useState(false)
   const [locating, setLocating] = useState(false)
   const [error, setError] = useState('')
+  const [addressSuggestion, setAddressSuggestion] = useState(null)
+  const [confirmedOrigin, setConfirmedOrigin] = useState(null)
+  const [confirmedDestination, setConfirmedDestination] = useState(null)
   const pending = useRef(null)
   const locationRequest = useRef(0)
   const previousLocation = useRef(null)
@@ -162,6 +165,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     setLoading(false)
     setResult(null)
     setError('')
+    setAddressSuggestion(null)
 
   }
 
@@ -225,9 +229,9 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     const controller = new AbortController()
     pending.current = controller
     setLoading(true)
+    const origin = deviceLocation || confirmedOrigin || { name: originText.trim() }
+    const target = confirmedDestination || { name: destination.trim() }
     try {
-      const origin = deviceLocation || { name: originText.trim() }
-      const target = { name: destination.trim() }
       const recommendations = await searchRoutes(origin, target, controller.signal)
       const routes = recommendations.routes
       if (controller.signal.aborted) return
@@ -238,7 +242,15 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
       setSelectedIndex(0)
       setResult({ ...recommendations, origin, destination: target, routes })
     } catch (failure) {
-      if (!controller.signal.aborted) setError(failure.message)
+      if (!controller.signal.aborted) {
+        setError(failure.message)
+        if (failure.suggestions?.length) {
+          setAddressSuggestion({
+            field: !hasCoordinates(origin) && failure.query === originText.trim() ? 'origin' : 'destination',
+            locations: failure.suggestions,
+          })
+        }
+      }
     } finally {
       if (pending.current === controller) {
         pending.current = null
@@ -300,6 +312,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                       locationRequest.current += 1
                       setLocating(false)
                       setDeviceLocation(null)
+                      setConfirmedOrigin(null)
                       setOriginText(event.target.value)
                     }}
                     className="w-full bg-transparent text-base outline-none"
@@ -338,6 +351,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     value={destination}
                     onChange={(event) => {
                       clearResult()
+                      setConfirmedDestination(null)
                       setDestination(event.target.value)
                     }}
                     onKeyDown={(event) => {
@@ -376,6 +390,27 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               </p>
             )}
             {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
+            {addressSuggestion && (
+              <div className="mt-4 rounded-xl bg-amber-50 p-4" aria-label="Suggested addresses">
+                <p className="mb-3 font-semibold">Confirm your {addressSuggestion.field === 'origin' ? 'starting point' : 'destination'}</p>
+                {addressSuggestion.locations.map((location) => (
+                  <button key={`${location.name}-${location.latitude}-${location.longitude}`} type="button"
+                    className="mb-2 block w-full rounded-xl border border-amber-300 bg-white p-3 text-left"
+                    onClick={() => {
+                      clearResult()
+                      if (addressSuggestion.field === 'origin') {
+                        setOriginText(location.name)
+                        setConfirmedOrigin(location)
+                      } else {
+                        setDestination(location.name)
+                        setConfirmedDestination(location)
+                      }
+                    }}>
+                    {location.name}
+                  </button>
+                ))}
+              </div>
+            )}
             {loading && <p role="status" className="mt-4">Comparing routes with your saved preferences and available travel conditions…</p>}
             {result && (
               <div className="mt-4">

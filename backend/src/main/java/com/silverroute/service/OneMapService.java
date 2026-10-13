@@ -153,6 +153,15 @@ public class OneMapService {
                     throw new IllegalStateException("OneMap did not return address search results");
                 }
                 if (!root.path("results").isEmpty()) {
+                    if (!search.equals(original) && search.matches("\\d{6}")) {
+                        List<LocationResult> suggestions;
+                        try {
+                            suggestions = parseLocations(response);
+                        } catch (Exception exception) {
+                            throw new IllegalStateException("OneMap returned invalid address search data", exception);
+                        }
+                        throw new com.silverroute.exception.AddressConfirmationRequiredException(original, suggestions);
+                    }
                     synchronized (addressCache) {
                         Instant now = clock.instant();
                         addressCache.values().removeIf(entry -> !now.isBefore(entry.expiresAt()));

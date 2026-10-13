@@ -6,6 +6,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import com.silverroute.exception.AddressNotFoundException;
 import com.silverroute.exception.InvalidAddressException;
+import com.silverroute.exception.AddressConfirmationRequiredException;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
@@ -32,11 +33,15 @@ class OneMapAddressSearchTests {
                 .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
     }
 
-    @Test void fullAddressUsesPostalCodeIncludingLeadingZero() throws Exception {
+    @Test void fullAddressPostalFallbackRequiresConfirmationIncludingLeadingZero() throws Exception {
         expectSearch("10%20Example%20Road%2C%20%2312-34%2C%20Singapore%20012345", "{\"results\":[]}");
         expectSearch("012345", MATCH);
-        assertThat(service.parseLocation(service.searchLocation(
-                "10 Example Road, #12-34, Singapore 012345")).latitude()).isEqualTo(1.3074);
+        assertThatThrownBy(() -> service.searchLocation("10 Example Road, #12-34, Singapore 012345"))
+                .isInstanceOfSatisfying(AddressConfirmationRequiredException.class, exception -> {
+                    assertThat(exception.query()).isEqualTo("10 Example Road, #12-34, Singapore 012345");
+                    assertThat(exception.suggestions()).extracting(com.silverroute.api.LocationResult::name)
+                            .containsExactly("640 ROWELL ROAD SINGAPORE 200640");
+                });
         server.verify();
     }
 
@@ -91,10 +96,28 @@ class OneMapAddressSearchTests {
     }
 
     @Test void successfulFallbackIsCachedUnderOriginalAddress() {
-        expectSearch("640%20Rowell%20Road%2C%20200640", "{\"results\":[]}");
+        expectSearch("640%20Rowell%20Road%2C%20Singapore", "{\"results\":[]}");
+        expectSearch("640%20Rowell%20Road%20Singapore", MATCH);
+        assertThat(service.searchLocation("640 Rowell Road, Singapore")).isEqualTo(MATCH);
+        assertThat(service.searchLocation(" 640  ROWELL ROAD, Singapore ")).isEqualTo(MATCH);
+        server.verify();
+    }
+
+    @Test void postalCodeAloneCanBeUsedWithoutConfirmation() {
         expectSearch("200640", MATCH);
-        assertThat(service.searchLocation("640 Rowell Road, 200640")).isEqualTo(MATCH);
-        assertThat(service.searchLocation(" 640  ROWELL ROAD, 200640 ")).isEqualTo(MATCH);
+        assertThat(service.searchLocation("200640")).isEqualTo(MATCH);
+        server.verify();
+    }
+
+    @Test void suggestedAddressNeverBecomesASilentCachedMatch() {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            expectSearch("10%20Example%20Road%20200640", "{\"results\":[]}");
+            expectSearch("200640", MATCH);
+        }
+        for (int attempt = 0; attempt < 2; attempt++) {
+            assertThatThrownBy(() -> service.searchLocation("10 Example Road 200640"))
+                    .isInstanceOf(AddressConfirmationRequiredException.class);
+        }
         server.verify();
     }
 

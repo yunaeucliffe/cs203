@@ -104,12 +104,16 @@ This abbreviated example is illustrative, not a real recommendation. Successful 
 | Status | Meaning |
 |---|---|
 | 400 | Invalid or missing trip fields |
+| 404 | Address could not be found |
+| 422 | Full address did not match; postal-code suggestions require confirmation |
 | 401 | No authenticated session (with a valid CSRF token) |
 | 403 | Missing/invalid CSRF token, including unauthenticated POSTs without a token |
 | 503 | Profile missing, OneMap failure, or no usable candidate routes |
 | 502 | OpenAI unconfigured, unavailable, refused, incomplete, or returned invalid selections |
 
 Application errors contain `status`, `message`, `requestId`, and `timestamp`. Spring Security rejection bodies may differ; the frontend should handle non-JSON errors too. Provider diagnostics and credentials are not echoed to the browser.
+
+Address-confirmation responses also contain `query` (the original address) and `suggestions` (locations with `name`, `latitude`, and `longitude`). No routes are retrieved or ranked for a postal-code fallback until the user selects a suggestion. The Routes page replaces the relevant input with the selected address and sends its coordinates on the next route request. Editing that input clears the selection. A six-digit postal code entered on its own can resolve directly; a full address that only resolves through its postal code requires confirmation, even if the supplied address was correct. Suggested fallbacks are not cached as successful matches for the original address.
 
 ## Extraction and ranking behavior
 

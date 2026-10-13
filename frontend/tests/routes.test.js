@@ -106,3 +106,20 @@ test('routing uses the chosen coordinates while preserving original address text
   }
   await searchRoutes(origin, { ...destination, name: query })
 })
+
+test('address suggestions stop routing and retain the query and proposed coordinates', async () => {
+  const query = '10 Example Road 200640'
+  globalThis.fetch = async (url) => {
+    if (url.endsWith('/csrf')) return ok({ token: 'token' })
+    return {
+      ok: false,
+      status: 422,
+      json: async () => ({ message: 'Did you mean this address?', query, suggestions: [destination] }),
+    }
+  }
+  await assert.rejects(searchRoutes(origin, { name: query }), error => {
+    assert.equal(error.query, query)
+    assert.deepEqual(error.suggestions, [destination])
+    return true
+  })
+})
