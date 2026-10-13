@@ -4,11 +4,13 @@ import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.silverroute.exception.DuplicateSavedPlaceException;
 import com.silverroute.exception.ModelAgentException;
@@ -66,6 +68,13 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
     }
 
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiError> handleResponseStatus(
+            ResponseStatusException exception,
+            HttpServletRequest request) {
+        return error(exception.getStatusCode(), exception.getReason(), request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpectedFailure(
             Exception exception,
@@ -74,7 +83,7 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ApiError> error(
-            HttpStatus status,
+            HttpStatusCode status,
             String message,
             HttpServletRequest request) {
         ApiError body = new ApiError(

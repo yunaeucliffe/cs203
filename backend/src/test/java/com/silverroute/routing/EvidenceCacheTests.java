@@ -6,6 +6,25 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
 class EvidenceCacheTests {
+    @Test void busFailureExpiresAtTwentySecondsAndAllowsRecovery() {
+        var clock = new MutableClock();
+        var cache = new EvidenceCache(clock);
+        var calls = new AtomicInteger();
+        java.util.function.Supplier<String> loader = () -> {
+            if (calls.incrementAndGet() == 1) throw new IllegalStateException("LTA timeout");
+            return "{}";
+        };
+        assertThat(cache.get("bus:01234", Duration.ofSeconds(20), loader).available()).isFalse();
+        clock.now = clock.now.plusSeconds(19);
+        assertThat(cache.get("bus:01234", Duration.ofSeconds(20), loader).available()).isFalse();
+        assertThat(calls.get()).isEqualTo(1);
+        clock.now = clock.now.plusSeconds(1);
+        assertThat(cache.get("bus:01234", Duration.ofSeconds(20), loader).available()).isTrue();
+        assertThat(calls.get()).isEqualTo(2);
+        clock.now = clock.now.plusSeconds(19);
+        assertThat(cache.get("bus:01234", Duration.ofSeconds(20), loader).available()).isTrue();
+        assertThat(calls.get()).isEqualTo(2);
+    }
     private static class MutableClock extends Clock {
         Instant now=Instant.parse("2026-09-28T00:00:00Z");
         public ZoneId getZone() { return ZoneOffset.UTC; }

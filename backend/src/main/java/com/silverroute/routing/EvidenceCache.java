@@ -31,7 +31,8 @@ public class EvidenceCache {
         }
         cache.entrySet().removeIf(e -> !e.getValue().expiresAt().isAfter(now));
         if (cache.size()>=1024) cache.remove(cache.keySet().iterator().next());
-        cache.put(key,new Entry(result,result.retrievedAt().plus(result.available()?ttl:Duration.ofSeconds(60))));
+        Duration failureTtl = ttl.compareTo(Duration.ofSeconds(60)) < 0 ? ttl : Duration.ofSeconds(60);
+        cache.put(key,new Entry(result,result.retrievedAt().plus(result.available()?ttl:failureTtl)));
         return result;
     }
 }
