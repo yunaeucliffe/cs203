@@ -21,6 +21,9 @@ public class SavedPlace {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "category_id")
+    private Long categoryId;
+
     @Column(nullable = false, length = 100)
     private String label;
 
@@ -55,6 +58,8 @@ public class SavedPlace {
 
     public Long getId() { return id; }
     public Long getUserId() { return userId; }
+    public Long getCategoryId() { return categoryId; }
+    public void setCategoryId(Long categoryId) { this.categoryId = categoryId; }
     public String getLabel() { return label; }
     public String getAddress() { return address; }
     public BigDecimal getLatitude() { return latitude; }
