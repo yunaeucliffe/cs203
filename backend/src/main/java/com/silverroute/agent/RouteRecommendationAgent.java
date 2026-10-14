@@ -24,7 +24,7 @@ public class RouteRecommendationAgent {
         var profile = profiles.getProfileByEmail(authenticatedEmail).orElseThrow(() ->
                 new RouteDataUnavailableException("Saved travel preferences are unavailable"));
         var trip = aggregator.aggregate(request, new SavedPreferences(profile.walkingSpeed(),
-                profile.walkingTolerance(), profile.preferSheltered()));
+                profile.minimizeWalkingPriority(), profile.shelterPriority()));
         if (trip.routes().isEmpty()) throw new RouteDataUnavailableException("No routes were available for this trip");
         try {
             return validateAndBuild(trip, model.rank(trip.context()), model.engine());

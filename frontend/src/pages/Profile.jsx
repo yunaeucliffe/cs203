@@ -1,3 +1,4 @@
+import PrioritySettings from '../components/PrioritySettings'
 import {useEffect, useState} from 'react'
 import InfoRow from '../components/InfoRow'
 import {PreferenceCard, PreferenceSelector} from '../components/PreferenceComponents'
@@ -8,8 +9,6 @@ import {
   Mail,
   AtSign,
   Gauge,
-  Footprints,
-  Umbrella,
   LogOut,
 } from 'lucide-react'
 
@@ -22,8 +21,11 @@ function Profile({ onBack, onLogout }) {
 
   const [formValues, setFormValues] = useState({
     walkingSpeed: 'Normal',
-    walkingTolerance: 'Moderate',
-    preferSheltered: false,
+
+
+    minimizeWalkingPriority: 50,
+    shelterPriority: 20,
+    automaticLearning: true,
   })
 
   useEffect(() => {
@@ -57,8 +59,11 @@ function Profile({ onBack, onLogout }) {
   const startEditing = () => {
     setFormValues({
       walkingSpeed: user.walkingSpeed,
-      walkingTolerance: user.walkingTolerance,
-      preferSheltered: user.preferSheltered,
+
+
+      minimizeWalkingPriority: user.minimizeWalkingPriority,
+      shelterPriority: user.shelterPriority,
+      automaticLearning: user.automaticLearning,
     })
 
     setActionError('')
@@ -231,7 +236,7 @@ function Profile({ onBack, onLogout }) {
         </div>
 
         {!isEditing && (
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4">
 
             <PreferenceCard
               icon={<Gauge size={25} />}
@@ -239,20 +244,15 @@ function Profile({ onBack, onLogout }) {
               value={user.walkingSpeed}
             />
 
-            <PreferenceCard
-              icon={<Footprints size={25} />}
-              label="Walking tolerance"
-              value={user.walkingTolerance}
-            />
-
-            <PreferenceCard
-              icon={<Umbrella size={25} />}
-              label="Sheltered paths"
-              value={user.preferSheltered ? 'Yes' : 'No'}
-            />
-
           </div>
         )}
+
+        {!isEditing && <div className="mt-5 rounded-xl bg-white/60 p-5">
+          <p>Priority for less walking: {user.minimizeWalkingPriority} / 100</p>
+          <p>Priority for shelter: {user.shelterPriority} / 100</p>
+          <p>Automatic learning: {user.automaticLearning ? 'On' : 'Off'}</p>
+          <p className="mt-2 text-sm">Manual settings override earlier learning.</p>
+        </div>}
 
         {/* EDITING PREFERENCES */}
         {isEditing && (
@@ -276,33 +276,7 @@ function Profile({ onBack, onLogout }) {
 
             <div className="my-7 border-t border-[#7A7F7A]/15" />
 
-            <PreferenceSelector
-              title="Walking tolerance"
-              description="How would you describe your walking tolerance??"
-              options={['Poor', 'Moderate', 'Good']}
-              value={formValues.walkingTolerance}
-              onChange={(value) =>
-                setFormValues({
-                  ...formValues,
-                  walkingTolerance: value,
-                })
-              }
-            />
-
-            <div className="my-7 border-t border-[#7A7F7A]/15" />
-
-            <PreferenceSelector
-              title="Sheltered paths"
-              description="Would you prefer sheltered paths where possible?"
-              options={['Yes', 'No']}
-              value={formValues.preferSheltered ? 'Yes' : 'No'}
-              onChange={(value) =>
-                setFormValues({
-                  ...formValues,
-                  preferSheltered: value === 'Yes',
-                })
-              }
-            />
+            <PrioritySettings values={formValues} onChange={setFormValues} />
 
             <div className="mt-8 flex justify-end gap-3">
               <button

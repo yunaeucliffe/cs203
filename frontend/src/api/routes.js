@@ -59,3 +59,21 @@ function coordinates(location) {
   if (!Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return undefined
   return { latitude: location.latitude, longitude: location.longitude }
 }
+
+export async function chooseRoute(recommendationId, routeId, signal, choiceVersion = 0) {
+  const token = await getCsrfToken(signal)
+  return getJson(`/api/route-recommendations/${encodeURIComponent(recommendationId)}/choice`, signal, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': token },
+    body: JSON.stringify({ routeId, choiceVersion }),
+  })
+}
+
+export async function undoRouteChoice(recommendationId, choiceVersion, signal) {
+  const token = await getCsrfToken(signal)
+  return getJson(`/api/route-recommendations/${encodeURIComponent(recommendationId)}/choice/undo`, signal, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': token },
+    body: JSON.stringify({ choiceVersion }),
+  })
+}

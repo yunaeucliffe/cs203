@@ -1,15 +1,10 @@
 package com.silverroute.dto;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
+
+import jakarta.validation.constraints.*;
 
 public record UpdatePreferencesRequest(
-        @NotBlank
-        @Pattern(regexp = "Slow|Normal|Fast", message = "must be Slow, Normal, or Fast")
+        @NotBlank @Pattern(regexp = "Slow|Normal|Fast", message = "must be Slow, Normal, or Fast")
         String walkingSpeed,
-        @NotBlank @Size(max = 20)
-        String walkingTolerance,
-        @NotNull
-        Boolean preferSheltered) {
-}
+        @NotNull @Min(0) @Max(100) Integer minimizeWalkingPriority,
+        @NotNull @Min(0) @Max(100) Integer shelterPriority,
+        @NotNull Boolean automaticLearning) {}

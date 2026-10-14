@@ -93,11 +93,18 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
     }
 
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ApiError> handleResponseStatus(
-            ResponseStatusException exception,
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleInvalidParameter(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException exception,
             HttpServletRequest request) {
-        return error(exception.getStatusCode(), exception.getReason(), request);
+        return error(HttpStatus.BAD_REQUEST, "Invalid request parameter", request);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiError> handleStatus(ResponseStatusException exception,
+            HttpServletRequest request) {
+        return error(exception.getStatusCode(),
+                exception.getReason() == null ? "Request could not be completed" : exception.getReason(), request);
     }
 
     @ExceptionHandler(Exception.class)

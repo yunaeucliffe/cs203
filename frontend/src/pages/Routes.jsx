@@ -1,3 +1,4 @@
+import RouteChoice from '../components/RouteChoice'
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import { searchRoutes } from '../api/routes'
@@ -633,6 +634,12 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               )
             }
           </>
+        )}
+        {result?.recommendationId && selectedRoute && (
+          <div hidden={!viewingDetails}>
+            <RouteChoice key={result.recommendationId}
+              recommendationId={result.recommendationId} routeId={selectedRoute.id} />
+          </div>
         )}
       </main >
 

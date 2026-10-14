@@ -40,9 +40,9 @@ class RouteRecommendationAgentTests {
     }
     @Test void readsPreferencesOnlyForAuthenticatedIdentityBeforeOneRankingCall() throws Exception {
         var model=mock(ModelGateway.class); var aggregator=mock(RouteDataAggregatorService.class); var profiles=mock(ProfileService.class);
-        var request=new TripRequest("A","B",OffsetDateTime.now()); var preferences=new SavedPreferences("Slow","Poor",true);
+        var request=new TripRequest("A","B",OffsetDateTime.now()); var preferences=new SavedPreferences("Slow",65,90);
         when(profiles.getProfileByEmail("signed-in@example.com")).thenReturn(Optional.of(
-                new ProfileResponse(1L,"Secret Name","secret-user","signed-in@example.com","Slow","Poor",true)));
+                new ProfileResponse(1L,"Secret Name","secret-user","signed-in@example.com","Slow",65,90,true)));
         when(aggregator.aggregate(request,preferences)).thenReturn(TestRoutes.trip());
         when(model.rank(any())).thenReturn(result("onemap-route-1"));
         new RouteRecommendationAgent(model,aggregator,profiles).recommend(request,"signed-in@example.com");
