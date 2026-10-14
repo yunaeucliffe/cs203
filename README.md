@@ -48,7 +48,7 @@ psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f database/schema.sql
 psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/mockdata.sql
 ```
 
-`schema.sql` creates `silverroute` if needed and sets up `users`, `user_preferences`, `saved_places`, and `route_choice_snapshots`. It automatically applies the preference migration, so no separate migration commands are needed for a fresh installation.
+`schema.sql` creates `silverroute` if needed and sets up `users`, `user_preferences`, `saved_places`, `categories`, and `route_choice_snapshots`. It automatically applies both migrations, so no separate migration commands are needed for a fresh installation.
 
 Saved preferences now contain walking speed, independent 0–100 walking and shelter priority scores, and an automatic-learning toggle. Walking tolerance and the shelter boolean are no longer stored.
 
@@ -56,13 +56,16 @@ Saved preferences now contain walking speed, independent 0–100 walking and she
 
 ### Existing database
 
-Stop the backend, then run this migration from the repository directory:
+Stop the backend, then run these migrations from the repository directory:
 
 ```sh
 psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/001_preference_priorities.sql
+psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/002_saved_place_categories.sql
 ```
 
 Migration 001 adds the priority scores, learning fields, and route-choice table. It converts old preferences only where scores are missing. It then removes the obsolete walking-tolerance and shelter-boolean columns. Existing scores and user records are preserved; the migration can be rerun. All migration steps run in one transaction, so an error rolls back the upgrade. Rerun it when upgrading to AI learning and undo to add their tracking columns.
+
+Migration 002 adds user-owned categories with a name and hex colour, and an optional `category_id` on saved places. Category names are unique per user, ignoring case. Existing places remain uncategorised; deleting a category keeps its places. The API checks that an assigned category belongs to the same user as the place.
 
 Restart the updated backend afterward. Hibernate uses `ddl-auto=validate`, so it checks the schema but does not apply migrations automatically. You do not need to rerun `mockdata.sql` for an upgrade.
 
@@ -265,12 +268,15 @@ Create and update request body:
 {
   "label": "Home",
   "address": "Tampines, Singapore",
+  "categoryId": null,
   "latitude": 1.3521,
   "longitude": 103.9447
 }
 ```
 
 Coordinates are optional. Labels must be unique for each user. The Saved Places page supports adding, editing, deleting, and choosing a saved destination for route planning; Home displays the first two places as quick-access cards.
+
+Categories are loaded with `GET /api/users/me/categories` and created with `POST /api/users/me/categories` using a body such as `{"name":"Work","color":"#E8DFF5"}`. Use `PUT /api/users/me/categories/{categoryId}` with the same body to edit, or `DELETE /api/users/me/categories/{categoryId}` to delete. All endpoints require sign-in; writes also require the CSRF token. Users can only edit or delete their own categories. Deleting a category keeps its places as uncategorised. Set `categoryId` when creating or updating a saved place, or send `null` for no category. Categories and assignments are saved in PostgreSQL and restored when the page reloads.
 
 ## Route-recommendation endpoint
 

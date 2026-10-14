@@ -7,7 +7,7 @@ const CATEGORY_TEXT_COLORS = {
   '#DDF3E4': '#267A43',
 }
 
-function CategoryTag({ name, color = '#F0F0F0', selected = false }) {
+function CategoryTag({ name, color = '#F0F0F0', selected = false, children }) {
   const textColor = CATEGORY_TEXT_COLORS[color] || '#555C60'
 
   return (
@@ -22,6 +22,7 @@ function CategoryTag({ name, color = '#F0F0F0', selected = false }) {
       }}
     >
       <span className="truncate">{name}</span>
+      {children}
     </span>
   )
 }

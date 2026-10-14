@@ -5,6 +5,7 @@ import {
   Edit3,
   Plus,
   Trash2,
+  X,
 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import { API_URL, getCsrfToken } from '../api'
@@ -36,9 +37,11 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
   const [selectedCategory, setSelectedCategory] = useState('all')
 
   const [showCategoryForm, setShowCategoryForm] = useState(false)
+  const [editingCategory, setEditingCategory] = useState(null)
 
   const [categoryName, setCategoryName] = useState('')
   const [categoryColor, setCategoryColor] = useState(CATEGORY_COLORS[0])
+  const [creatingCategory, setCreatingCategory] = useState(false)
 
   const [formCategoryId, setFormCategoryId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -50,8 +53,14 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
   const [postalCode, setPostalCode] = useState('')
   const [lookup, setLookup] = useState({ status: 'idle', matches: [] })
   const [retry, setRetry] = useState(0)
+  const categoryDialog = useRef(null)
   const postalRequest = useRef(null)
   const formOpen = editingPlace !== null
+
+  useEffect(() => {
+    if (showCategoryForm) categoryDialog.current.showModal()
+    else categoryDialog.current.close()
+  }, [showCategoryForm])
 
   useEffect(() => {
     if (!formOpen || !/^[0-9]{6}$/.test(postalCode)) return
@@ -100,23 +109,24 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
   useEffect(() => {
     const controller = new AbortController() // AbortController: cancel fetch() request if u dont need anym
 
-    fetch(`${API_URL}/api/users/me/saved-places`, {
-      credentials: 'include',
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (response.status === 401) {
-          throw new Error('Please sign in to view your saved places.')
-        }
-
-        if (!response.ok) {
-          throw new Error('Unable to load saved places.')
-        }
-
-        return response.json() // convert json to javascript data
+    Promise.all(['saved-places', 'categories'].map(async resource => {
+      const response = await fetch(`${API_URL}/api/users/me/${resource}`, {
+        credentials: 'include',
+        signal: controller.signal,
       })
-      .then((data) => {
-        setPlaces(data) // shows the data on frontend
+      if (response.status === 401) {
+        throw new Error('Please sign in to view your saved places.')
+      }
+      if (!response.ok) throw new Error(`Unable to load ${resource.replace('-', ' ')}.`)
+      return response.json()
+    }))
+      .then(([places, categories]) => {
+        setPlaces(places)
+        setCategories(categories)
+        setPlaceCategories(Object.fromEntries(
+          places.filter(place => place.categoryId != null)
+            .map(place => [place.id, place.categoryId])
+        ))
       })
       .catch((requestError) => {
         if (requestError.name !== 'AbortError') {
@@ -130,14 +140,22 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
     return () => controller.abort()
   }, [])
 
-  // CREATE CATEGORY
-  const createCategory = () => {
+  const openCategoryForm = (category = null) => {
+    setEditingCategory(category)
+    setCategoryName(category?.name || '')
+    setCategoryColor(category?.color || CATEGORY_COLORS[0])
+    setError('')
+    setShowCategoryForm(true)
+  }
+
+  // CREATE / EDIT CATEGORY
+  const saveCategory = async () => {
     const name = categoryName.trim()
 
-    if (!name) return
+    if (!name || creatingCategory) return
 
     const exists = categories.some(
-      category => category.name.toLowerCase() === name.toLowerCase()
+      category => category.id !== editingCategory?.id && category.name.toLowerCase() === name.toLowerCase()
     )
 
     if (exists) {
@@ -145,33 +163,68 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
       return
     }
 
-    const newCategory = {
-      id: crypto.randomUUID(),
-      name,
-      color: categoryColor,
+    setCreatingCategory(true)
+    setError('')
+    try {
+      const token = await getCsrfToken()
+      const response = await fetch(`${API_URL}/api/users/me/categories${editingCategory ? `/${editingCategory.id}` : ''}`, {
+        method: editingCategory ? 'PUT' : 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': token },
+        body: JSON.stringify({ name, color: categoryColor }),
+      })
+      const category = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(category?.message || 'Unable to save category.')
+      setCategories(current => editingCategory
+        ? current.map(item => item.id === category.id ? category : item)
+        : [...current, category])
+      if (formOpen && !editingCategory) setFormCategoryId(category.id)
+      setCategoryName('')
+      setCategoryColor(CATEGORY_COLORS[0])
+      setShowCategoryForm(false)
+    } catch (failure) {
+      setError(failure.message)
+    } finally {
+      setCreatingCategory(false)
     }
-
-    setCategories(current => [...current, newCategory])
-
-    // Automatically select newly created category
-    if (formOpen) {
-      setFormCategoryId(newCategory.id)
-    }
-
-    setCategoryName('')
-    setCategoryColor(CATEGORY_COLORS[0])
-    setShowCategoryForm(false)
 
   }
 
+  const deleteCategory = async () => {
+    if (creatingCategory || !editingCategory) return
+    if (!window.confirm(`Delete "${editingCategory.name}"? Its saved places will have no category.`)) return
+    setCreatingCategory(true)
+    setError('')
+    try {
+      const token = await getCsrfToken()
+      const response = await fetch(`${API_URL}/api/users/me/categories/${editingCategory.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'X-XSRF-TOKEN': token },
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => null)
+        throw new Error(data?.message || 'Unable to delete category.')
+      }
+      const id = editingCategory.id
+      setCategories(current => current.filter(category => category.id !== id))
+      setPlaces(current => current.map(place => place.categoryId === id ? { ...place, categoryId: null } : place))
+      setPlaceCategories(current => Object.fromEntries(Object.entries(current).filter(([, categoryId]) => categoryId !== id)))
+      if (selectedCategory === id) setSelectedCategory('all')
+      if (formCategoryId === id) setFormCategoryId('')
+      setShowCategoryForm(false)
+    } catch (failure) {
+      setError(failure.message)
+    } finally {
+      setCreatingCategory(false)
+    }
+  }
 
   // FILTER SAVED PLACES
   const filteredPlaces =
     selectedCategory === 'all'
       ? places
-      : selectedCategory === 'uncategorised'
-        ? places.filter(place => !placeCategories[place.id])
-        : places.filter(
+      : places.filter(
           place => placeCategories[place.id] === selectedCategory
         )
 
@@ -226,6 +279,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
           body: JSON.stringify({
             label: form.label,
             address: form.address,
+            categoryId: formCategoryId || null,
 
             latitude:
               form.latitude === ''
@@ -247,12 +301,12 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
         )
       }
 
-      // Save category assignment locally
+      // Reflect the category assignment returned by the database.
       setPlaceCategories(current => {
         const updated = { ...current }
 
-        if (formCategoryId) {
-          updated[data.id] = formCategoryId
+        if (data.categoryId != null) {
+          updated[data.id] = data.categoryId
         } else {
           delete updated[data.id]
         }
@@ -549,7 +603,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                   {/* CREATE CATEGORY BUTTON */}
                   <button
                     type="button"
-                    onClick={() => setShowCategoryForm(!showCategoryForm)}
+                    onClick={() => openCategoryForm()}
                     className="mt-5 flex items-center gap-2 text-sm font-semibold text-[#3E424B] hover:underline"
                   >
                     <Plus size={17} />
@@ -557,115 +611,6 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                   </button>
 
 
-                  {/* CREATE CATEGORY FORM */}
-                  {showCategoryForm && (
-
-                    <div className="mt-5 rounded-2xl border border-[#7A7F7A]/20 bg-white p-6">
-
-                      <h3 className="text-lg font-semibold">
-                        Create a category
-                      </h3>
-
-                      {/* LIVE PREVIEW */}
-                      <div className="pt-2">
-                        <p className="mb-3 text-sm font-semibold text-[#7A7F7A]">
-                          Preview
-                        </p>
-                        <div>
-
-                          <CategoryTag
-                            name={categoryName.trim() || 'Category name'}
-                            color={categoryColor}
-                          />
-
-                        </div>
-
-                        <p className="mt-2 text-xs text-[#7A7F7A]">
-                          This is how your category will appear on saved places.
-                        </p>
-
-                      </div>
-
-                      {/* CATEGORY NAME */}
-                      <div className="mt-5">
-
-                        <label
-                          htmlFor="category-name"
-                          className="mb-2 block text-sm font-semibold"
-                        >
-                          Category name
-                        </label>
-
-                        <input
-                          id="category-name"
-                          type="text"
-                          value={categoryName}
-                          onChange={event => setCategoryName(event.target.value)}
-                          placeholder="e.g. Healthcare"
-                          maxLength={40}
-                          className="h-[52px] w-full rounded-xl border border-[#7A7F7A]/40 px-4 outline-none focus:border-[#3E424B]"
-                        />
-
-                      </div>
-
-
-                      {/* COLOUR SELECTION */}
-                      <div className="mt-6">
-
-                        <p className="text-sm font-semibold">
-                          Choose a colour
-                        </p>
-
-                        <div className="mt-3 flex flex-wrap gap-3">
-
-                          {CATEGORY_COLORS.map(color => (
-
-                            <button
-                              key={color}
-                              type="button"
-                              onClick={() => setCategoryColor(color)}
-                              aria-label={`Select colour ${color}`}
-                              aria-pressed={categoryColor === color}
-                              className={`h-10 w-10 rounded-full border-2 transition ${categoryColor === color
-                                ? 'border-white ring-2 ring-[#3E424B]'
-                                : 'border-transparent'
-                                }`}
-                              style={{
-                                backgroundColor: color,
-                              }}
-                            />
-
-                          ))}
-
-                        </div>
-
-                      </div>
-
-                      {/* BUTTONS */}
-                      <div className="mt-6 flex justify-end gap-3">
-
-                        <button
-                          type="button"
-                          onClick={() => setShowCategoryForm(false)}
-                          className="rounded-xl px-5 py-3 font-semibold text-[#3E424B] hover:bg-[#FAF7F0]"
-                        >
-                          Cancel
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={createCategory}
-                          disabled={!categoryName.trim()}
-                          className="rounded-xl bg-[#3E424B] px-5 py-3 font-semibold text-white transition hover:bg-[#2A3439] disabled:opacity-40"
-                        >
-                          Create category
-                        </button>
-
-                      </div>
-
-                    </div>
-
-                  )}
 
                 </div>
 
@@ -747,42 +692,79 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
 
               </div>
 
-              {/* ADD PLACE */}
-              <button
-                type="button"
-                onClick={() => openForm()}
-                className="flex items-center gap-2 rounded-full bg-[#3E424B] px-6 py-3 font-bold text-white transition hover:bg-[#2A3439]"
-              >
-                <Plus size={19} />
+              <div className="flex shrink-0 flex-col items-end gap-3">
+                {/* ADD PLACE */}
+                <button
+                  type="button"
+                  onClick={() => openForm()}
+                  className="flex items-center gap-2 rounded-full bg-[#3E424B] px-6 py-3 font-bold text-white transition hover:bg-[#2A3439]"
+                >
+                  <Plus size={19} />
 
-                Add place
-              </button>
+                  Add place
+                </button>
+
+              </div>
 
             </div>
 
 
             {/* CATEGORY FILTER */}
-            <div className="mt-8 flex items-center gap-4">
-              <label htmlFor="category-filter" className="font-semibold">
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <span id="category-filter-label" className="font-semibold">
                 Filter by category
-              </label>
+              </span>
 
-              <select
-                id="category-filter"
-                value={selectedCategory}
-                onChange={(event) => setSelectedCategory(event.target.value)}
-                className="rounded-xl border border-[#7A7F7A]/30 bg-white px-5 py-3"
+              <div
+                role="group"
+                aria-labelledby="category-filter-label"
+                className="flex min-w-0 flex-wrap items-center gap-3"
               >
-                <option value="all">All categories</option>
+                {[
+                  { id: 'all', name: 'All categories', color: '#F0F0F0' },
+                  ...categories,
+                ].map(category => {
+                  const selected = selectedCategory === category.id
 
-                {categories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-
-                <option value="uncategorised">Uncategorised</option>
-              </select>
+                  return (
+                    <div key={category.id} className="flex max-w-full items-center gap-1">
+                    <button
+                      type="button"
+                      aria-pressed={selected}
+                      aria-label={selected && category.id !== 'all'
+                        ? `Clear ${category.name} filter`
+                        : `Filter by ${category.name}`}
+                      onClick={() => setSelectedCategory(selected ? 'all' : category.id)}
+                      className="inline-flex max-w-full rounded-lg transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3E424B]"
+                    >
+                      <CategoryTag name={category.name} color={category.color} selected={selected}>
+                        {selected && category.id !== 'all' && (
+                          <X size={16} aria-hidden="true" className="ml-2 shrink-0" />
+                        )}
+                      </CategoryTag>
+                    </button>
+                    {typeof category.id === 'number' && (
+                      <button
+                        type="button"
+                        aria-label={`Edit ${category.name} category`}
+                        onClick={() => openCategoryForm(category)}
+                        className="rounded-lg p-2 text-[#7A7F7A] transition hover:bg-white hover:text-[#3E424B]"
+                      >
+                        <Edit3 size={16} />
+                      </button>
+                    )}
+                    </div>
+                  )
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => openCategoryForm()}
+                className="ml-auto flex shrink-0 items-center gap-2 rounded-lg border border-[#3E424B]/30 px-3 py-2 text-sm font-semibold transition hover:bg-white"
+              >
+                <Plus size={17} />
+                New category
+              </button>
             </div>
 
             {error && (
@@ -844,15 +826,15 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                           category => category.id === placeCategories[place.id]
                         )
 
-                        return (
+                        return category ? (
                           <CategoryTag
-                            name={category?.name || 'Uncategorised'}
-                            color={category?.color || '#F0F0F0'}
+                            name={category.name}
+                            color={category.color}
                           />
-                        )
+                        ) : null
                       })()}
 
-                      <div className="flex gap-1">
+                      <div className="ml-auto flex gap-1">
 
                         {/* EDIT */}
                         <button
@@ -902,6 +884,126 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
           </>
         )}
       </main>
+      <dialog
+        ref={categoryDialog}
+        aria-labelledby="category-dialog-title"
+        onClose={() => setShowCategoryForm(false)}
+        onCancel={event => {
+          if (creatingCategory) event.preventDefault()
+        }}
+        className="fixed inset-0 m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl border border-[#7A7F7A]/20 bg-white p-6 text-[#2A3439] shadow-xl backdrop:bg-black/30"
+      >
+        <form onSubmit={event => { event.preventDefault(); saveCategory() }}>
+          <h2 id="category-dialog-title" className="text-lg font-semibold">{editingCategory ? 'Edit category' : 'Create a category'}</h2>
+          {/* LIVE PREVIEW */}
+          <div className="pt-2">
+            <p className="mb-3 text-sm font-semibold text-[#7A7F7A]">
+              Preview
+            </p>
+            <div>
+
+              <CategoryTag
+                name={categoryName.trim() || 'Category name'}
+                color={categoryColor}
+              />
+
+            </div>
+
+            <p className="mt-2 text-xs text-[#7A7F7A]">
+              This is how your category will appear on saved places.
+            </p>
+
+          </div>
+
+          {/* CATEGORY NAME */}
+          <div className="mt-5">
+
+            <label
+              htmlFor="category-name"
+              className="mb-2 block text-sm font-semibold"
+            >
+              Category name
+            </label>
+
+            <input
+              id="category-name"
+              type="text"
+              value={categoryName}
+              onChange={event => setCategoryName(event.target.value)}
+              placeholder="e.g. Healthcare"
+              maxLength={40}
+              className="h-[52px] w-full rounded-xl border border-[#7A7F7A]/40 px-4 outline-none focus:border-[#3E424B]"
+            />
+
+          </div>
+
+
+          {/* COLOUR SELECTION */}
+          <div className="mt-6">
+
+            <p className="text-sm font-semibold">
+              Choose a colour
+            </p>
+
+            <div className="mt-3 flex flex-wrap gap-3">
+
+              {CATEGORY_COLORS.map(color => (
+
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setCategoryColor(color)}
+                  aria-label={`Select colour ${color}`}
+                  aria-pressed={categoryColor === color}
+                  className={`h-10 w-10 rounded-full border-2 transition ${categoryColor === color
+                    ? 'border-white ring-2 ring-[#3E424B]'
+                    : 'border-transparent'
+                    }`}
+                  style={{
+                    backgroundColor: color,
+                  }}
+                />
+
+              ))}
+
+            </div>
+
+          </div>
+
+          {/* BUTTONS */}
+          <div className="mt-6 flex flex-wrap justify-end gap-3">
+            {editingCategory && (
+              <button
+                type="button"
+                onClick={deleteCategory}
+                disabled={creatingCategory}
+                className="mr-auto flex items-center gap-2 rounded-xl px-3 py-3 font-semibold text-[#A12B2B] hover:bg-[#FCE4E6] disabled:opacity-40"
+              >
+                <Trash2 size={16} /> Delete
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowCategoryForm(false)}
+              disabled={creatingCategory}
+              className="rounded-xl px-5 py-3 font-semibold text-[#3E424B] hover:bg-[#FAF7F0]"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={!categoryName.trim() || creatingCategory}
+              className="rounded-xl bg-[#3E424B] px-5 py-3 font-semibold text-white transition hover:bg-[#2A3439] disabled:opacity-40"
+            >
+              {creatingCategory ? 'Saving...' : editingCategory ? 'Save changes' : 'Create category'}
+            </button>
+
+          </div>
+
+          {error && <p role="alert" className="mt-4 text-sm font-semibold text-[#A12B2B]">{error}</p>}
+        </form>
+      </dialog>
     </div>
   )
 }

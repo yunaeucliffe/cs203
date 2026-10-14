@@ -24,6 +24,8 @@ import com.silverroute.model.SavedPlace;
 import com.silverroute.model.User;
 import com.silverroute.repository.SavedPlaceRepository;
 import com.silverroute.repository.UserRepository;
+import com.silverroute.repository.CategoryRepository;
+import org.springframework.web.server.ResponseStatusException;
 
 @ExtendWith(MockitoExtension.class)
 class SavedPlaceServiceTests {
@@ -32,13 +34,15 @@ class SavedPlaceServiceTests {
     private SavedPlaceRepository savedPlaceRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private CategoryRepository categoryRepository;
 
     private SavedPlaceService service;
     private User user;
 
     @BeforeEach
     void setUp() {
-        service = new SavedPlaceService(savedPlaceRepository, userRepository);
+        service = new SavedPlaceService(savedPlaceRepository, userRepository, categoryRepository);
         user = new User("Mary Tan", "marytan", "mary@example.com", "unused");
         ReflectionTestUtils.setField(user, "id", 1L);
     }
@@ -91,6 +95,40 @@ class SavedPlaceServiceTests {
         verify(savedPlaceRepository, never()).delete(any());
     }
 
+    @Test
+    void createStoresCategoryAndReturnsItOnReload() {
+        when(userRepository.findByEmail("mary@example.com")).thenReturn(Optional.of(user));
+        when(categoryRepository.existsByIdAndUserId(5L, 1L)).thenReturn(true);
+        when(savedPlaceRepository.save(any(SavedPlace.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        var response = service.create("mary@example.com", new SavedPlaceRequest("Home", "Tampines", null, null, 5L));
+        assertThat(response).hasValueSatisfying(saved -> assertThat(saved.categoryId()).isEqualTo(5L));
+
+        SavedPlace home = place(10L, 1L, "Home");
+        home.setCategoryId(5L);
+        when(savedPlaceRepository.findByUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(home));
+        assertThat(service.getAll("mary@example.com").getFirst().categoryId()).isEqualTo(5L);
+    }
+
+    @Test
+    void createRejectsAnotherUsersCategory() {
+        when(userRepository.findByEmail("mary@example.com")).thenReturn(Optional.of(user));
+        assertThatThrownBy(() -> service.create("mary@example.com",
+                new SavedPlaceRequest("Home", "Tampines", null, null, 99L)))
+                .isInstanceOf(ResponseStatusException.class);
+        verify(savedPlaceRepository, never()).save(any());
+    }
+
+    @Test
+    void updateCanClearCategory() {
+        SavedPlace home = place(10L, 1L, "Home");
+        home.setCategoryId(5L);
+        when(userRepository.findByEmail("mary@example.com")).thenReturn(Optional.of(user));
+        when(savedPlaceRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(home));
+        when(savedPlaceRepository.save(home)).thenReturn(home);
+        assertThat(service.update("mary@example.com", 10L, request("Home", "Tampines")))
+                .hasValueSatisfying(saved -> assertThat(saved.categoryId()).isNull());
+    }
+
     private SavedPlace place(Long id, Long userId, String label) {
         SavedPlace place = new SavedPlace(userId, label, "Tampines", null, null);
         ReflectionTestUtils.setField(place, "id", id);
@@ -99,6 +137,6 @@ class SavedPlaceServiceTests {
 
     private SavedPlaceRequest request(String label, String address) {
         return new SavedPlaceRequest(label, address,
-                new BigDecimal("1.3521"), new BigDecimal("103.9447"));
+                new BigDecimal("1.3521"), new BigDecimal("103.9447"), null);
     }
 }

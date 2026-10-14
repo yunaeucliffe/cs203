@@ -9,5 +9,6 @@ public record SavedPlaceResponse(
         String address,
         BigDecimal latitude,
         BigDecimal longitude,
-        LocalDateTime createdAt) {
+        LocalDateTime createdAt,
+        Long categoryId) {
 }
