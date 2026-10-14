@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import { searchRoutes } from '../api/routes'
 
@@ -41,37 +41,31 @@ function FitRoute({ origin, destination, paths }) {
   return null
 }
 
-function calculateHeading(previous, current) {
-  const lat1 = (previous.latitude * Math.PI) / 180
-  const lat2 = (current.latitude * Math.PI) / 180
-  const dLon = ((current.longitude - previous.longitude) * Math.PI) / 180
-
-  const y = Math.sin(dLon) * Math.cos(lat2)
-  const x =
-    Math.cos(lat1) * Math.sin(lat2) -
-    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
-
-  const angle = (Math.atan2(y, x) * 180) / Math.PI
-
-  return (angle + 360) % 360
-}
 function LocationDot({ position }) {
   const icon = L.divIcon({
     className: '',
     html: `
       <div style="
-        width: 16px;
-        height: 16px;
+        width: 22px;
+        height: 22px;
+        box-sizing: border-box;
         background: #2F6FED;
         border: 3px solid white;
         border-radius: 50%;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
       "></div>
     `,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
   })
 
-  return <Marker position={position} icon={icon} zIndexOffset={1000} />
+  return (
+    <Marker
+      position={position}
+      icon={icon}
+      zIndexOffset={1000}
+    />
+  )
 }
 
 function DirectionMarker({ position, heading }) {
@@ -120,9 +114,71 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const [error, setError] = useState('')
   const pending = useRef(null)
   const locationRequest = useRef(0)
-  const previousLocation = useRef(null)
   const locationWatch = useRef(null)
   const [isMobileDevice, setIsMobileDevice] = useState(false)
+  const [deviceHeading, setDeviceHeading] = useState(null)
+  const compassListeners = useRef(null)
+
+  const stopCompassTracking = useCallback(() => {
+    const listeners = compassListeners.current
+    if (!listeners) return
+
+    window.removeEventListener(
+      'deviceorientation',
+      listeners.ios
+    )
+    window.removeEventListener(
+      'deviceorientationabsolute',
+      listeners.absolute
+    )
+
+    compassListeners.current = null
+  }, [])
+
+  const startCompassTracking = async () => {
+    stopCompassTracking()
+    setDeviceHeading(null)
+
+    const OrientationEvent = window.DeviceOrientationEvent
+
+    // Some browsers, including iOS Safari, require permission.
+    if (typeof OrientationEvent?.requestPermission === 'function') {
+      try {
+        const permission = await OrientationEvent.requestPermission(true)
+        if (permission !== 'granted') return
+      } catch {
+        return
+      }
+    }
+
+    // iOS: use the actual compass heading.
+    const handleIOSCompass = (event) => {
+      const heading = event.webkitCompassHeading
+
+      if (Number.isFinite(heading) && heading >= 0) {
+        setDeviceHeading(heading)
+      }
+    }
+
+    // Android/Chrome: use absolute orientation, not GPS movement.
+    const handleAbsoluteCompass = (event) => {
+      if (Number.isFinite(event.alpha)) {
+        setDeviceHeading((360 - event.alpha) % 360)
+      }
+    }
+
+  window.addEventListener('deviceorientation', handleIOSCompass)
+  window.addEventListener(
+    'deviceorientationabsolute',
+    handleAbsoluteCompass
+  )
+
+  compassListeners.current = {
+    ios: handleIOSCompass,
+    absolute: handleAbsoluteCompass,
+  }
+}
+
 
 useEffect(() => {
   const mediaQuery = window.matchMedia(
@@ -150,9 +206,11 @@ useEffect(() => {
       navigator.geolocation.clearWatch(locationWatch.current)
     }
 
+    stopCompassTracking()
+
     locationRequest.current += 1
   }
-}, [])
+}, [stopCompassTracking])
 
   const selectedRoute = result?.routes[selectedIndex]
   const showRoute = Boolean(selectedRoute)
@@ -207,6 +265,13 @@ useEffect(() => {
       return
     }
 
+    if (isMobileDevice) {
+      void startCompassTracking()
+    } else {
+      stopCompassTracking()
+      setDeviceHeading(null)
+    }
+
     const request = ++locationRequest.current
     setLocating(true)
 
@@ -220,24 +285,7 @@ useEffect(() => {
           name: 'Current location',
         }
 
-        let heading = coords.heading
-
-        if (
-          heading == null &&
-          previousLocation.current
-        ) {
-          heading = calculateHeading(
-            previousLocation.current,
-            newLocation
-          )
-        }
-
-        setDeviceLocation({
-          ...newLocation,
-          heading,
-        })
-
-        previousLocation.current = newLocation
+        setDeviceLocation(newLocation)
 
         setOriginText('Current location')
         setOriginPlace(null)
@@ -633,14 +681,16 @@ useEffect(() => {
               )}
 
               {/* Direction cone on mobile only */}
-              {isMobileDevice && hasCoordinates(currentLocation) && (
-                <DirectionMarker
-                  position={[
-                    currentLocation.latitude,
-                    currentLocation.longitude,
-                  ]}
-                  heading={currentLocation.heading}
-                />
+              {isMobileDevice &&
+                hasCoordinates(currentLocation) &&
+                deviceHeading !== null && (
+                  <DirectionMarker
+                    position={[
+                      currentLocation.latitude,
+                      currentLocation.longitude,
+                    ]}
+                    heading={deviceHeading}
+                  />
               )}
 
               {showRoute && (
