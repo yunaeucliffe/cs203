@@ -3,13 +3,22 @@ import {
   ArrowLeft,
   ArrowRight,
   Edit3,
-  MapPin,
   Plus,
   Trash2,
 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import { API_URL, getCsrfToken } from '../api'
 import { lookupPostalCode } from '../api/locations'
+import CategoryTag from '../components/CategoryTag'
+
+const CATEGORY_COLORS = [
+  '#E8DFF5', // Lavender
+  '#DCEBFA', // Light blue
+  '#FCE4E6', // Soft pink
+  '#FFF0D6', // Peach
+  '#FFF3CC', // Pastel yellow
+  '#DDF3E4', // Mint green
+]
 
 const emptyForm = {
   label: '',
@@ -21,6 +30,17 @@ const emptyForm = {
 function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlacesChange, isAuthenticated, startAdding }) {
 
   const [places, setPlaces] = useState([])
+  const [categories, setCategories] = useState([])
+  const [placeCategories, setPlaceCategories] = useState({})
+
+  const [selectedCategory, setSelectedCategory] = useState('all')
+
+  const [showCategoryForm, setShowCategoryForm] = useState(false)
+
+  const [categoryName, setCategoryName] = useState('')
+  const [categoryColor, setCategoryColor] = useState(CATEGORY_COLORS[0])
+
+  const [formCategoryId, setFormCategoryId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -110,6 +130,86 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
     return () => controller.abort()
   }, [])
 
+  // CREATE CATEGORY
+  const createCategory = () => {
+    const name = categoryName.trim()
+
+    if (!name) return
+
+    const exists = categories.some(
+      category => category.name.toLowerCase() === name.toLowerCase()
+    )
+
+    if (exists) {
+      alert('This category already exists.')
+      return
+    }
+
+    const newCategory = {
+      id: crypto.randomUUID(),
+      name,
+      color: categoryColor,
+    }
+
+    setCategories(current => [...current, newCategory])
+
+    // Automatically select newly created category
+    if (formOpen) {
+      setFormCategoryId(newCategory.id)
+    }
+
+    setCategoryName('')
+    setCategoryColor(CATEGORY_COLORS[0])
+    setShowCategoryForm(false)
+
+  }
+
+
+  // DELETE CATEGORY
+  const deleteCategory = (categoryId) => {
+    const confirmed = window.confirm(
+      'Delete this category? Your saved places will not be deleted.'
+    )
+
+    if (!confirmed) return
+
+    setCategories(current =>
+      current.filter(category => category.id !== categoryId)
+    )
+
+    setPlaceCategories(current => {
+      const updated = { ...current }
+
+      Object.keys(updated).forEach(placeId => {
+        if (updated[placeId] === categoryId) {
+          delete updated[placeId]
+        }
+      })
+
+      return updated
+    })
+
+    if (selectedCategory === categoryId) {
+      setSelectedCategory('all')
+    }
+
+    if (formCategoryId === categoryId) {
+      setFormCategoryId('')
+    }
+  }
+
+
+  // FILTER SAVED PLACES
+  const filteredPlaces =
+    selectedCategory === 'all'
+      ? places
+      : selectedCategory === 'uncategorised'
+        ? places.filter(place => !placeCategories[place.id])
+        : places.filter(
+          place => placeCategories[place.id] === selectedCategory
+        )
+
+
   // OPEN ADD / EDIT FORM
   const openForm = (place = null) => {
     postalRequest.current?.abort()
@@ -119,6 +219,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
     if (place) {
       // Editing an existing place
       setEditingPlace(place)
+      setFormCategoryId(placeCategories[place.id] || '')
 
       setForm({
         label: place.label,
@@ -130,6 +231,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
       // Adding a new place
       setEditingPlace({ id: null })
       setForm(emptyForm)
+      setFormCategoryId('')
     }
     setError('')
   }
@@ -178,6 +280,19 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
           data?.message || 'Unable to save this place.'
         )
       }
+
+      // Save category assignment locally
+      setPlaceCategories(current => {
+        const updated = { ...current }
+
+        if (formCategoryId) {
+          updated[data.id] = formCategoryId
+        } else {
+          delete updated[data.id]
+        }
+
+        return updated
+      })
 
       // Update Saved Places page
       setPlaces((currentPlaces) => {
@@ -240,6 +355,12 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
       if (!response.ok) {
         throw new Error('Unable to remove this place.')
       }
+
+      setPlaceCategories(current => {
+        const updated = { ...current }
+        delete updated[place.id]
+        return updated
+      })
 
       // Remove from this page
       setPlaces((currentPlaces) =>
@@ -325,133 +446,302 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
             >
               <fieldset disabled={saving} className="min-w-0">
 
-              {/* LABEL */}
-              <div>
-                <label
-                  htmlFor="place-label"
-                  className="mb-2 block font-semibold"
-                >
-                  Name
-                </label>
+                {/* LABEL */}
+                <div>
+                  <label
+                    htmlFor="place-label"
+                    className="mb-2 block font-semibold"
+                  >
+                    Name
+                  </label>
 
-                <input
-                  id="place-label"
-                  type="text"
-                  required
-                  maxLength="100"
-                  value={form.label}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      label: event.target.value,
-                    })
-                  }
-                  placeholder="Home, Work, School..."
-                  className="h-[60px] w-full rounded-xl border border-[#7A7F7A]/40 bg-white px-5 outline-none transition focus:border-[#3E424B]"
-                />
+                  <input
+                    id="place-label"
+                    type="text"
+                    required
+                    maxLength="100"
+                    value={form.label}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        label: event.target.value,
+                      })
+                    }
+                    placeholder="Home, Work, School..."
+                    className="h-[60px] w-full rounded-xl border border-[#7A7F7A]/40 bg-white px-5 outline-none transition focus:border-[#3E424B]"
+                  />
 
-              </div>
+                </div>
 
-              <div className="mt-5">
-                <label htmlFor="place-postal-code" className="mb-2 block font-semibold">
-                  Postal code <span className="ml-2 text-sm font-normal text-[#7A7F7A]">Optional</span>
-                </label>
-                <input id="place-postal-code" type="text" inputMode="numeric" autoComplete="postal-code"
-                  maxLength={6} pattern="[0-9]{6}" value={postalCode}
-                  onChange={event => changePostalCode(event.target.value)}
-                  aria-describedby="postal-code-status" aria-busy={lookup.status === 'loading'}
-                  placeholder="Enter 6 digits to fill your address"
-                  className="h-[60px] w-full rounded-xl border border-[#7A7F7A]/40 bg-white px-5 outline-none transition focus:border-[#3E424B]" />
-                <p id="postal-code-status" role="status" className="mt-2 text-sm text-[#59605B]">
-                  {lookup.status === 'idle' && 'Enter your postal code, or type the address below.'}
-                  {lookup.status === 'loading' && 'Looking up your address…'}
-                  {lookup.status === 'resolved' && 'Address filled in. Check it before saving.'}
-                  {lookup.status === 'choose' && 'Choose your address below.'}
-                  {lookup.status === 'empty' && 'No address found. Check the postal code or enter the address yourself.'}
-                  {lookup.status === 'error' && lookup.message}
-                </p>
-                {lookup.status === 'error' && (
-                  <button type="button" className="mt-2 font-semibold underline" onClick={() => {
-                    setLookup({ status: 'loading', matches: [] })
-                    setRetry(count => count + 1)
-                  }}>Try again</button>
-                )}
-                {lookup.status === 'choose' && (
-                  <ul className="mt-3 space-y-2" aria-label="Matching addresses">
-                    {lookup.matches.map(place => (
-                      <li key={`${place.address}:${place.latitude}:${place.longitude}`}>
-                        <button type="button" onClick={() => chooseAddress(place)}
-                          className="w-full rounded-xl border border-[#7A7F7A]/40 bg-white px-5 py-4 text-left hover:bg-[#DCE7D2]">
-                          <span className="block font-semibold">{place.name}</span>
-                          {place.name !== place.address && <span className="mt-1 block text-sm">{place.address}</span>}
-                        </button>
-                      </li>
+                <div className="mt-5">
+                  <label htmlFor="place-postal-code" className="mb-2 block font-semibold">
+                    Postal code <span className="ml-2 text-sm font-normal text-[#7A7F7A]">Optional</span>
+                  </label>
+                  <input id="place-postal-code" type="text" inputMode="numeric" autoComplete="postal-code"
+                    maxLength={6} pattern="[0-9]{6}" value={postalCode}
+                    onChange={event => changePostalCode(event.target.value)}
+                    aria-describedby="postal-code-status" aria-busy={lookup.status === 'loading'}
+                    placeholder="Enter 6 digits to fill your address"
+                    className="h-[60px] w-full rounded-xl border border-[#7A7F7A]/40 bg-white px-5 outline-none transition focus:border-[#3E424B]" />
+                  <p id="postal-code-status" role="status" className="mt-2 text-sm text-[#59605B]">
+                    {lookup.status === 'idle' && 'Enter your postal code, or type the address below.'}
+                    {lookup.status === 'loading' && 'Looking up your address…'}
+                    {lookup.status === 'resolved' && 'Address filled in. Check it before saving.'}
+                    {lookup.status === 'choose' && 'Choose your address below.'}
+                    {lookup.status === 'empty' && 'No address found. Check the postal code or enter the address yourself.'}
+                    {lookup.status === 'error' && lookup.message}
+                  </p>
+                  {lookup.status === 'error' && (
+                    <button type="button" className="mt-2 font-semibold underline" onClick={() => {
+                      setLookup({ status: 'loading', matches: [] })
+                      setRetry(count => count + 1)
+                    }}>Try again</button>
+                  )}
+                  {lookup.status === 'choose' && (
+                    <ul className="mt-3 space-y-2" aria-label="Matching addresses">
+                      {lookup.matches.map(place => (
+                        <li key={`${place.address}:${place.latitude}:${place.longitude}`}>
+                          <button type="button" onClick={() => chooseAddress(place)}
+                            className="w-full rounded-xl border border-[#7A7F7A]/40 bg-white px-5 py-4 text-left hover:bg-[#DCE7D2]">
+                            <span className="block font-semibold">{place.name}</span>
+                            {place.name !== place.address && <span className="mt-1 block text-sm">{place.address}</span>}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* ADDRESS */}
+                <div className="mt-5">
+                  <label
+                    htmlFor="place-address"
+                    className="mb-2 block font-semibold"
+                  >
+                    Address
+                  </label>
+
+                  <textarea
+                    id="place-address"
+                    required
+                    maxLength="500"
+                    rows="3"
+                    value={form.address}
+                    onChange={event => changeAddress(event.target.value)}
+                    placeholder="Enter the full address"
+                    className="w-full resize-none rounded-xl border border-[#7A7F7A]/40 bg-white px-5 py-4 outline-none transition focus:border-[#3E424B]"
+                  />
+                </div>
+
+                {/* CATEGORY */}
+                <div className="mt-8">
+
+                  <label className="mb-3 block font-semibold">
+                    Category
+                    <span className="ml-2 text-sm font-normal text-[#7A7F7A]">
+                      Optional
+                    </span>
+                  </label>
+
+                  {/* SELECT EXISTING CATEGORY */}
+                  <div className="flex flex-wrap gap-3">
+
+                    {/* NO CATEGORY */}
+                    <button
+                      type="button"
+                      onClick={() => setFormCategoryId('')}
+                      aria-pressed={formCategoryId === ''}
+                      className="rounded-lg"
+                    >
+                      <CategoryTag
+                        name="No category"
+                        color="#F0F0F0"
+                        selected={formCategoryId === ''}
+                      />
+                    </button>
+
+                    {/* USER-CREATED CATEGORIES */}
+                    {categories.map(category => (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() => setFormCategoryId(category.id)}
+                        aria-pressed={formCategoryId === category.id}
+                        className="rounded-lg"
+                      >
+                        <CategoryTag
+                          name={category.name}
+                          color={category.color}
+                          selected={formCategoryId === category.id}
+                        />
+                      </button>
                     ))}
-                  </ul>
+
+                  </div>
+
+
+                  {/* CREATE CATEGORY BUTTON */}
+                  <button
+                    type="button"
+                    onClick={() => setShowCategoryForm(!showCategoryForm)}
+                    className="mt-5 flex items-center gap-2 text-sm font-semibold text-[#3E424B] hover:underline"
+                  >
+                    <Plus size={17} />
+                    Create new category
+                  </button>
+
+
+                  {/* CREATE CATEGORY FORM */}
+                  {showCategoryForm && (
+
+                    <div className="mt-5 rounded-2xl border border-[#7A7F7A]/20 bg-white p-6">
+
+                      <h3 className="text-lg font-semibold">
+                        Create a category
+                      </h3>
+
+                      {/* LIVE PREVIEW */}
+                      <div className="pt-2">
+                        <p className="mb-3 text-sm font-semibold text-[#7A7F7A]">
+                          Preview
+                        </p>
+                        <div>
+
+                          <CategoryTag
+                            name={categoryName.trim() || 'Category name'}
+                            color={categoryColor}
+                          />
+
+                        </div>
+
+                        <p className="mt-2 text-xs text-[#7A7F7A]">
+                          This is how your category will appear on saved places.
+                        </p>
+
+                      </div>
+
+                      {/* CATEGORY NAME */}
+                      <div className="mt-5">
+
+                        <label
+                          htmlFor="category-name"
+                          className="mb-2 block text-sm font-semibold"
+                        >
+                          Category name
+                        </label>
+
+                        <input
+                          id="category-name"
+                          type="text"
+                          value={categoryName}
+                          onChange={event => setCategoryName(event.target.value)}
+                          placeholder="e.g. Healthcare"
+                          maxLength={40}
+                          className="h-[52px] w-full rounded-xl border border-[#7A7F7A]/40 px-4 outline-none focus:border-[#3E424B]"
+                        />
+
+                      </div>
+
+
+                      {/* COLOUR SELECTION */}
+                      <div className="mt-6">
+
+                        <p className="text-sm font-semibold">
+                          Choose a colour
+                        </p>
+
+                        <div className="mt-3 flex flex-wrap gap-3">
+
+                          {CATEGORY_COLORS.map(color => (
+
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => setCategoryColor(color)}
+                              aria-label={`Select colour ${color}`}
+                              aria-pressed={categoryColor === color}
+                              className={`h-10 w-10 rounded-full border-2 transition ${categoryColor === color
+                                ? 'border-white ring-2 ring-[#3E424B]'
+                                : 'border-transparent'
+                                }`}
+                              style={{
+                                backgroundColor: color,
+                              }}
+                            />
+
+                          ))}
+
+                        </div>
+
+                      </div>
+
+                      {/* BUTTONS */}
+                      <div className="mt-6 flex justify-end gap-3">
+
+                        <button
+                          type="button"
+                          onClick={() => setShowCategoryForm(false)}
+                          className="rounded-xl px-5 py-3 font-semibold text-[#3E424B] hover:bg-[#FAF7F0]"
+                        >
+                          Cancel
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={createCategory}
+                          disabled={!categoryName.trim()}
+                          className="rounded-xl bg-[#3E424B] px-5 py-3 font-semibold text-white transition hover:bg-[#2A3439] disabled:opacity-40"
+                        >
+                          Create category
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  )}
+
+                </div>
+
+                {/* ERROR */}
+                {error && (
+
+                  <p
+                    role="alert"
+                    className="mt-5 text-sm font-semibold text-[#A12B2B]"
+                  >
+                    {error}
+                  </p>
+
                 )}
-              </div>
-
-              {/* ADDRESS */}
-              <div className="mt-5">
-                <label
-                  htmlFor="place-address"
-                  className="mb-2 block font-semibold"
-                >
-                  Address
-                </label>
-
-                <textarea
-                  id="place-address"
-                  required
-                  maxLength="500"
-                  rows="3"
-                  value={form.address}
-                  onChange={event => changeAddress(event.target.value)}
-                  placeholder="Enter the full address"
-                  className="w-full resize-none rounded-xl border border-[#7A7F7A]/40 bg-white px-5 py-4 outline-none transition focus:border-[#3E424B]"
-                />
-              </div>
-
-              {/* ERROR */}
-
-              {error && (
-
-                <p
-                  role="alert"
-                  className="mt-5 text-sm font-semibold text-[#A12B2B]"
-                >
-                  {error}
-                </p>
-
-              )}
 
 
 
-              {/* BUTTONS */}
+                {/* BUTTONS */}
 
-              <div className="mt-8 flex gap-4">
+                <div className="mt-8 flex gap-4">
 
-                <button
-                  type="button"
-                  onClick={() => setEditingPlace(null)}
-                  disabled={saving}
-                  className="flex-1 rounded-xl border-2 border-[#3E424B] px-5 py-4 font-bold transition hover:bg-[#DCE7D2]"
-                >
-                  Cancel
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingPlace(null)}
+                    disabled={saving}
+                    className="flex-1 rounded-xl border-2 border-[#3E424B] px-5 py-4 font-bold transition hover:bg-[#DCE7D2]"
+                  >
+                    Cancel
+                  </button>
 
 
-                <button
-                  type="submit"
-                  disabled={saving || lookup.status === 'loading' || lookup.status === 'choose'}
-                  className="flex-1 rounded-xl bg-[#3E424B] px-5 py-4 font-bold text-white transition hover:bg-[#2A3439] disabled:opacity-60"
-                >
-                  {saving
-                    ? 'Saving...'
-                    : 'Save place'}
-                </button>
+                  <button
+                    type="submit"
+                    disabled={saving || lookup.status === 'loading' || lookup.status === 'choose'}
+                    className="flex-1 rounded-xl bg-[#3E424B] px-5 py-4 font-bold text-white transition hover:bg-[#2A3439] disabled:opacity-60"
+                  >
+                    {saving
+                      ? 'Saving...'
+                      : 'Save place'}
+                  </button>
 
-              </div>
+                </div>
               </fieldset>
             </form>
 
@@ -504,6 +794,31 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
 
             </div>
 
+
+            {/* CATEGORY FILTER */}
+            <div className="mt-8 flex items-center gap-4">
+              <label htmlFor="category-filter" className="font-semibold">
+                Filter by category
+              </label>
+
+              <select
+                id="category-filter"
+                value={selectedCategory}
+                onChange={(event) => setSelectedCategory(event.target.value)}
+                className="rounded-xl border border-[#7A7F7A]/30 bg-white px-5 py-3"
+              >
+                <option value="all">All categories</option>
+
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+
+                <option value="uncategorised">Uncategorised</option>
+              </select>
+            </div>
+
             {error && (
               <p
                 role="alert"
@@ -549,17 +864,27 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
             {!loading && places.length > 0 && (
               <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
 
-                {places.map((place) => (
+                {filteredPlaces.map((place) => (
                   <div
                     key={place.id}
                     className="flex min-h-[220px] flex-col rounded-[18px] border-2 border-[#3E424B]/80 bg-[#DCE7D2] px-7 py-6"
                   >
 
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-3">
 
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/70">
-                        <MapPin size={20} />
-                      </div>
+                      {/* CATEGORY LABEL */}
+                      {(() => {
+                        const category = categories.find(
+                          category => category.id === placeCategories[place.id]
+                        )
+
+                        return (
+                          <CategoryTag
+                            name={category?.name || 'Uncategorised'}
+                            color={category?.color || '#F0F0F0'}
+                          />
+                        )
+                      })()}
 
                       <div className="flex gap-1">
 
@@ -585,7 +910,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                       </div>
                     </div>
 
-                    <h2 className="mt-5 text-[22px] font-semibold">
+                    <h2 className="mt-6 text-[22px] font-semibold">
                       {place.label}
                     </h2>
 
