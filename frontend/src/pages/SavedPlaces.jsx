@@ -165,40 +165,6 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
   }
 
 
-  // DELETE CATEGORY
-  const deleteCategory = (categoryId) => {
-    const confirmed = window.confirm(
-      'Delete this category? Your saved places will not be deleted.'
-    )
-
-    if (!confirmed) return
-
-    setCategories(current =>
-      current.filter(category => category.id !== categoryId)
-    )
-
-    setPlaceCategories(current => {
-      const updated = { ...current }
-
-      Object.keys(updated).forEach(placeId => {
-        if (updated[placeId] === categoryId) {
-          delete updated[placeId]
-        }
-      })
-
-      return updated
-    })
-
-    if (selectedCategory === categoryId) {
-      setSelectedCategory('all')
-    }
-
-    if (formCategoryId === categoryId) {
-      setFormCategoryId('')
-    }
-  }
-
-
   // FILTER SAVED PLACES
   const filteredPlaces =
     selectedCategory === 'all'
