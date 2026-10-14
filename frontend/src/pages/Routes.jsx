@@ -3,6 +3,7 @@ import L from 'leaflet'
 import { searchRoutes } from '../api/routes'
 import RouteCard from '../components/RouteCard'
 import RouteDetails from '../components/RouteDetails'
+import TravelTimeDisclaimer from '../components/TravelTimeDisclaimer'
 
 import {
   MapContainer,
@@ -625,6 +626,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     </details>
 
                   )}
+                  <TravelTimeDisclaimer />
 
                 </section>
 

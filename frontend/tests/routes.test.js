@@ -1,12 +1,25 @@
 import { afterEach, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { searchRoutes, searchLocation } from '../src/api/routes.js'
+import { searchRoutes, searchLocation, fetchBusArrivals } from '../src/api/routes.js'
 
 const originalFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = originalFetch })
 const origin = { name: 'Current location', latitude: 1.3, longitude: 103.8 }
 const destination = { name: 'Hospital', latitude: 1.31, longitude: 103.81 }
 const ok = body => ({ ok: true, status: 200, json: async () => body })
+
+test('refreshes arrivals independently of route recommendations with cancellation support', async () => {
+  const signal = new AbortController().signal
+  const evidence = { source: 'LTA BusArrival', availability: 'available',
+    details: { busStopCode: '01234', service: '97' } }
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'http://localhost:8081/api/bus-arrival-estimates?busStopCode=01234&service=97')
+    assert.equal(options.signal, signal)
+    assert.equal(options.credentials, 'include')
+    return ok(evidence)
+  }
+  assert.deepEqual(await fetchBusArrivals('01234', '97', signal), evidence)
+})
 
 test('posts authenticated coordinates and CSRF; preserves ranking, reasons and warnings', async () => {
   const calls = []

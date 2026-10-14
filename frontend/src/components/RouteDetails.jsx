@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import L from 'leaflet'
+import BusArrivals from './BusArrivals'
+import TravelTimeDisclaimer from './TravelTimeDisclaimer'
 
 import {
     MapContainer,
@@ -279,6 +281,7 @@ function RouteDetails({
                 <p className="mt-2 text-[#555C60]">
                     {route.summary}
                 </p>
+                <BusArrivals key={route.id} route={route} live={!isDemo} />
 
 
                 {/* DEMO NOTICE */}
@@ -589,6 +592,8 @@ function RouteDetails({
                         </details>
                     )}
 
+
+                    <TravelTimeDisclaimer />
 
                     {/* DATA SOURCES */}
                     {sources.length > 0 && (
