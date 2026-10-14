@@ -107,6 +107,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const [loading, setLoading] = useState(false)
   const [locating, setLocating] = useState(false)
   const [error, setError] = useState('')
+  const [addressSuggestion, setAddressSuggestion] = useState(null)
   const pending = useRef(null)
   const locationRequest = useRef(0)
   const previousLocation = useRef(null)
@@ -172,6 +173,8 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     setResult(null)
     setViewingDetails(false)
     setError('')
+    setAddressSuggestion(null)
+
   }
 
   const useMyLocation = () => {
@@ -239,9 +242,9 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     const controller = new AbortController()
     pending.current = controller
     setLoading(true)
+    const origin = deviceLocation || originPlace
+    const target = destinationPlace
     try {
-      const origin = deviceLocation || originPlace
-      const target = destinationPlace
       const recommendations = await searchRoutes(origin, target, controller.signal)
       const routes = recommendations.routes
       if (controller.signal.aborted) return
@@ -252,7 +255,15 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
       setSelectedIndex(0)
       setResult({ ...recommendations, origin, destination: target, routes })
     } catch (failure) {
-      if (!controller.signal.aborted) setError(failure.message)
+      if (!controller.signal.aborted) {
+        setError(failure.message)
+        if (failure.suggestions?.length) {
+          setAddressSuggestion({
+            field: !hasCoordinates(origin) && failure.query === originText.trim() ? 'origin' : 'destination',
+            locations: failure.suggestions,
+          })
+        }
+      }
     } finally {
       if (pending.current === controller) {
         pending.current = null
@@ -429,6 +440,27 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                   </p>
                 )}
                 {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
+                {addressSuggestion && (
+                  <div className="mt-4 rounded-xl bg-amber-50 p-4" aria-label="Suggested addresses">
+                    <p className="mb-3 font-semibold">Confirm your {addressSuggestion.field === 'origin' ? 'starting point' : 'destination'}</p>
+                    {addressSuggestion.locations.map((location) => (
+                      <button key={`${location.name}-${location.latitude}-${location.longitude}`} type="button"
+                        className="mb-2 block w-full rounded-xl border border-amber-300 bg-white p-3 text-left"
+                        onClick={() => {
+                          clearResult()
+                          if (addressSuggestion.field === 'origin') {
+                            setOriginText(location.name)
+                            setOriginPlace(location)
+                          } else {
+                            setDestination(location.name)
+                            setDestinationPlace(location)
+                          }
+                        }}>
+                        {location.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {loading && <p role="status" className="mt-4">Comparing routes with your saved preferences and available travel conditions…</p>}
 
               </section>

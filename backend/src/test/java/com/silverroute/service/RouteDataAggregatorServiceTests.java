@@ -10,8 +10,38 @@ import com.silverroute.api.*;
 import com.silverroute.routing.*;
 import com.silverroute.tool.*;
 import com.silverroute.exception.RouteDataUnavailableException;
+import com.silverroute.exception.AddressNotFoundException;
+import com.silverroute.exception.InvalidAddressException;
+import com.silverroute.exception.AddressConfirmationRequiredException;
 
 class RouteDataAggregatorServiceTests {
+    @Test void addressSuggestionStopsRouteAggregation() throws Exception {
+        var tool=mock(RouteDataTool.class); var enrichment=mock(RouteConditionsService.class);
+        var failure=new AddressConfirmationRequiredException("10 Example Road 200640",
+                List.of(new LocationResult("640 ROWELL ROAD SINGAPORE 200640",1.3074,103.8547)));
+        when(tool.execute(any())).thenThrow(failure);
+        assertThatThrownBy(() -> new RouteDataAggregatorService(tool,enrichment).aggregate(
+                new TripRequest("A","10 Example Road 200640",OffsetDateTime.now()),new SavedPreferences("Normal","Moderate",false)))
+                .isSameAs(failure);
+        verifyNoInteractions(enrichment);
+    }
+    @Test void addressLookupFailureKeepsActionableMessage() throws Exception {
+        var tool=mock(RouteDataTool.class); var enrichment=mock(RouteConditionsService.class);
+        when(tool.execute(any())).thenThrow(new AddressNotFoundException("Address could not be found. Try its six-digit postal code."));
+        assertThatThrownBy(() -> new RouteDataAggregatorService(tool,enrichment).aggregate(
+                new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal","Moderate",false)))
+                .isInstanceOf(AddressNotFoundException.class).hasMessageContaining("postal code");
+        verifyNoInteractions(enrichment);
+    }
+    @Test void invalidAddressIsNotWrappedAsProviderFailure() throws Exception {
+        var tool=mock(RouteDataTool.class); var enrichment=mock(RouteConditionsService.class);
+        var failure=new InvalidAddressException("Enter an address.");
+        when(tool.execute(any())).thenThrow(failure);
+        assertThatThrownBy(() -> new RouteDataAggregatorService(tool,enrichment).aggregate(
+                new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal","Moderate",false)))
+                .isSameAs(failure);
+        verifyNoInteractions(enrichment);
+    }
     @Test void normalizesTimeAndCollectsBeforeRankingWithFutureWarning() throws Exception {
         var tool=mock(RouteDataTool.class); var conditions=mock(RouteConditionsService.class);
         var clock=Clock.fixed(Instant.parse("2026-09-28T00:00:00Z"),ZoneOffset.UTC);
