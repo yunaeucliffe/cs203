@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.silverroute.api.LocationResult;
 import com.silverroute.api.LocationSuggestion;
+import com.silverroute.exception.AddressConfirmationRequiredException;
 import org.springframework.http.ResponseEntity;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,12 @@ public class LocationController {
         try {
             return ResponseEntity.ok(
                     oneMapService.parseSuggestions(oneMapService.searchLocation(trimmed)));
+        } catch (AddressConfirmationRequiredException exception) {
+            // Autocomplete suggestions require an explicit selection before routing.
+            return ResponseEntity.ok(exception.suggestions().stream()
+                    .map(location -> new LocationSuggestion(location.name(), location.name(),
+                            location.latitude(), location.longitude()))
+                    .limit(5).toList());
         } catch (Exception exception) {
             return ResponseEntity.status(503)
                     .body(Map.of("message", "Location suggestions are unavailable. Try again."));

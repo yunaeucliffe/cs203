@@ -1,6 +1,6 @@
 # Personalized route recommendations — backend and frontend contract
 
-The backend resolves a trip with OneMap, enriches candidate routes with relevant evidence, loads the signed-in user's saved preferences, and makes one OpenAI ranking request. The model selects existing route IDs and supplies explanations. The backend validates those IDs and restores original route metrics and geometry. It never accepts model-generated itineraries.
+The backend resolves a trip with OneMap, attaches relevant conditions and evidence to candidate routes, loads the signed-in user's saved preferences, and makes one OpenAI ranking request. The model selects existing route IDs and supplies explanations. The backend validates those IDs and restores original route metrics and geometry. It never accepts model-generated itineraries.
 
 ## Configuration
 
@@ -59,7 +59,7 @@ Adjust the import path for the consuming file. Log in first using the existing s
 | originCoordinates / destinationCoordinates | Optional `{ latitude, longitude }` | Use resolved coordinates or GPS; supplied coordinates take precedence over geocoding the display name |
 | departureTime | ISO 8601 timestamp with offset | Required; UTC is accepted and converted to Singapore time |
 
-Do not send user ID, email, walking limits or preferences. Preferences come from the authenticated profile (`walkingSpeed`, `walkingTolerance`, `preferSheltered`). The old `preferences` request object is no longer part of the contract. The backend does not map qualitative tolerance to invented numerical limits.
+Do not send user ID, email, walking limits or preferences. Preferences come from the authenticated profile (`walkingSpeed`, `minimizeWalkingPriority`, `shelterPriority`). The old `preferences` request object is no longer part of the contract. Priority scores express importance, not physical ability or numerical walking limits.
 
 ### Response
 
@@ -79,11 +79,11 @@ Do not send user ID, email, walking limits or preferences. Preferences come from
     "legs": [],
     "routePaths": [],
     "evidence": [],
-    "reasons": ["Short walking distance suits your walking tolerance."],
+    "reasons": ["Short walking distance suits your preference for less walking."],
     "warnings": ["Accessibility has not been verified."]
   },
   "alternatives": [],
-  "reasons": ["Short walking distance suits your walking tolerance."],
+  "reasons": ["Short walking distance suits your preference for less walking."],
   "warnings": ["Accessibility has not been verified."],
   "sources": ["onemap-route-data"],
   "engine": "openai:configured-model"
@@ -104,12 +104,16 @@ This abbreviated example is illustrative, not a real recommendation. Successful 
 | Status | Meaning |
 |---|---|
 | 400 | Invalid or missing trip fields |
+| 404 | Address could not be found |
+| 422 | Full address did not match; postal-code suggestions require confirmation |
 | 401 | No authenticated session (with a valid CSRF token) |
 | 403 | Missing/invalid CSRF token, including unauthenticated POSTs without a token |
 | 503 | Profile missing, OneMap failure, or no usable candidate routes |
 | 502 | OpenAI unconfigured, unavailable, refused, incomplete, or returned invalid selections |
 
 Application errors contain `status`, `message`, `requestId`, and `timestamp`. Spring Security rejection bodies may differ; the frontend should handle non-JSON errors too. Provider diagnostics and credentials are not echoed to the browser.
+
+Address-confirmation responses also contain `query` (the original address) and `suggestions` (locations with `name`, `latitude`, and `longitude`). No routes are retrieved or ranked for a postal-code fallback until the user selects a suggestion. The Routes page replaces the relevant input with the selected address and sends its coordinates on the next route request. Editing that input clears the selection. A six-digit postal code entered on its own can resolve directly; a full address that only resolves through its postal code requires confirmation, even if the supplied address was correct. Suggested fallbacks are not cached as successful matches for the original address.
 
 ## Extraction and ranking behavior
 
@@ -130,15 +134,15 @@ Application errors contain `status`, `message`, `requestId`, and `timestamp`. Sp
 Run `./mvnw test` in `backend`. Application-context tests require the configured PostgreSQL database. Focused route tests can run without PostgreSQL:
 
 ```sh
-./mvnw test -Dtest='RouteParserTests,EvidenceCacheTests,RouteEnrichmentServiceTests,ShelterEstimatorTests,RouteDataAggregatorServiceTests,RouteRecommendationAgentTests,OpenAiModelGatewayTests,RouteRecommendationSecurityTests'
+./mvnw test -Dtest='RouteParserTests,EvidenceCacheTests,RouteConditionsServiceTests,ShelterEstimatorTests,RouteDataAggregatorServiceTests,RouteRecommendationAgentTests,OpenAiModelGatewayTests,RouteRecommendationSecurityTests'
 ```
 
 Fixtures in `src/test/resources/routes` are synthetic provider-shaped cases. Credentials were not configured during implementation, so live provider schemas, account permissions and live model quality still need verification. Record sanitized provider responses from a configured account and rerun adapter tests before release.
 
 The opt-in `RouteRankingLiveEvaluationTests` makes paid OpenAI requests and is disabled by default. Export `RUN_OPENAI_EVAL=true`, `OPENAI_API_KEY`, and `OPENAI_MODEL`, then run `./mvnw test -Dtest=RouteRankingLiveEvaluationTests`. This evaluates preference scenarios separately from API parsing/validation. Inspect the report in `target/route-ranking-evaluation.json` for:
 
-1. Poor tolerance + Slow: less walking outranks a slightly faster itinerary with substantially more walking.
-2. Prefer sheltered: with equal journey/walking metrics, the more sheltered option ranks first.
+1. High walking priority + Slow: less walking outranks a slightly faster itinerary with substantially more walking.
+2. High shelter priority: with equal journey/walking metrics, the more sheltered option ranks first.
 3. Unknown accessibility/shelter: explanations must not claim verified access or guaranteed shelter.
 
 Review each explanation against the supplied evidence, including units, stale data, and uncertainty. Repeat across representative Singapore trips and compare model changes against this baseline; passing structural tests alone is not evidence of ranking quality.

@@ -23,20 +23,20 @@ ON CONFLICT (username) DO UPDATE SET
 INSERT INTO user_preferences (
     user_id,
     walking_speed,
-    walking_tolerance,
-    prefer_sheltered
+    minimize_walking_priority,
+    shelter_priority
 )
 SELECT
     id,
     'Slow',
-    'Poor',
-    TRUE
+    80,
+    80
 FROM users
 WHERE username = 'marytan'
 ON CONFLICT (user_id) DO UPDATE SET
     walking_speed = EXCLUDED.walking_speed,
-    walking_tolerance = EXCLUDED.walking_tolerance,
-    prefer_sheltered = EXCLUDED.prefer_sheltered;
+    minimize_walking_priority = EXCLUDED.minimize_walking_priority,
+    shelter_priority = EXCLUDED.shelter_priority;
 
 -- MOCK SAVED PLACE: HOME
 

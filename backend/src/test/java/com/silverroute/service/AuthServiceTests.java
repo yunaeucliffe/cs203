@@ -90,8 +90,8 @@ class AuthServiceTests {
         verify(preferenceRepository).save(argThat(preference ->
                 preference.getUserId().equals(7L)
                         && preference.getWalkingSpeed().equals("Normal")
-                        && preference.getWalkingTolerance().equals("Moderate")
-                        && !preference.isPreferSheltered()));
+                        && preference.getMinimizeWalkingPriority() == 50
+                        && preference.getShelterPriority() == 20));
     }
 
     @Test

@@ -24,6 +24,10 @@ class OpenAiModelGatewayTests {
         var result=model.parseResponse(response("{\"rankings\":[{\"routeId\":\"onemap-route-1\",\"reasons\":[\"Less walking\"],\"warnings\":[]}]}"));
         assertThat(result.rankings().getFirst().routeId()).isEqualTo("onemap-route-1");
         var body=new ObjectMapper().valueToTree(model.requestBody(TestRoutes.trip().context()));
+        var context=new ObjectMapper().readTree(body.at("/input/1/content").asText());
+        assertThat(context.at("/preferences/minimizeWalkingPriority").isInt()).isTrue();
+        assertThat(context.at("/preferences/shelterPriority").isInt()).isTrue();
+        assertThat(body.at("/input/0/content").asText()).contains("independent priorities");
         assertThat(body.path("store").asBoolean()).isFalse();
         assertThat(body.at("/text/format/strict").asBoolean()).isTrue();
         assertThat(body.at("/text/format/schema/properties/rankings/items/properties/routeId/enum/0").asText()).isEqualTo("onemap-route-1");

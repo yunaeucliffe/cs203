@@ -25,17 +25,6 @@ public class OneMapRouteDataTool implements RouteDataTool {
     }
 
     @Override
-    public String name() {
-        return NAME;
-    }
-
-    @Override
-    public String description() {
-        return "Gets real public-transport route options from OneMap";
-    }
-
-    // 
-    @Override
     public ToolExecutionResult execute(TripRequest request) throws Exception {
 
         var origin = resolve(request.origin(), request.originCoordinates());

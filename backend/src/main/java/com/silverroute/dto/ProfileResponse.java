@@ -6,6 +6,6 @@ public record ProfileResponse(
         String username,
         String email,
         String walkingSpeed,
-        String walkingTolerance,
-        boolean preferSheltered) {
-}
+        int minimizeWalkingPriority,
+        int shelterPriority,
+        boolean automaticLearning) {}

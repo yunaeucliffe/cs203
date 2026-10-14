@@ -39,18 +39,34 @@ psql --version
 
 ## Database setup
 
-Create the development database and tables from the repository directory:
+### Fresh installation
 
-```powershell
-psql -U postgres -d postgres -f database/schema.sql
-psql -U postgres -d silverroute -f database/mockdata.sql
+From the repository directory, create the database and seed the development account:
+
+```sh
+psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f database/schema.sql
+psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/mockdata.sql
 ```
 
-`schema.sql` creates the `users`, `user_preferences`, and `saved_places` tables. Saved preferences are walking speed, walking tolerance (`Poor`, `Moderate`, `Good`), and a shelter preference.
+`schema.sql` creates `silverroute` if needed and sets up `users`, `user_preferences`, `saved_places`, and `route_choice_snapshots`. It automatically applies the preference migration, so no separate migration commands are needed for a fresh installation.
 
-`mockdata.sql` creates or updates the development user. The password is stored as a BCrypt hash; plaintext passwords are never stored.
+Saved preferences now contain walking speed, independent 0–100 walking and shelter priority scores, and an automatic-learning toggle. Walking tolerance and the shelter boolean are no longer stored.
 
-The schema script creates `silverroute` only when it is missing, so it is safe to rerun. Afterward, rerun `mockdata.sql` to create or update the development account.
+`mockdata.sql` creates or updates the development account with a BCrypt password hash and sample preferences. Rerunning it resets that account's walking speed and priority scores, so use it only when you intend to reset the development account.
+
+### Existing database
+
+Stop the backend, then run this migration from the repository directory:
+
+```sh
+psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/001_preference_priorities.sql
+```
+
+Migration 001 adds the priority scores, learning fields, and route-choice table. It converts old preferences only where scores are missing. It then removes the obsolete walking-tolerance and shelter-boolean columns. Existing scores and user records are preserved; the migration can be rerun. All migration steps run in one transaction, so an error rolls back the upgrade. Rerun it when upgrading to AI learning and undo to add their tracking columns.
+
+Restart the updated backend afterward. Hibernate uses `ddl-auto=validate`, so it checks the schema but does not apply migrations automatically. You do not need to rerun `mockdata.sql` for an upgrade.
+
+These commands work in PowerShell, macOS, and Linux terminals. `psql` prompts for a password when required; it does not read the project's `.env`. If needed, add `-h ::1` or `-h 127.0.0.1` to match your backend's `DB_HOST`.
 
 ## Environment variables
 
@@ -205,8 +221,9 @@ Example response:
   "name": "Mary Tan",
   "email": "mary@example.com",
   "walkingSpeed": "Slow",
-  "walkingTolerance": "Poor",
-  "preferSheltered": true
+  "minimizeWalkingPriority": 80,
+  "shelterPriority": 80,
+  "automaticLearning": true
 }
 ```
 
@@ -223,12 +240,13 @@ X-XSRF-TOKEN: <csrf-token>
 ```json
 {
   "walkingSpeed": "Normal",
-  "walkingTolerance": "Moderate",
-  "preferSheltered": false
+  "minimizeWalkingPriority": 50,
+  "shelterPriority": 20,
+  "automaticLearning": true
 }
 ```
 
-Allowed walking speeds are `Slow`, `Normal`, and `Fast`. Allowed walking tolerances are `Poor`, `Moderate`, and `Good`.
+Allowed walking speeds are `Slow`, `Normal`, and `Fast`. Both priority scores are required integers from 0 to 100. `automaticLearning` is a required boolean.
 
 ## Saved places APIs
 
@@ -292,8 +310,12 @@ npm.cmd run build
 ## Troubleshooting
 
 - **Database connection fails:** confirm PostgreSQL is running, the `silverroute` database exists, and `DB_PASSWORD` in `.env` is correct. If `psql -h ::1` works but `psql -h 127.0.0.1` does not, set `DB_HOST=[::1]`.
-- **Schema validation fails:** rerun `database/schema.sql`, followed by `database/mockdata.sql`.
+- **Schema validation fails:** stop the backend and apply the migration listed under **Existing database**, then restart it. For a fresh database, run `database/schema.sql`. Reseeding is not required.
 - **Login fails:** rerun `database/mockdata.sql` to restore the BCrypt development password.
 - **Port 8081 is occupied:** stop the existing backend process or inspect it with `netstat -ano | Select-String ':8081'`.
 - **PowerShell blocks `npm.ps1`:** use `npm.cmd` as shown above.
 - **Stop either server:** press `Ctrl+C` in its terminal.
+
+### Automatic preference learning
+
+AI reviews each confirmed alternative route choice and can immediately adjust independent walking and shelter priorities by up to 10 points each. It uses the existing OPENAI_API_KEY and OPENAI_MODEL settings. If AI is unavailable or returns invalid output, the route is still confirmed and scores stay unchanged. Use **Undo choice** to clear a mistaken confirmation and choose again; its learning effect is reversed without overwriting newer manual settings. See [adaptive preferences](docs/adaptive-preferences.md) for behavior, APIs, tests, and the database migration required before starting this version.

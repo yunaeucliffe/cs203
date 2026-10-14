@@ -52,6 +52,6 @@ class RouteParserTests {
     }
     @Test void modelContextExcludesGeometryAndIdentity() throws Exception {
         String json=new ObjectMapper().writeValueAsString(TestRoutes.trip().context());
-        assertThat(json).contains("walkingTolerance","01234").doesNotContain("routePaths","latitude","password","email","username","userId");
+        assertThat(json).contains("minimizeWalkingPriority","01234").doesNotContain("routePaths","latitude","password","email","username","userId");
     }
 }
