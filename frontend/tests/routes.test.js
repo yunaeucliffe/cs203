@@ -1,12 +1,25 @@
 import { afterEach, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { searchRoutes, searchLocation, chooseRoute, undoRouteChoice } from '../src/api/routes.js'
+import { searchRoutes, searchLocation, chooseRoute, undoRouteChoice, fetchBusArrivals } from '../src/api/routes.js'
 
 const originalFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = originalFetch })
 const origin = { name: 'Current location', latitude: 1.3, longitude: 103.8 }
 const destination = { name: 'Hospital', latitude: 1.31, longitude: 103.81 }
 const ok = body => ({ ok: true, status: 200, json: async () => body })
+
+test('refreshes arrivals independently of route recommendations with cancellation support', async () => {
+  const signal = new AbortController().signal
+  const evidence = { source: 'LTA BusArrival', availability: 'available',
+    details: { busStopCode: '01234', service: '97' } }
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'http://localhost:8081/api/bus-arrival-estimates?busStopCode=01234&service=97')
+    assert.equal(options.signal, signal)
+    assert.equal(options.credentials, 'include')
+    return ok(evidence)
+  }
+  assert.deepEqual(await fetchBusArrivals('01234', '97', signal), evidence)
+})
 
 test('posts authenticated coordinates and CSRF; preserves ranking, reasons and warnings', async () => {
   const calls = []
@@ -119,4 +132,45 @@ test('undo uses CSRF and the confirmed version, and reselection sends the return
     { path: '/api/route-recommendations/offer-1/choice/undo', body: { choiceVersion: 1 } },
     { path: '/api/route-recommendations/offer-1/choice', body: { routeId: 'best', choiceVersion: 2 } },
   ])
+})
+
+test('location lookup safely sends the original address', async () => {
+  const query = '640 Rowell Road, #01-02, Singapore 200640'
+  const signal = new AbortController().signal
+  globalThis.fetch = async (url, options) => {
+    assert.equal(new URL(url).pathname, '/api/location/parsed')
+    assert.equal(new URL(url).searchParams.get('query'), query)
+    assert.equal(options.signal, signal)
+    return ok(destination)
+  }
+  assert.deepEqual(await searchLocation(query, signal), destination)
+})
+
+test('routing uses the chosen coordinates while preserving original address text', async () => {
+  const query = '640 Rowell Road, #01-02, Singapore 200640'
+  globalThis.fetch = async (url, options) => {
+    if (url.endsWith('/csrf')) return ok({ token: 'token' })
+    const body = JSON.parse(options.body)
+    assert.equal(body.destination, query)
+    assert.deepEqual(body.destinationCoordinates, { latitude: destination.latitude, longitude: destination.longitude })
+    return ok({ recommendedRoute: { id: 'chosen' }, alternatives: [] })
+  }
+  await searchRoutes(origin, { ...destination, name: query })
+})
+
+test('address suggestions stop routing and retain the query and proposed coordinates', async () => {
+  const query = '10 Example Road 200640'
+  globalThis.fetch = async (url) => {
+    if (url.endsWith('/csrf')) return ok({ token: 'token' })
+    return {
+      ok: false,
+      status: 422,
+      json: async () => ({ message: 'Did you mean this address?', query, suggestions: [destination] }),
+    }
+  }
+  await assert.rejects(searchRoutes(origin, { name: query }), error => {
+    assert.equal(error.query, query)
+    assert.deepEqual(error.suggestions, [destination])
+    return true
+  })
 })

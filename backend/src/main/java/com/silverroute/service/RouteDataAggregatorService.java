@@ -7,6 +7,9 @@ import com.silverroute.api.*;
 import com.silverroute.routing.*;
 import com.silverroute.tool.*;
 import com.silverroute.exception.RouteDataUnavailableException;
+import com.silverroute.exception.InvalidAddressException;
+import com.silverroute.exception.AddressConfirmationRequiredException;
+import com.silverroute.exception.AddressNotFoundException;
 
 /** Deterministic collection: the model ranks only after all relevant sources have been attempted. */
 @Service
@@ -26,6 +29,7 @@ public class RouteDataAggregatorService {
         var localRequest=new TripRequest(request.origin(),request.destination(),localTime,request.originCoordinates(),request.destinationCoordinates());
         ToolExecutionResult result;
         try { result=routes.execute(localRequest); }
+        catch(RouteDataUnavailableException | InvalidAddressException | AddressNotFoundException | AddressConfirmationRequiredException exception) { throw exception; }
         catch(Exception exception) { throw new RouteDataUnavailableException("Route data could not be retrieved from OneMap"); }
         if(result==null || result.routes().isEmpty()) throw new RouteDataUnavailableException("No public transport routes were found");
         boolean live=!request.departureTime().toInstant().isAfter(clock.instant().plusSeconds(900))

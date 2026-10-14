@@ -11,13 +11,24 @@ async function getJson(path, signal, options = {}) {
   const body = await response.json().catch(() => null)
   if (response.status === 401) throw new Error('Your session has expired. Sign in again to get personalized routes.')
   if (response.status === 403) throw new Error('Your session could not be verified. Refresh the page and sign in again.')
-  if (!response.ok) throw new Error(body?.message || 'Route recommendations are unavailable. Please try again.')
+  if (!response.ok) {
+    const error = new Error(body?.message || 'Route recommendations are unavailable. Please try again.')
+    if (response.status === 422 && Array.isArray(body?.suggestions)) {
+      error.suggestions = body.suggestions
+      error.query = body.query
+    }
+    throw error
+  }
   if (body === null) throw new Error('The backend returned an invalid response.')
   return body
 }
 
 export function searchLocation(query, signal) {
   return getJson(`/api/location/parsed?${new URLSearchParams({ query })}`, signal)
+}
+
+export function fetchBusArrivals(busStopCode, service, signal) {
+  return getJson(`/api/bus-arrival-estimates?${new URLSearchParams({ busStopCode, service })}`, signal)
 }
 
 export async function searchRoutes(origin, destination, signal) {
