@@ -251,6 +251,17 @@ X-XSRF-TOKEN: <csrf-token>
 
 Allowed walking speeds are `Slow`, `Normal`, and `Fast`. Both priority scores are required integers from 0 to 100. `automaticLearning` is a required boolean.
 
+### Delete account
+
+This endpoint requires the authenticated session and a valid CSRF token:
+
+```http
+DELETE /api/users/me
+X-XSRF-TOKEN: <csrf-token>
+```
+
+It permanently deletes the signed-in user together with their preferences, saved places, categories, and route choices, then ends the session and returns HTTP `204`. The related rows are removed by `ON DELETE CASCADE` in the same transaction, so a failed deletion changes nothing and the user stays signed in. Afterwards the email can no longer be used to log in. On the Profile page, **Delete account** asks for confirmation before calling this endpoint.
+
 ## Saved places APIs
 
 All saved-place endpoints require the authenticated session. Create, update, and delete requests also require the CSRF token in the `X-XSRF-TOKEN` header.

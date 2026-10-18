@@ -3,6 +3,7 @@ import {useEffect, useState} from 'react'
 import InfoRow from '../components/InfoRow'
 import {PreferenceCard, PreferenceSelector} from '../components/PreferenceComponents'
 import {API_URL, getCsrfToken} from '../api'
+import {deleteAccount} from '../api/account'
 import {
   ArrowLeft,
   User,
@@ -10,6 +11,7 @@ import {
   AtSign,
   Gauge,
   LogOut,
+  Trash2,
 } from 'lucide-react'
 
 function Profile({ onBack, onLogout }) {
@@ -18,6 +20,9 @@ function Profile({ onBack, onLogout }) {
   const [actionError, setActionError] = useState('')
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   const [formValues, setFormValues] = useState({
     walkingSpeed: 'Normal',
@@ -136,6 +141,25 @@ function Profile({ onBack, onLogout }) {
     } catch (requestError) {
       setActionError(requestError.message)
     }
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeleteError('')
+    setIsDeleting(true)
+
+    try {
+      await deleteAccount()
+      localStorage.removeItem('userId')
+      onLogout()
+    } catch (requestError) {
+      setDeleteError(requestError.message)
+      setIsDeleting(false)
+    }
+  }
+
+  const closeDeleteDialog = () => {
+    setIsConfirmingDelete(false)
+    setDeleteError('')
   }
 
   if (error) {
@@ -309,8 +333,8 @@ function Profile({ onBack, onLogout }) {
           </p>
         )}
 
-        {/* SIGN OUT */}
-        <div className="mt-12 border-t border-[#7A7F7A]/20 pt-7">
+        {/* SIGN OUT / DELETE ACCOUNT */}
+        <div className="mt-12 flex items-center justify-between border-t border-[#7A7F7A]/20 pt-7">
           <button
             type="button"
             onClick={handleLogout}
@@ -319,9 +343,67 @@ function Profile({ onBack, onLogout }) {
             <LogOut size={20} />
             <span className="font-medium">Sign out</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setIsConfirmingDelete(true)}
+            className="flex items-center gap-3 text-red-700 transition hover:text-red-900"
+          >
+            <Trash2 size={20} />
+            <span className="font-medium">Delete account</span>
+          </button>
         </div>
 
       </main>
+
+      {/* DELETE ACCOUNT CONFIRMATION */}
+      {isConfirmingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-title"
+            aria-describedby="delete-account-description"
+            className="w-full max-w-md rounded-[24px] bg-white p-7"
+          >
+            <h2 id="delete-account-title" className="text-xl font-semibold">
+              Delete your account?
+            </h2>
+
+            <p id="delete-account-description" className="mt-3 text-[#3E424B]">
+              This permanently deletes your profile, preferences, saved places and route history.
+              This cannot be undone.
+            </p>
+
+            {deleteError && (
+              <p role="alert" className="mt-4 text-sm text-red-700">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="mt-7 flex justify-end gap-3">
+              <button
+                type="button"
+                autoFocus
+                disabled={isDeleting}
+                onClick={closeDeleteDialog}
+                className="rounded-full border border-[#7A7F7A]/30 px-6 py-3 font-medium transition hover:bg-[#FAF7F0]"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteAccount}
+                className="rounded-full bg-red-700 px-7 py-3 font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
