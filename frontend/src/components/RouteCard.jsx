@@ -13,17 +13,17 @@ function RouteCard({ route, index, onClick }) {
             onClick={onClick}
             className="flex h-full w-full cursor-pointer flex-col rounded-[24px] border-2 border-[#7A7F7A]/20 bg-white p-6 text-left transition hover:-translate-y-1 hover:border-[#3E424B] hover:shadow-md"
         >
-            {/* ROUTE NUMBER */}
-            <p className="text-sm font-bold text-[#7A7F7A]">
-                ROUTE {index + 1}
-            </p>
-
-            {/* RECOMMENDED BADGE */}
-            {index === 0 && (
-                <span className="mt-3 w-fit rounded-full bg-[#3E424B] px-3 py-1 text-sm font-semibold text-white">
-                    Recommended for you
-                </span>
-            )}
+            {/* ROUTE NUMBER + RECOMMENDED BADGE */}
+            <div className="flex min-h-8 items-center gap-3">
+                <p className="shrink-0 text-sm font-bold text-[#7A7F7A]">
+                    ROUTE {index + 1}
+                </p>
+                {index === 0 && (
+                    <span className="rounded-full bg-[#3E424B] px-3 py-1 text-sm font-semibold text-white">
+                        Recommended for you
+                    </span>
+                )}
+            </div>
 
             {/* DURATION */}
             <h3
