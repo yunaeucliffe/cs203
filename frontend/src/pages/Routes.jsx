@@ -507,7 +507,14 @@ useEffect(() => {
                   >
                     {loading ? 'Comparing routes…' : 'Find recommended routes'}
 
-                    <Navigation size={20} />
+                    {loading ? (
+                      <span
+                        className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <Navigation size={20} />
+                    )}
 
                   </button>
 
@@ -519,7 +526,23 @@ useEffect(() => {
                     <button type="button" onClick={onSignIn} className="font-semibold underline">Sign in</button>
                   </p>
                 )}
-                {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
+               {error && (
+                <div
+                  role="alert"
+                  className="fixed right-4 top-4 z-[2000] flex max-w-sm items-start gap-3 rounded-xl border border-red-200 bg-white p-4 text-red-800 shadow-lg"
+                >
+                  <p className="flex-1">{error}</p>
+
+                  <button
+                    type="button"
+                    onClick={() => setError('')}
+                    aria-label="Dismiss error"
+                    className="font-bold text-red-800 hover:text-red-950"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
                 {addressSuggestion && (
                   <div className="mt-4 rounded-xl bg-amber-50 p-4" aria-label="Suggested addresses">
                     <p className="mb-3 font-semibold">Confirm your {addressSuggestion.field === 'origin' ? 'starting point' : 'destination'}</p>
