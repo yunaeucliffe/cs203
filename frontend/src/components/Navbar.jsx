@@ -6,7 +6,14 @@ function Navbar({ activePage, onHome, onRoutes, onSavedPlaces, onSignIn, onProfi
     <nav className="pt-6">
 
       <div className="mx-auto flex max-w-7xl items-center justify-between px-8">
-        <Logo />
+        <button
+          type="button"
+          onClick={onHome}
+          aria-label="SilverRoute home"
+          className="cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3E424B]"
+        >
+          <Logo />
+        </button>
 
         <div className="flex items-center gap-1 rounded-full border border-[#7A7F7A]/30 bg-[#FAF7F0] p-1.5">
 

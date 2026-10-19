@@ -3,7 +3,7 @@ import AuthLayout from '../components/AuthLayout'
 import Input from '../components/Input'
 import { API_URL, getCsrfToken } from '../api'
 
-function SignUp({ onBackToLogin, onSignUp }) {
+function SignUp({ onBackToLogin, onSignUp, onHome }) {
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -47,7 +47,7 @@ function SignUp({ onBackToLogin, onSignUp }) {
   }
 
   return (
-    <AuthLayout title="Create an account" description="Create your account to get started.">
+    <AuthLayout onHome={onHome} title="Create an account" description="Create your account to get started.">
       <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-5">
         <div className="flex flex-col gap-2">
           <label

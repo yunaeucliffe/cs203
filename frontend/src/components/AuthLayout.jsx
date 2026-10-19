@@ -1,6 +1,7 @@
 import Logo from './Logo'
+import { ArrowLeft } from 'lucide-react'
 
-function AuthLayout({ title, description, children }) {
+function AuthLayout({ title, description, children, onHome }) {
   return (
     <div className="min-h-screen bg-[#FAF7F0] p-5">
 
@@ -8,7 +9,14 @@ function AuthLayout({ title, description, children }) {
 
         {/* LEFT SIDE */}
         <div className="flex flex-col p-10">
-          <Logo />
+          <button
+            type="button"
+            onClick={onHome}
+            aria-label="SilverRoute home"
+            className="w-fit cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3E424B]"
+          >
+            <Logo />
+          </button>
           <div className="flex flex-1 items-center justify-center">
             <img
               src="/image.png"
@@ -24,6 +32,14 @@ function AuthLayout({ title, description, children }) {
         <div className="flex items-center justify-center rounded-[32px] bg-white p-12">
 
           <div className="w-full max-w-[520px]">
+            <button
+              type="button"
+              onClick={onHome}
+              className="mb-6 inline-flex cursor-pointer items-center gap-2 rounded-lg text-[#3E424B] hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3E424B]"
+            >
+              <ArrowLeft size={18} aria-hidden="true" />
+              Back to home
+            </button>
             <h1
               className="text-5xl"
               style={{ fontFamily: '"DM Serif Display", serif' }}
