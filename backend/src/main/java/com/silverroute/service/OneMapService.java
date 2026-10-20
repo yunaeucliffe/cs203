@@ -260,9 +260,30 @@ public class OneMapService {
         return suggestions;
     }
 
-    // Take first search result
-    // Get its latitude
-    // Turn it into own Java object
+    // Searches shorter versions of a failed query for possible alternatives.
+    public List<LocationSuggestion> findAlternativeLocations(String query) throws Exception {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+
+        String[] words = query.trim().split("\\s+");
+
+        // Avoid suggesting unrelated results for very short queries.
+        for (int length = words.length - 1; length >= 2; length--) {
+            String fallbackQuery = String.join(" ",
+                    java.util.Arrays.copyOfRange(words, 0, length));
+
+            String response = searchLocationKeywords(fallbackQuery);
+            List<LocationSuggestion> suggestions = parseSuggestions(response);
+
+            if (!suggestions.isEmpty()) {
+                return suggestions;
+            }
+        }
+
+        return List.of();
+    }
+
     public LocationResult parseLocation(String json) throws Exception {
         return parseLocations(json).getFirst();
     }
