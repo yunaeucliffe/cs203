@@ -1,16 +1,35 @@
-# React + Vite
+# SilverRoute frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + Vite app for SilverRoute. For database and backend setup, see the [root README](../README.md).
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Node.js 22 and npm (the version CI uses)
+- The backend running on <http://localhost:8081> (needed to use the app, not to run tests). The URL is set in `src/api.js`.
 
-## React Compiler
+On Windows PowerShell, use `npm.cmd` instead of `npm` if script execution blocks `npm.ps1`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Install
 
-## Expanding the ESLint configuration
+```sh
+cd frontend
+npm ci
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Run
+
+```sh
+npm run dev
+```
+
+Open <http://localhost:5173>. Sign in with the development account from the root README.
+
+## Test
+
+```sh
+npm test         # unit tests in tests/ (Node's built-in test runner; network calls are stubbed)
+npm run lint     # ESLint
+npm run build    # production build into dist/
+```
+
+CI runs `npm ci`, `npm run lint` and `npm run build` on every pull request into `main`.

@@ -6,6 +6,7 @@
 
 # Log file
 *.log
+logfile
 
 # BlueJ files
 *.ctxt
@@ -27,3 +28,15 @@ hs_err_pid*
 replay_pid*
 
 .env
+
+# Editor settings
+.vscode/
+.idea/
+
+# Dependencies and build output
+node_modules/
+target/
+dist/
+
+# The backend is a Maven project; npm lockfiles there are accidental
+backend/package-lock.json

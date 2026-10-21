@@ -4,7 +4,7 @@ import AuthLayout from '../components/AuthLayout'
 import Input from '../components/Input'
 import { API_URL, getCsrfToken } from '../api'
 
-function SignIn({ onSignIn, onSignUp }) {
+function SignIn({ onSignIn, onSignUp, onHome }) {
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -48,6 +48,7 @@ function SignIn({ onSignIn, onSignUp }) {
 
   return (
     <AuthLayout
+      onHome={onHome}
       title="Welcome back!"
       description="Sign in to access your saved places, preferences and previous routes."
     >

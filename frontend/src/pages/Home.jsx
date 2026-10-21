@@ -84,6 +84,7 @@ function Home() {
     if (currentPage === 'signIn') {
         return (
             <SignIn
+                onHome={() => setCurrentPage('home')}
                 onSignIn={(account) => {
                     setCurrentPage('home')
                     setIsAuthenticated(true)
@@ -105,6 +106,7 @@ function Home() {
     if (currentPage === 'signUp') {
         return (
             <SignUp
+                onHome={() => setCurrentPage('home')}
                 onBackToLogin={() => {
                     setCurrentPage('signIn')
                 }}
