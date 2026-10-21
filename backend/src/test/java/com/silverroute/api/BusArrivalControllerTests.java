@@ -29,6 +29,7 @@ class BusArrivalControllerTests {
     @Import({SecurityConfig.class, BusArrivalController.class, GlobalExceptionHandler.class})
     static class Config {
         @Bean RouteConditionsService conditions() { return mock(RouteConditionsService.class); }
+        @Bean com.silverroute.repository.UserRepository users() { return mock(com.silverroute.repository.UserRepository.class); }
     }
     @Autowired WebApplicationContext context;
     @Autowired RouteConditionsService conditions;

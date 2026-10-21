@@ -6,12 +6,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +33,10 @@ import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import com.silverroute.api.GlobalExceptionHandler;
+import com.silverroute.config.DeletedAccountFilter;
 import com.silverroute.config.SecurityConfig;
+import com.silverroute.dto.ProfileResponse;
+import com.silverroute.repository.UserRepository;
 import com.silverroute.service.ProfileService;
 
 @SpringJUnitConfig(AccountDeletionControllerTests.Config.class)
@@ -45,6 +52,11 @@ class AccountDeletionControllerTests {
         ProfileService profileService() {
             return mock(ProfileService.class);
         }
+
+        @Bean
+        UserRepository userRepository() {
+            return mock(UserRepository.class);
+        }
     }
 
     @Autowired
@@ -53,11 +65,14 @@ class AccountDeletionControllerTests {
     @Autowired
     private ProfileService profileService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        reset(profileService);
+        reset(profileService, userRepository);
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
     }
 
@@ -91,6 +106,35 @@ class AccountDeletionControllerTests {
         mvc.perform(delete("/api/users/me").session(session).with(user("mary@example.com")).with(csrf()))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value("An unexpected server error occurred"));
+
+        assertThat(session.isInvalid()).isFalse();
+    }
+
+    @Test
+    void otherSessionsAreSignedOutOnceTheAccountIsDeleted() throws Exception {
+        // A session on another device that signed in to account 1 before it was deleted.
+        // Even if someone re-registers mary@example.com (a new id), this session must not reach it.
+        MockHttpSession otherSession = new MockHttpSession();
+        otherSession.setAttribute(DeletedAccountFilter.USER_ID_ATTRIBUTE, 1L);
+        when(userRepository.existsById(1L)).thenReturn(false);
+
+        mvc.perform(get("/api/users/me/profile").session(otherSession).with(user("mary@example.com")))
+                .andExpect(status().isUnauthorized());
+
+        assertThat(otherSession.isInvalid()).isTrue();
+        verifyNoInteractions(profileService);
+    }
+
+    @Test
+    void sessionsForAccountsThatStillExistKeepWorking() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(DeletedAccountFilter.USER_ID_ATTRIBUTE, 1L);
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(profileService.getProfileByEmail("mary@example.com")).thenReturn(Optional.of(
+                new ProfileResponse(1L, "Mary", "mary", "mary@example.com", "Normal", 50, 20, false)));
+
+        mvc.perform(get("/api/users/me/profile").session(session).with(user("mary@example.com")))
+                .andExpect(status().isOk());
 
         assertThat(session.isInvalid()).isFalse();
     }

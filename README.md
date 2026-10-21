@@ -260,7 +260,7 @@ DELETE /api/users/me
 X-XSRF-TOKEN: <csrf-token>
 ```
 
-It permanently deletes the signed-in user together with their preferences, saved places, categories, and route choices, then ends the session and returns HTTP `204`. The related rows are removed by `ON DELETE CASCADE` in the same transaction, so a failed deletion changes nothing and the user stays signed in. Afterwards the email can no longer be used to log in. On the Profile page, **Delete account** asks for confirmation before calling this endpoint.
+It permanently deletes the signed-in user together with their preferences, saved places, categories, and route choices, then ends the session and returns HTTP `204`. The related rows are removed by `ON DELETE CASCADE` in the same transaction, so a failed deletion changes nothing and the user stays signed in. Afterwards the email can no longer be used to log in. Other sessions for the deleted account (another browser or device) are signed out on their next request and get HTTP `401`. Sessions remember the user id, not just the email, so they cannot attach to a new account registered later with the same email. On the Profile page, **Delete account** asks for confirmation before calling this endpoint.
 
 ## Saved places APIs
 
