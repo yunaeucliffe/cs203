@@ -54,6 +54,13 @@ public class ProfileService {
         return Optional.of(toResponse(user.get(), foundPreference));
     }
 
+    // Preferences, saved places, categories and route choices are removed by the
+    // database's ON DELETE CASCADE, so the whole account is deleted in one transaction.
+    @Transactional
+    public void deleteAccount(String email) {
+        userRepository.findByEmail(email).ifPresent(userRepository::delete);
+    }
+
     private Optional<ProfileResponse> buildProfile(User user) {
         Optional<UserPreference> preference = preferenceRepository.findByUserId(user.getId());
 

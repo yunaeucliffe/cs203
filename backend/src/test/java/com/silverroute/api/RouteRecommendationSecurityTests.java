@@ -30,6 +30,7 @@ class RouteRecommendationSecurityTests {
     static class Config {
         @Bean com.silverroute.service.RouteChoiceService choices() { return mock(com.silverroute.service.RouteChoiceService.class); }
         @Bean RouteRecommendationAgent agent() { return mock(RouteRecommendationAgent.class); }
+        @Bean com.silverroute.repository.UserRepository users() { return mock(com.silverroute.repository.UserRepository.class); }
     }
     @Autowired WebApplicationContext context;
     @Autowired RouteRecommendationAgent agent;

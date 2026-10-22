@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.silverroute.config.DeletedAccountFilter;
 import com.silverroute.dto.LoginRequest;
 import com.silverroute.dto.LoginResponse;
 import com.silverroute.dto.SignUpRequest;
@@ -48,7 +49,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
 
-        authenticate(request.email().trim().toLowerCase(), httpRequest, httpResponse);
+        authenticate(response.userId(), request.email().trim().toLowerCase(), httpRequest, httpResponse);
 
         return ResponseEntity.ok(response);
     }
@@ -59,7 +60,7 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         LoginResponse response = authService.signUp(request);
-        authenticate(request.email().trim().toLowerCase(), httpRequest, httpResponse);
+        authenticate(response.userId(), request.email().trim().toLowerCase(), httpRequest, httpResponse);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -78,6 +79,7 @@ public class AuthController {
     }
 
     private void authenticate(
+            Long userId,
             String email,
             HttpServletRequest request,
             HttpServletResponse response) {
@@ -94,5 +96,8 @@ public class AuthController {
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, request, response);
+
+        // Lets DeletedAccountFilter sign this session out if the account is later deleted.
+        request.getSession().setAttribute(DeletedAccountFilter.USER_ID_ATTRIBUTE, userId);
     }
 }
