@@ -12,4 +12,7 @@ public interface TripShareRepository extends JpaRepository<TripShare, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from TripShare s where s.id = :id and s.userId = :owner")
     Optional<TripShare> lockOwned(@Param("id") UUID id, @Param("owner") Long owner);
+    @Modifying
+    @Query("delete from TripShare s where s.expiresAt < :now")
+    int deleteExpired(@Param("now") java.time.Instant now);
 }

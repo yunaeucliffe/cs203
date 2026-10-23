@@ -93,6 +93,25 @@ class TripShareServiceTests {
                         ex -> assertThat(ex.getStatusCode().value()).isEqualTo(410))
                 .hasMessageContaining("They have arrived");
     }
+    @Test void expiredArrivedLinkRevealsNothing() {
+        when(shares.findByToken("secret")).thenReturn(Optional.of(share));
+        share.revoked = true;
+        share.arrived = true;
+        share.expiresAt = Instant.now().minusSeconds(1);
+        assertThatThrownBy(() -> service.read("secret")).hasMessageContaining("invalid or has ended");
+    }
+    @Test void stopAfterArrivalKeepsArrivedMessage() {
+        owner();
+        when(shares.lockOwned(share.id, 1L)).thenReturn(Optional.of(share));
+        service.stop("owner@example.com", share.id, true);
+        service.stop("owner@example.com", share.id, false);
+        assertThat(share.arrived).isTrue();
+    }
+    @Test void expiredSharesAreDeleted() {
+        var before = Instant.now();
+        service.deleteExpired();
+        verify(shares).deleteExpired(argThat(now -> !now.isBefore(before)));
+    }
     @Test void disabledAndExpiredLocationUpdatesAreRejected() {
         owner();
         when(shares.lockOwned(share.id, 1L)).thenReturn(Optional.of(share));

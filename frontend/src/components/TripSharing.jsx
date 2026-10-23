@@ -46,13 +46,13 @@ function LocationUpdates({ share, allowed, onStatus }) {
           await shareRequest(`/${share.id}/location`, 'PUT', {
             latitude: position.coords.latitude, longitude: position.coords.longitude,
           })
-          if (!cancelled) onStatus(share.id, 'Live location is updating. Keep SilverRoute open.')
+          if (!cancelled) onStatus(share.id, 'Live location is updating. Keep SilverRoute open.', true)
         } catch (error) {
-          if (!cancelled) onStatus(share.id, error.message)
+          if (!cancelled) onStatus(share.id, error.message, false)
         } finally { uploading = false }
       }, () => {
         uploading = false
-        if (!cancelled) onStatus(share.id, 'Location updates stopped. Trip details are still shared. Check location permission.')
+        if (!cancelled) onStatus(share.id, 'Location updates stopped. Trip details are still shared. Check location permission.', false)
       }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 })
     }
     sendLocation()
@@ -62,13 +62,15 @@ function LocationUpdates({ share, allowed, onStatus }) {
   return null
 }
 
-// Green "Sharing live location" pill (amber when live location is paused).
+// Green "Sharing live location" pill; amber when live location is paused or the last update failed.
 function SharingStatus({ share }) {
-  const { allowed } = useContext(TripSharingContext)
+  const { allowed, status } = useContext(TripSharingContext)
   const paused = share.liveLocation && !allowed.includes(share.id)
-  return <span className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${paused ? 'bg-amber-100 text-amber-900' : 'bg-[#DCE7D2]'}`}>
-    <span className={`h-2.5 w-2.5 rounded-full ${paused ? 'bg-amber-600' : 'bg-green-700'}`} aria-hidden="true" />
-    {paused ? 'Live location paused' : share.liveLocation ? 'Sharing live location' : 'Sharing trip details'}
+  const failing = status[share.id]?.ok === false
+  const warn = paused || failing
+  return <span className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${warn ? 'bg-amber-100 text-amber-900' : 'bg-[#DCE7D2]'}`}>
+    <span className={`h-2.5 w-2.5 rounded-full ${warn ? 'bg-amber-600' : 'bg-green-700'}`} aria-hidden="true" />
+    {paused ? 'Live location paused' : failing ? 'Location not updating' : share.liveLocation ? 'Sharing live location' : 'Sharing trip details'}
   </span>
 }
 
@@ -126,7 +128,7 @@ function ActiveShare({ share }) {
         <X size={18} />{ending === 'stopped' ? 'Stopping...' : label('stopped', 'Stop sharing')}
       </button>
     </div>
-    <p role="status" className="text-sm text-[#555C60] empty:hidden">{status[share.id] || ''}</p>
+    <p role="status" className="text-sm text-[#555C60] empty:hidden">{status[share.id]?.text || ''}</p>
     <details className="text-sm text-[#555C60]">
       <summary className="cursor-pointer py-2 font-semibold">Sharing details</summary>
       <label className="mt-2 block">Sharing link
@@ -154,7 +156,7 @@ export function TripSharingProvider({ children }) {
       if (error.status === 401 && started === version.current) setShares([])
     }
   }, [])
-  const reportStatus = useCallback((id, text) => setStatus(previous => ({ ...previous, [id]: text })), [])
+  const reportStatus = useCallback((id, text, ok) => setStatus(previous => ({ ...previous, [id]: { text, ok } })), [])
   useEffect(() => {
     const initial = setTimeout(refresh, 0)
     const timer = setInterval(refresh, 10000)
@@ -200,7 +202,7 @@ export default function TripSharing({ route, origin, destination }) {
   async function create() {
     setBusy(true)
     // If location permission is denied, a details-only link is still created
-    // and the sharing card shows "Sharing trip details only".
+    // and the sharing card shows "Sharing trip details".
     const consent = live && await requestLocation().then(() => true, () => false)
     try {
       const share = await shareRequest('', 'POST', {

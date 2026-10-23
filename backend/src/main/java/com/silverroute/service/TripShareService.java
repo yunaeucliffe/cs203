@@ -3,6 +3,8 @@ package com.silverroute.service;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
@@ -71,8 +73,9 @@ public class TripShareService {
     @Transactional(readOnly=true)
     public PublicView read(String token) {
         var s = shares.findByToken(token).orElseThrow(() -> unavailable());
-        // Tell family the trip ended safely, without revealing any trip details.
-        if (s.arrived) throw new ResponseStatusException(HttpStatus.GONE, "They have arrived. Trip sharing has ended.");
+        // Tell family the trip ended safely, without trip details. Expired links reveal nothing, not even arrival.
+        if (s.arrived && s.expiresAt.isAfter(Instant.now()))
+            throw new ResponseStatusException(HttpStatus.GONE, "They have arrived. Trip sharing has ended.");
         requireActive(s);
         return new PublicView(s.origin, s.destination, s.routeSummary, s.estimatedArrival, s.expiresAt,
                 s.liveLocation, s.latitude, s.longitude, s.locationUpdatedAt);
@@ -87,10 +90,16 @@ public class TripShareService {
     }
     public void stop(String email, UUID id, boolean arrived) {
         var s = shares.lockOwned(id, owner(email)).orElseThrow(() -> unavailable());
+        if (s.revoked) return; // Already ended: keep the first outcome, e.g. "arrived".
         s.revoked = true;
         s.arrived = arrived;
         s.latitude = null;
         s.longitude = null;
         s.locationUpdatedAt = null;
+    }
+    // Privacy: once the 24-hour backup expiry passes, delete the share and its last location.
+    @Scheduled(fixedRate = 10, timeUnit = TimeUnit.MINUTES)
+    public void deleteExpired() {
+        shares.deleteExpired(Instant.now());
     }
 }

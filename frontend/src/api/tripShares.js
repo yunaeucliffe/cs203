@@ -1,15 +1,21 @@
 import { API_URL, getCsrfToken } from '../api'
 
 export async function shareRequest(path = '', method = 'GET', body) {
-  const headers = {}
-  if (method !== 'GET') headers['X-XSRF-TOKEN'] = await getCsrfToken()
-  if (body) headers['Content-Type'] = 'application/json'
-  const response = await fetch(`${API_URL}/api/users/me/trip-shares${path}`, {
-    method, headers, credentials: 'include', cache: 'no-store',
-    body: body ? JSON.stringify(body) : undefined,
-    // Give up after 10 seconds so a slow upload can't store an old location as fresh.
-    signal: AbortSignal.timeout(10000),
-  }).catch(() => { throw new Error('Unable to reach SilverRoute. Check your connection.') })
+  // One 10-second limit for the whole request, CSRF token included, so nothing can hang
+  // and a slow upload can't store an old location as fresh.
+  const signal = AbortSignal.timeout(10000)
+  let response
+  try {
+    const headers = {}
+    if (method !== 'GET') headers['X-XSRF-TOKEN'] = await getCsrfToken(signal)
+    if (body) headers['Content-Type'] = 'application/json'
+    response = await fetch(`${API_URL}/api/users/me/trip-shares${path}`, {
+      method, headers, credentials: 'include', cache: 'no-store', signal,
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  } catch {
+    throw new Error('Unable to reach SilverRoute. Check your connection.')
+  }
   if (!response.ok) {
     const error = new Error(response.status === 401
       ? 'Please sign in to manage trip sharing.' : 'Unable to update sharing. Please try again.')
