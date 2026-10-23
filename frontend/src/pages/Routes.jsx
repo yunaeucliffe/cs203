@@ -6,6 +6,7 @@ import { searchRoutes } from '../api/routes'
 import RouteCard from '../components/RouteCard'
 import RouteDetails from '../components/RouteDetails'
 import NavigationPage from './Navigation'
+import TravelTimeDisclaimer from '../components/TravelTimeDisclaimer'
 
 import {
 
@@ -34,12 +35,47 @@ function hasCoordinates(location) {
 
 function FitRoute({ origin, destination, paths }) {
   const map = useMap()
+useEffect(() => {
+  const points = paths.flat().map((point) => {
+    if (Array.isArray(point)) return point
+    return [point.latitude, point.longitude]
+  })
+
+  if (hasCoordinates(origin)) {
+    points.push([origin.latitude, origin.longitude])
+  }
+
+  if (hasCoordinates(destination)) {
+    points.push([destination.latitude, destination.longitude])
+  }
+
+  if (points.length === 0) return
+
+  const timer = setTimeout(() => {
+    map.invalidateSize({ pan: false })
+    map.fitBounds(points, {
+      padding: [60, 60],
+      maxZoom: 14,
+    })
+  }, 200)
+
+  return () => clearTimeout(timer)
+ }, [map, origin, destination, paths])
+
+  return null
+}
+
+function ResizeMap({ trigger }) {
+  const map = useMap()
+
   useEffect(() => {
-    const points = paths.flat()
-    if (hasCoordinates(origin)) points.push([origin.latitude, origin.longitude])
-    if (hasCoordinates(destination)) points.push([destination.latitude, destination.longitude])
-    if (points.length > 0) map.fitBounds(points, { padding: [35, 35], maxZoom: 16 })
-  }, [map, origin, destination, paths])
+    const timer = setTimeout(() => {
+      map.invalidateSize({ pan: false })
+    }, 150)
+
+    return () => clearTimeout(timer)
+  }, [map, trigger])
+
   return null
 }
 
@@ -403,60 +439,58 @@ useEffect(() => {
     }
   }
 
+ 
   return (
     <>
       {navigating && selectedRoute && (
-      <NavigationPage
-        route={selectedRoute}
-        origin={result.origin}
-        destination={result.destination}
-        onBack={() => setNavigating(false)}
-        onEnd={() => {
-          setActiveNavigation(null)
-          setNavigating(false)
-          setViewingDetails(false)
-        }}
-      />
+        <NavigationPage
+          route={selectedRoute}
+          origin={result.origin}
+          destination={result.destination}
+          onBack={() => setNavigating(false)}
+          onEnd={() => {
+            setActiveNavigation(null)
+            setNavigating(false)
+            setViewingDetails(false)
+          }}
+        />
       )}
-    <div hidden={navigating} className="min-h-screen bg-[#FAF7F0] text-[#2A3439]">
 
-      {/* NAVBAR */}
-      <Navbar
-        activePage="routes"
-        onHome={onBack}
-        onRoutes={() => { }}
-        onSavedPlaces={onSavedPlaces}
-        onSignIn={onSignIn}
-        onProfile={onProfile}
-        isAuthenticated={isAuthenticated}
-      />
+      <div
+        hidden={navigating}
+        className="min-h-screen bg-[#FAF7F0] text-[#2A3439]"
+      >
+        {/* NAVBAR */}
+        <Navbar
+          activePage="routes"
+          onHome={onBack}
+          onRoutes={() => {}}
+          onSavedPlaces={onSavedPlaces}
+          onSignIn={onSignIn}
+          onProfile={onProfile}
+          isAuthenticated={isAuthenticated}
+        />
 
-      {/* MAIN PAGE */}
-      <main className="mx-auto max-w-7xl px-8 pb-10 pt-10">
+        {/* MAIN PAGE */}
+        <main className="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8 lg:pt-6">
+          {viewingDetails && selectedRoute ? (
+            <RouteDetails
+              route={selectedRoute}
+              index={selectedIndex}
+              origin={result.origin}
+              destination={result.destination}
+              engine={result.engine}
+              warnings={result.warnings}
+              sources={result.sources}
+              onBack={() => setViewingDetails(false)}
+              choiceButtonRef={setChoiceButtonContainer}
+            />
+          ) : (
+            <>
 
-        {viewingDetails && selectedRoute ? (
-          <RouteDetails
-            route={selectedRoute}
-            index={selectedIndex}
-            origin={result.origin}
-            destination={result.destination}
-            engine={result.engine}
-            warnings={result.warnings}
-            sources={result.sources}
-            onBack={() => setViewingDetails(false)}
-            choiceButtonRef={setChoiceButtonContainer}
-          />
-        ) : (
-          <>
 
             {/* SEARCH LAYOUT */}
-            <div
-              className={
-                result
-                  ? 'grid gap-6'
-                  : 'grid gap-6 lg:grid-cols-[0.8fr_1.2fr]'
-              }
-            >
+            <div className="grid grid-cols-1 gap-6">
               {/* ====================================== */}
               {/* LEFT SIDE */}
               {/* ====================================== */}
@@ -634,180 +668,195 @@ useEffect(() => {
 
               </section>
 
-              {/* ====================================== */}
-              {/* RIGHT SIDE - MAP */}
-              {/* ====================================== */}
+            </div>
 
-              {!result && (
+        {/* ROUTE RESULTS — cards left, map right */}
+          <section className="mt-8">
 
-                <section className="overflow-hidden rounded-[28px] border border-[#7A7F7A]/20">
+           <div
+              className={`mt-5 grid grid-cols-1 items-stretch gap-6 ${
+                result ? 'lg:grid-cols-[0.9fr_1.1fr]' : 'grid-cols-1'
+              }`}
+            >
 
-                  <MapContainer
-                    center={[1.3521, 103.8198]}
-                    zoom={15}
-                    scrollWheelZoom={true}
-                    className="h-[650px] w-full"
-                  >
+              {/* LEFT SIDE — ROUTE CARDS */}
+              <div className="min-w-0">
+                {result && (
+                  <>
+                    <h2
+                      className="mb-5 text-3xl text-[#2A3439]"
+                      style={{ fontFamily: '"DM Serif Display", serif' }}
+                    >
+                      Your recommended routes
+                    </h2>
 
-                    {/* OneMap Singapore map */}
-                    <TileLayer
-                      url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png"
-                      attribution='&copy; <a href="https://www.onemap.gov.sg/">OneMap</a> contributors | Singapore Land Authority'
+                <div className="grid grid-cols-1 gap-5">
+                  {result.routes.map((route, index) => (
+                    <RouteCard
+                      key={route.id}
+                      route={route}
+                      index={index}
+                      onClick={() => {
+                        setSelectedIndex(index)
+                        setViewingDetails(true)
+                      }}
                     />
+                  ))}
+                </div>
 
-                    <FitRoute origin={currentLocation} destination={destinationLocation} paths={routeCoordinates} />
-                   {/* Blue dot on desktop and mobile */}
-                    {hasCoordinates(currentLocation) && (
-                      <LocationDot
+                {/* TRAVEL WARNINGS */}
+                {result.warnings?.length > 0 && (
+                  <details className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
+                    <summary className="cursor-pointer font-semibold">
+                      Travel data notices ({result.warnings.length})
+                    </summary>
+
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {result.warnings.map((warning, index) => (
+                        <li key={index}>{warning}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+
+                <TravelTimeDisclaimer />
+                  </>
+                )}
+              </div>
+
+              {/* RIGHT SIDE — MAP */}
+              <section
+                className="route-map-container h-[500px] min-w-0 overflow-hidden rounded-[28px] border border-[#7A7F7A]/20 sm:h-[600px] lg:h-[700px]"
+              >
+                <MapContainer
+                  center={[1.3521, 103.8198]}
+                  zoom={15}
+                  scrollWheelZoom={true}
+                  className="h-full w-full"
+                >
+
+                <ResizeMap trigger={result?.routes?.length ?? 0} />
+
+                  <TileLayer
+                    url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.onemap.gov.sg/">OneMap</a> contributors | Singapore Land Authority'
+                  />
+
+                  <FitRoute
+                    origin={currentLocation}
+                    destination={destinationLocation}
+                    paths={routeCoordinates}
+                  />
+
+                  {/* Current location */}
+                  {hasCoordinates(currentLocation) && (
+                    <LocationDot
+                      position={[
+                        currentLocation.latitude,
+                        currentLocation.longitude,
+                      ]}
+                    />
+                  )}
+
+                  {/* Direction indicator on mobile */}
+                  {isMobileDevice &&
+                    hasCoordinates(currentLocation) &&
+                    deviceHeading !== null && (
+                      <DirectionMarker
                         position={[
                           currentLocation.latitude,
                           currentLocation.longitude,
                         ]}
+                        heading={deviceHeading}
                       />
                     )}
 
-                    {/* Compass direction cone on mobile only */}
-                    {isMobileDevice &&
-                      hasCoordinates(currentLocation) &&
-                      deviceHeading !== null && (
-                        <DirectionMarker
-                          position={[
-                            currentLocation.latitude,
-                            currentLocation.longitude,
-                          ]}
-                          heading={deviceHeading}
-                        />
-                    )}
+                 
+                      {showRoute && (
+                        <>
+                          {/* DESTINATION */}
+                          {hasCoordinates(destinationLocation) && (
+                            <Marker
+                              position={[
+                                destinationLocation.latitude,
+                                destinationLocation.longitude,
+                              ]}
+                              icon={destinationIcon}
+                            >
+                              <Popup>Destination</Popup>
+                            </Marker>
+                          )}
 
-                    {showRoute && (
+                          {/* Route outline */}
+                          {routeCoordinates.length > 0 && (
+                            <>
+                              <Polyline
+                                positions={routeCoordinates}
+                                pathOptions={{
+                                  color: 'white',
+                                  weight: 10,
+                                  opacity: 0.9,
+                                  lineCap: 'round',
+                                  lineJoin: 'round',
+                                }}
+                              />
 
-                      <>
-                        {/* DESTINATION */}
-                        {hasCoordinates(destinationLocation) && (
-                          <Marker
-                            position={[destinationLocation.latitude, destinationLocation.longitude]}
-                            icon={destinationIcon}
-                          >
-                            <Popup>Destination</Popup>
-                          </Marker>
-                        )}
+                              {/* Main route */}
+                              <Polyline
+                                positions={routeCoordinates}
+                                pathOptions={{
+                                  color: '#2F6FED',
+                                  weight: 6,
+                                  opacity: 0.95,
+                                  lineCap: 'round',
+                                  lineJoin: 'round',
+                                }}
+                              />
+                            </>
+                          )}
+                        </>
+                      )}
 
-                        {/* BLUE ROUTE */}
-                        {routeCoordinates.length > 0 && (
-                          <>
-                            {/* White outline */}
-                            <Polyline
-                              positions={routeCoordinates}
-                              pathOptions={{
-                                color: 'white',
-                                weight: 10,
-                                opacity: 0.9,
-                                lineCap: 'round',
-                                lineJoin: 'round',
-                              }}
-                            />
-
-                            {/* Main route */}
-                            <Polyline
-                              positions={routeCoordinates}
-                              pathOptions={{
-                                color: '#2F6FED',
-                                weight: 6,
-                                opacity: 0.95,
-                                lineCap: 'round',
-                                lineJoin: 'round',
-                              }}
-                            />
-                          </>
-                        )}
-                      </>
-                    )}
-
+                    
                   </MapContainer>
-
                 </section>
-
-              )}
-
-            </div>
-            {/* ROUTE COMPARISON CARDS */}
-
-            {
-              result && (
-
-                <section className="mt-8">
-
-                  <h2
-
-                    className="text-3xl text-[#2A3439]"
-
-                    style={{ fontFamily: '"DM Serif Display", serif' }}
-
-                  >
-
-                    Your recommended routes
-
-                  </h2>
-
-                  {/* <p className="mt-2 text-[#7A7F7A]">
-
-                {result.origin.name} → {result.destination.name}
-
-              </p>
-
-              <p className="mt-2 text-sm text-[#555C60]">
-
-                {result.engine?.startsWith('mock')
-
-                  ? 'Demo recommendations using sample data. Not for navigation.'
-
-                  : 'Ranked for your saved walking and shelter preferences.'}
-
-              </p> */}
-
-                  <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-3">
-
-                    {result.routes.map((route, index) => (
-
-                      <RouteCard
-                        key={route.id}
-                        route={route}
-                        index={index}
-                        onClick={() => {
-                          setSelectedIndex(index)
-                          setViewingDetails(true)
-                        }}
-                      />
-
-                    ))}
-
-                  </div>
-                </section>
-
-              )
-            }
+              </div>
+            </section>
+           
+            {result?.recommendationId && selectedRoute && (
+              <div hidden={!viewingDetails}>
+                <RouteChoice
+                  key={result.recommendationId}
+                  recommendationId={result.recommendationId}
+                  routeId={selectedRoute.id}
+                  onChoiceChange={setChoice}
+                  visible={viewingDetails && !navigating}
+                  canStartNavigation={canStartNavigation}
+                  canContinueNavigation={
+                    activeNavigation?.recommendationId === result.recommendationId &&
+                    activeNavigation?.routeId === selectedRoute.id
+                  }
+                  onStartNavigation={() => {
+                    if (canStartNavigation) {
+                      setActiveNavigation({
+                        recommendationId: result.recommendationId,
+                        routeId: selectedRoute.id,
+                      })
+                      setNavigating(true)
+                    }
+                  }}
+                  renderButton={(button) =>
+                    choiceButtonContainer
+                      ? createPortal(button, choiceButtonContainer)
+                      : null
+                  }
+                />
+              </div>
+            )}
           </>
         )}
-        {result?.recommendationId && selectedRoute && (
-          <div hidden={!viewingDetails}>
-            <RouteChoice key={result.recommendationId}
-              recommendationId={result.recommendationId} routeId={selectedRoute.id}
-              onChoiceChange={setChoice}
-              visible={viewingDetails && !navigating}
-              canStartNavigation={canStartNavigation}
-              canContinueNavigation={activeNavigation?.recommendationId === result.recommendationId && activeNavigation?.routeId === selectedRoute.id}
-              onStartNavigation={() => {
-                if (canStartNavigation) {
-                  setActiveNavigation({ recommendationId: result.recommendationId, routeId: selectedRoute.id })
-                  setNavigating(true)
-                }
-              }}
-              renderButton={button => choiceButtonContainer ? createPortal(button, choiceButtonContainer) : null} />
-          </div>
-        )}
-      </main >
-
-    </div >
+      </main>
+    </div>
     </>
   )
 }
