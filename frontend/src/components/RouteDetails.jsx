@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import L from 'leaflet'
 import BusArrivals from './BusArrivals'
-import TravelTimeDisclaimer from './TravelTimeDisclaimer'
 
 import {
     MapContainer,
@@ -189,9 +188,8 @@ function RouteDetails({
     origin,
     destination,
     engine,
-    warnings = [],
-    sources = [],
     onBack,
+    choiceButtonRef,
 }) {
     const paths = route.routePaths || []
 
@@ -258,15 +256,7 @@ function RouteDetails({
                     </div>
 
 
-                    {/* START NAVIGATION */}
-                    <button
-                        type="button"
-                        onClick={() => alert('Navigation is coming soon!')}
-                        className="flex h-[52px] items-center justify-center gap-3 rounded-xl bg-[#3E424B] px-8 text-base font-semibold text-white transition hover:bg-[#2A3439]"
-                    >
-                        <Navigation size={20} />
-                        Start navigation
-                    </button>
+                    <div ref={choiceButtonRef} />
 
                 </div>
 
@@ -403,6 +393,22 @@ function RouteDetails({
 
                     </div>
 
+                    {/* RECOMMENDATION REASONS */}
+                    {route.reasons?.length > 0 && (
+                        <div className="mt-6 rounded-xl bg-[#DCE7D2]/50 p-4">
+
+                            <h3 className="font-semibold">
+                                Why this route?
+                            </h3>
+
+                            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm">
+                                {route.reasons.map((reason, i) => (
+                                    <li key={i}>{reason}</li>
+                                ))}
+                            </ul>
+
+                        </div>
+                    )}
 
                     {/* JOURNEY STEPS */}
                     <div className="mt-8 border-t border-[#7A7F7A]/20 pt-6">
@@ -537,84 +543,6 @@ function RouteDetails({
                         )}
 
                     </div>
-
-
-                    {/* RECOMMENDATION REASONS */}
-                    {route.reasons?.length > 0 && (
-                        <div className="mt-6 rounded-xl bg-[#DCE7D2]/50 p-4">
-
-                            <h3 className="font-semibold">
-                                Why this route?
-                            </h3>
-
-                            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm">
-                                {route.reasons.map((reason, i) => (
-                                    <li key={i}>{reason}</li>
-                                ))}
-                            </ul>
-
-                        </div>
-                    )}
-
-
-                    {/* ROUTE WARNINGS */}
-                    {route.warnings?.length > 0 && (
-                        <div className="mt-5 rounded-xl bg-amber-50 p-4">
-
-                            <h3 className="font-semibold text-amber-900">
-                                Before you travel
-                            </h3>
-
-                            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-amber-900">
-                                {route.warnings.map((warning, i) => (
-                                    <li key={i}>{warning}</li>
-                                ))}
-                            </ul>
-
-                        </div>
-                    )}
-
-
-                    {/* OVERALL WARNINGS */}
-                    {warnings.length > 0 && (
-                        <details className="mt-5 rounded-xl bg-amber-50 p-4">
-
-                            <summary className="cursor-pointer font-semibold text-amber-900">
-                                Travel data notices ({warnings.length})
-                            </summary>
-
-                            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-amber-900">
-                                {warnings.map((warning, i) => (
-                                    <li key={i}>{warning}</li>
-                                ))}
-                            </ul>
-
-                        </details>
-                    )}
-
-
-                    <TravelTimeDisclaimer />
-
-                    {/* DATA SOURCES */}
-                    {sources.length > 0 && (
-                        <details className="mt-5 rounded-xl bg-[#FAF7F0] p-4">
-
-                            <summary className="cursor-pointer font-semibold">
-                                Data sources
-                            </summary>
-
-                            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#555C60]">
-                                {sources.map((source, i) => (
-                                    <li key={i}>
-                                        {typeof source === 'string'
-                                            ? source
-                                            : source.name || source.label || 'Unknown source'}
-                                    </li>
-                                ))}
-                            </ul>
-
-                        </details>
-                    )}
 
                 </section>
 

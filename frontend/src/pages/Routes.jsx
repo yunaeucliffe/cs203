@@ -1,10 +1,11 @@
+import { createPortal } from 'react-dom'
 import RouteChoice from '../components/RouteChoice'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import { searchRoutes } from '../api/routes'
 import RouteCard from '../components/RouteCard'
 import RouteDetails from '../components/RouteDetails'
-import TravelTimeDisclaimer from '../components/TravelTimeDisclaimer'
+import NavigationPage from './Navigation'
 
 import {
 
@@ -201,6 +202,10 @@ useEffect(() => {
 }, [])
 
   const [viewingDetails, setViewingDetails] = useState(false)
+  const [navigating, setNavigating] = useState(false)
+  const [activeNavigation, setActiveNavigation] = useState(null)
+  const [choice, setChoice] = useState(null)
+  const [choiceButtonContainer, setChoiceButtonContainer] = useState(null)
 
 
   useEffect(() => {
@@ -208,7 +213,7 @@ useEffect(() => {
       top: 0,
       behavior: 'instant',
     })
-  }, [viewingDetails])
+  }, [viewingDetails, navigating])
 
   useEffect(() => {
   return () => {
@@ -224,6 +229,12 @@ useEffect(() => {
 }, [stopCompassTracking])
 
   const selectedRoute = result?.routes[selectedIndex]
+  const canStartNavigation = Boolean(
+    selectedRoute && result?.recommendationId &&
+    choice?.recommendationId === result.recommendationId &&
+    choice?.routeId === selectedRoute.id && !choice.saving &&
+    !result.engine?.startsWith('mock')
+  )
   const showRoute = Boolean(selectedRoute)
   const currentLocation = deviceLocation || selectedRoute?.legs?.[0]?.from
   const destinationLocation = selectedRoute?.legs?.at(-1)?.to
@@ -262,6 +273,7 @@ useEffect(() => {
     setLoading(false)
     setResult(null)
     setViewingDetails(false)
+    setNavigating(false)
     setError('')
     setAddressSuggestion(null)
 
@@ -392,7 +404,21 @@ useEffect(() => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF7F0] text-[#2A3439]">
+    <>
+      {navigating && selectedRoute && (
+      <NavigationPage
+        route={selectedRoute}
+        origin={result.origin}
+        destination={result.destination}
+        onBack={() => setNavigating(false)}
+        onEnd={() => {
+          setActiveNavigation(null)
+          setNavigating(false)
+          setViewingDetails(false)
+        }}
+      />
+      )}
+    <div hidden={navigating} className="min-h-screen bg-[#FAF7F0] text-[#2A3439]">
 
       {/* NAVBAR */}
       <Navbar
@@ -418,6 +444,7 @@ useEffect(() => {
             warnings={result.warnings}
             sources={result.sources}
             onBack={() => setViewingDetails(false)}
+            choiceButtonRef={setChoiceButtonContainer}
           />
         ) : (
           <>
@@ -755,34 +782,6 @@ useEffect(() => {
                     ))}
 
                   </div>
-
-                  {/* TRAVEL WARNINGS */}
-
-                  {result.warnings?.length > 0 && (
-
-                    <details className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
-
-                      <summary className="cursor-pointer font-semibold">
-
-                        Travel data notices ({result.warnings.length})
-
-                      </summary>
-
-                      <ul className="mt-2 list-disc space-y-1 pl-5">
-
-                        {result.warnings.map((warning, index) => (
-
-                          <li key={index}>{warning}</li>
-
-                        ))}
-
-                      </ul>
-
-                    </details>
-
-                  )}
-                  <TravelTimeDisclaimer />
-
                 </section>
 
               )
@@ -792,12 +791,24 @@ useEffect(() => {
         {result?.recommendationId && selectedRoute && (
           <div hidden={!viewingDetails}>
             <RouteChoice key={result.recommendationId}
-              recommendationId={result.recommendationId} routeId={selectedRoute.id} />
+              recommendationId={result.recommendationId} routeId={selectedRoute.id}
+              onChoiceChange={setChoice}
+              visible={viewingDetails && !navigating}
+              canStartNavigation={canStartNavigation}
+              canContinueNavigation={activeNavigation?.recommendationId === result.recommendationId && activeNavigation?.routeId === selectedRoute.id}
+              onStartNavigation={() => {
+                if (canStartNavigation) {
+                  setActiveNavigation({ recommendationId: result.recommendationId, routeId: selectedRoute.id })
+                  setNavigating(true)
+                }
+              }}
+              renderButton={button => choiceButtonContainer ? createPortal(button, choiceButtonContainer) : null} />
           </div>
         )}
       </main >
 
     </div >
+    </>
   )
 }
 
