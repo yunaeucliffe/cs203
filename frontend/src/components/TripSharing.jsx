@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { TripSharingContext } from './TripSharingContext'
 import { shareRequest, shareUrl, requestLocation } from '../api/tripShares'
+import { estimateArrival } from '../utils/tripSharing'
 
 const actionClass = 'min-h-12 rounded-xl border-2 border-[#3E424B] px-5 py-3 text-lg font-semibold disabled:opacity-60'
 
@@ -38,18 +39,14 @@ function LocationUpdates({ share, allowed }) {
   return message && <p className="px-5 pb-2" role="status">{message}</p>
 }
 
-function ActiveShare({ share, onEnded }) {
+function ActiveShare({ share }) {
   const { allowed, enable, end } = useContext(TripSharingContext)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   async function stop(arrived) {
     setBusy(true)
-    try {
-      await end(share.id, arrived)
-      onEnded?.(arrived)
-    }
-    catch (error) { setMessage(error.message) }
-    finally { setBusy(false) }
+    try { await end(share.id, arrived) }
+    catch (error) { setMessage(error.message); setBusy(false) }
   }
   async function send(copy) {
     try {
@@ -110,7 +107,7 @@ export function TripSharingProvider({ children }) {
   }, [refresh])
   const active = shares.filter(share => new Date(share.expiresAt).getTime() > now)
   async function end(id, arrived) {
-    await shareRequest(`/${id}`, 'DELETE')
+    await shareRequest(`/${id}${arrived ? '?arrived=true' : ''}`, 'DELETE')
     version.current++
     setShares(previous => previous.filter(item => item.id !== id))
     setAllowed(previous => previous.filter(item => item !== id))
@@ -130,15 +127,21 @@ export function TripSharingProvider({ children }) {
       {active.map(share => <ActiveShare key={share.id} share={share} />)}
     </details>}
     {active.map(share => <LocationUpdates key={share.id} share={share} allowed={allowed.includes(share.id)} />)}
-    {notice && <p className="m-4 rounded-xl bg-[#DCE7D2] p-4 text-lg" role="status">{notice}</p>}
+    {/* One message, fixed on screen so it's seen wherever sharing was ended from. */}
+    {notice && <p className="fixed inset-x-4 bottom-4 z-[1100] mx-auto max-w-xl rounded-xl bg-[#DCE7D2] p-4 text-lg shadow-lg" role="status">
+      {notice} <button type="button" className="ml-2 font-semibold underline" onClick={() => setNotice('')}>Dismiss</button>
+    </p>}
     {children}
   </TripSharingContext.Provider>
 }
 
 export default function TripSharing({ route, origin, destination }) {
   const { add, shares } = useContext(TripSharingContext)
-  const [ended, setEnded] = useState(null)
   const [live, setLive] = useState(false)
+  // Trimmed the same way the server stores them, so the active share is recognised.
+  const originName = (origin?.name || route.legs?.[0]?.from?.name || '').trim()
+  const destinationName = (destination?.name || route.legs?.at(-1)?.to?.name || '').trim()
+  const summary = (route.summary || '').trim()
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   async function create() {
@@ -150,30 +153,21 @@ export default function TripSharing({ route, origin, destination }) {
       catch { setMessage('Location permission was not granted. Sharing trip details only.') }
     }
     try {
-      const arrival = route.legs?.at(-1)?.endTime
-      const arrivalTime = arrival ? new Date(arrival).getTime() : NaN
-      const estimatedArrival = new Date(Number.isFinite(arrivalTime) && arrivalTime > Date.now()
-        ? arrivalTime : Date.now() + route.durationMinutes * 60000).toISOString()
+      const estimatedArrival = estimateArrival(route)
       const share = await shareRequest('', 'POST', {
-        origin: origin?.name || route.legs?.[0]?.from?.name,
-        destination: destination?.name || route.legs?.at(-1)?.to?.name,
-        routeSummary: route.summary, estimatedArrival, liveLocation: consent,
+        origin: originName, destination: destinationName,
+        routeSummary: summary, estimatedArrival, liveLocation: consent,
       })
       add(share, consent)
     } catch (error) { setMessage(error.message) }
     finally { setBusy(false) }
   }
-  const shared = shares.filter(share => share.origin === (origin?.name || route.legs?.[0]?.from?.name)
-    && share.destination === (destination?.name || route.legs?.at(-1)?.to?.name)
-    && share.routeSummary === route.summary)
+  const shared = shares.filter(share => share.origin === originName
+    && share.destination === destinationName && share.routeSummary === summary)
   if (shared.length > 0) return <>
-    {shared.map(share => <ActiveShare key={share.id} share={share} onEnded={arrived => setEnded(arrived ? "You've arrived. Trip sharing has ended." : 'Trip sharing has ended.')} />)}
+    {shared.map(share => <ActiveShare key={share.id} share={share} />)}
     <p role="status">{message}</p>
   </>
-  if (ended) return <section className="my-5 rounded-xl border bg-[#DCE7D2] p-5 text-lg">
-    <p role="status">{ended}</p>
-    <button type="button" className={`${actionClass} mt-4`} onClick={() => { setEnded(null); setMessage('') }}>Share trip again</button>
-  </section>
   return <section className="my-5 rounded-xl border-2 border-[#7A7F7A]/30 bg-white p-5 text-lg" aria-label="Share this trip">
     <h3 className="text-xl font-semibold">Share trip with family</h3>
     <p className="mt-2">Let your family or caregiver follow your trip.</p>

@@ -57,6 +57,13 @@ class TripShareSecurityTests {
                 .andExpect(jsonPath("$.message").exists()).andExpect(jsonPath("$.origin").doesNotExist())
                 .andExpect(jsonPath("$.latitude").doesNotExist());
     }
+    @Test void arrivedLinkReturnsOnlyArrivalMessage() throws Exception {
+        when(service.read("done")).thenThrow(new org.springframework.web.server.ResponseStatusException(
+                HttpStatus.GONE, "They have arrived. Trip sharing has ended."));
+        mvc.perform(get("/api/shared-trips/done")).andExpect(status().isGone())
+                .andExpect(jsonPath("$.message").value("They have arrived. Trip sharing has ended."))
+                .andExpect(jsonPath("$.origin").doesNotExist());
+    }
     @Test void anonymousCannotListCreateUpdateOrStop() throws Exception {
         mvc.perform(get(path)).andExpect(status().isUnauthorized());
         mvc.perform(post(path).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isUnauthorized());
@@ -90,6 +97,8 @@ class TripShareSecurityTests {
                 .contentType(MediaType.APPLICATION_JSON).content(location.replace("1.3", "95"))).andExpect(status().isBadRequest());
         verifyNoInteractions(service);
         mvc.perform(delete(path + "/" + id).with(user("alice")).with(csrf())).andExpect(status().isNoContent());
-        verify(service).stop("alice", id);
+        verify(service).stop("alice", id, false);
+        mvc.perform(delete(path + "/" + id + "?arrived=true").with(user("alice")).with(csrf())).andExpect(status().isNoContent());
+        verify(service).stop("alice", id, true);
     }
 }

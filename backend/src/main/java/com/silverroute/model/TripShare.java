@@ -17,6 +17,7 @@ public class TripShare {
     @Column(nullable = false) public Instant expiresAt;
     @Column(nullable = false) public boolean liveLocation;
     @Column(nullable = false) public boolean revoked;
+    @Column(nullable = false) public boolean arrived;
     public Double latitude;
     public Double longitude;
     public Instant locationUpdatedAt;

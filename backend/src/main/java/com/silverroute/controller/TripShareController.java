@@ -27,10 +27,12 @@ public class TripShareController {
     }
     @DeleteMapping("/api/users/me/trip-shares/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void stop(Authentication auth, @PathVariable UUID id) { service.stop(auth.getName(), id); }
+    public void stop(Authentication auth, @PathVariable UUID id, @RequestParam(defaultValue = "false") boolean arrived) {
+        service.stop(auth.getName(), id, arrived);
+    }
     @GetMapping("/api/shared-trips/{token}")
     public ResponseEntity<PublicView> read(@PathVariable String token) {
-        // Invalid, expired or revoked links become a 404 with only a message (GlobalExceptionHandler).
+        // Invalid, expired or revoked links become a 404 (410 after arrival) with only a message (GlobalExceptionHandler).
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.read(token));
     }
 }

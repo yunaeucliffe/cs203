@@ -64,7 +64,7 @@ class TripShareServiceTests {
         when(shares.lockOwned(share.id, 1L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.update("owner@example.com", share.id,
                 new TripShareService.Location(1.3, 103.8))).isInstanceOf(ResponseStatusException.class);
-        assertThatThrownBy(() -> service.stop("owner@example.com", share.id)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> service.stop("owner@example.com", share.id, false)).isInstanceOf(ResponseStatusException.class);
         assertThat(share.revoked).isFalse();
         assertThat(share.latitude).isNull();
     }
@@ -76,11 +76,22 @@ class TripShareServiceTests {
         service.update("owner@example.com", share.id, new TripShareService.Location(1.3, 103.8));
         assertThat(share.latitude).isEqualTo(1.3);
         assertThat(share.locationUpdatedAt).isBetween(before, Instant.now());
-        service.stop("owner@example.com", share.id);
+        service.stop("owner@example.com", share.id, false);
         assertThat(share.latitude).isNull();
-        assertThatThrownBy(() -> service.read("secret")).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> service.read("secret")).hasMessageContaining("invalid or has ended");
         assertThatThrownBy(() -> service.update("owner@example.com", share.id,
                 new TripShareService.Location(1.4, 103.9))).isInstanceOf(ResponseStatusException.class);
+    }
+    @Test void arrivalEndsSharingWithArrivedMessageOnly() {
+        owner();
+        when(shares.lockOwned(share.id, 1L)).thenReturn(Optional.of(share));
+        when(shares.findByToken("secret")).thenReturn(Optional.of(share));
+        service.stop("owner@example.com", share.id, true);
+        assertThat(share.revoked).isTrue();
+        assertThatThrownBy(() -> service.read("secret"))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode().value()).isEqualTo(410))
+                .hasMessageContaining("They have arrived");
     }
     @Test void disabledAndExpiredLocationUpdatesAreRejected() {
         owner();

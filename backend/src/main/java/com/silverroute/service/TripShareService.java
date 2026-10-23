@@ -71,6 +71,8 @@ public class TripShareService {
     @Transactional(readOnly=true)
     public PublicView read(String token) {
         var s = shares.findByToken(token).orElseThrow(() -> unavailable());
+        // Tell family the trip ended safely, without revealing any trip details.
+        if (s.arrived) throw new ResponseStatusException(HttpStatus.GONE, "They have arrived. Trip sharing has ended.");
         requireActive(s);
         return new PublicView(s.origin, s.destination, s.routeSummary, s.estimatedArrival, s.expiresAt,
                 s.liveLocation, s.latitude, s.longitude, s.locationUpdatedAt);
@@ -83,9 +85,10 @@ public class TripShareService {
         s.longitude = location.longitude();
         s.locationUpdatedAt = Instant.now();
     }
-    public void stop(String email, UUID id) {
+    public void stop(String email, UUID id, boolean arrived) {
         var s = shares.lockOwned(id, owner(email)).orElseThrow(() -> unavailable());
         s.revoked = true;
+        s.arrived = arrived;
         s.latitude = null;
         s.longitude = null;
         s.locationUpdatedAt = null;

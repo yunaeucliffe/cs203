@@ -14,3 +14,5 @@ CREATE TABLE IF NOT EXISTS trip_shares (
     location_updated_at TIMESTAMP WITH TIME ZONE
 );
 CREATE INDEX IF NOT EXISTS idx_trip_shares_owner ON trip_shares(user_id);
+-- Added after the table was first created; safe to rerun on existing databases.
+ALTER TABLE trip_shares ADD COLUMN IF NOT EXISTS arrived BOOLEAN NOT NULL DEFAULT FALSE;
