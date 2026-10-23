@@ -293,6 +293,11 @@ useEffect(() => {
       ({ coords }) => {
         if (request !== locationRequest.current) return
 
+        if (locationWatch.current !== null) {
+          navigator.geolocation.clearWatch(locationWatch.current)
+          locationWatch.current = null
+        }
+
         const newLocation = {
           latitude: coords.latitude,
           longitude: coords.longitude,
@@ -300,30 +305,64 @@ useEffect(() => {
         }
 
         setDeviceLocation(newLocation)
-
         setOriginText('Current location')
         setOriginPlace(null)
         setLocating(false)
+        setError('')
       },
+      (geoError) => {
+        if (request !== locationRequest.current) return
+
+        if (locationWatch.current !== null) {
+          navigator.geolocation.clearWatch(locationWatch.current)
+          locationWatch.current = null
+        }
+
+        setLocating(false)
+
+        if (geoError.code === 1) {
+          setError(
+            'Location permission was denied. Allow location access in your browser settings, or enter a starting point instead.'
+          )
+        } else if (geoError.code === 2) {
+          setError(
+            'Your location is unavailable. Check that location services are enabled, try again, or enter a starting point instead.'
+          )
+        } else if (geoError.code === 3) {
+          setError(
+            'Finding your location timed out. Please try again or enter a starting point instead.'
+          )
+        } else {
+          setError(
+            'We could not get your location. Please try again or enter a starting point instead.'
+          )
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 8000,
+        maximumAge: 0,
+      }
     )
   }
 
   const handleFindRoute = async () => {
     if (loading || locating) return
     clearResult()
+    setAddressSuggestion(null)
     if (!isAuthenticated) {
       setError('Sign in to get routes tailored to your saved preferences.')
       return
     }
-    if (!destinationPlace || (!deviceLocation && !originPlace)) {
-      setError('Choose your starting point and destination from the suggestions, or use your current location for the starting point.')
+    if (!originText.trim() || !destination.trim()) {
+      setError('Enter both a starting point and a destination.')
       return
     }
     const controller = new AbortController()
     pending.current = controller
     setLoading(true)
-    const origin = deviceLocation || originPlace
-    const target = destinationPlace
+    const origin = deviceLocation || originPlace || { name: originText.trim() }
+    const target = destinationPlace || { name: destination.trim() }
     try {
       const recommendations = await searchRoutes(origin, target, controller.signal)
       const routes = recommendations.routes

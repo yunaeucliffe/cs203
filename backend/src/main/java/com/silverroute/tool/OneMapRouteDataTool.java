@@ -6,8 +6,9 @@ import org.springframework.stereotype.Component;
 
 import com.silverroute.api.RouteOption;
 import com.silverroute.api.TripRequest;
+import com.silverroute.exception.AddressConfirmationRequiredException;
+import com.silverroute.exception.AddressNotFoundException;
 import com.silverroute.service.OneMapService;
-
 // Connects OneMap to agent system
 // Gets user's origin and destination
 // Searches both locations --> gets coordinates --> gets routes --> parses
@@ -44,10 +45,35 @@ public class OneMapRouteDataTool implements RouteDataTool {
                 routes,
                 List.of());
     }
-    private com.silverroute.api.LocationResult resolve(String name, TripRequest.Coordinates coordinates) throws Exception {
+    private com.silverroute.api.LocationResult resolve(
+            String name,
+            TripRequest.Coordinates coordinates) throws Exception {
+
         if (coordinates != null) {
-            return new com.silverroute.api.LocationResult(name, coordinates.latitude(), coordinates.longitude());
+            return new com.silverroute.api.LocationResult(
+                    name, coordinates.latitude(), coordinates.longitude());
         }
-        return oneMapService.parseLocation(oneMapService.searchLocation(name));
+
+        try {
+            return oneMapService.parseLocation(
+                    oneMapService.searchLocation(name));
+        } catch (AddressNotFoundException exception) {
+            List<com.silverroute.api.LocationSuggestion> alternatives =
+                    oneMapService.findAlternativeLocations(name);
+
+            if (alternatives.isEmpty()) {
+                throw exception;
+            }
+
+            List<com.silverroute.api.LocationResult> locations =
+                    alternatives.stream()
+                            .map(location -> new com.silverroute.api.LocationResult(
+                                    location.name(),
+                                    location.latitude(),
+                                    location.longitude()))
+                            .toList();
+
+            throw new AddressConfirmationRequiredException(name, locations);
+        }
     }
 }
