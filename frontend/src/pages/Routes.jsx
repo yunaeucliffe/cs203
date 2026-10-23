@@ -1,9 +1,11 @@
+import { createPortal } from 'react-dom'
 import RouteChoice from '../components/RouteChoice'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import { searchRoutes } from '../api/routes'
 import RouteCard from '../components/RouteCard'
 import RouteDetails from '../components/RouteDetails'
+import NavigationPage from './Navigation'
 import TravelTimeDisclaimer from '../components/TravelTimeDisclaimer'
 
 import {
@@ -236,6 +238,10 @@ useEffect(() => {
 }, [])
 
   const [viewingDetails, setViewingDetails] = useState(false)
+  const [navigating, setNavigating] = useState(false)
+  const [activeNavigation, setActiveNavigation] = useState(null)
+  const [choice, setChoice] = useState(null)
+  const [choiceButtonContainer, setChoiceButtonContainer] = useState(null)
 
 
   useEffect(() => {
@@ -243,7 +249,7 @@ useEffect(() => {
       top: 0,
       behavior: 'instant',
     })
-  }, [viewingDetails])
+  }, [viewingDetails, navigating])
 
   useEffect(() => {
   return () => {
@@ -259,6 +265,12 @@ useEffect(() => {
 }, [stopCompassTracking])
 
   const selectedRoute = result?.routes[selectedIndex]
+  const canStartNavigation = Boolean(
+    selectedRoute && result?.recommendationId &&
+    choice?.recommendationId === result.recommendationId &&
+    choice?.routeId === selectedRoute.id && !choice.saving &&
+    !result.engine?.startsWith('mock')
+  )
   const showRoute = Boolean(selectedRoute)
   const currentLocation = deviceLocation || selectedRoute?.legs?.[0]?.from
   const destinationLocation = selectedRoute?.legs?.at(-1)?.to
@@ -297,6 +309,7 @@ useEffect(() => {
     setLoading(false)
     setResult(null)
     setViewingDetails(false)
+    setNavigating(false)
     setError('')
     setAddressSuggestion(null)
 
@@ -426,36 +439,55 @@ useEffect(() => {
     }
   }
 
+ 
   return (
-    <div className="min-h-screen bg-[#FAF7F0] text-[#2A3439]">
+    <>
+      {navigating && selectedRoute && (
+        <NavigationPage
+          route={selectedRoute}
+          origin={result.origin}
+          destination={result.destination}
+          onBack={() => setNavigating(false)}
+          onEnd={() => {
+            setActiveNavigation(null)
+            setNavigating(false)
+            setViewingDetails(false)
+          }}
+        />
+      )}
 
-      {/* NAVBAR */}
-      <Navbar
-        activePage="routes"
-        onHome={onBack}
-        onRoutes={() => { }}
-        onSavedPlaces={onSavedPlaces}
-        onSignIn={onSignIn}
-        onProfile={onProfile}
-        isAuthenticated={isAuthenticated}
-      />
+      <div
+        hidden={navigating}
+        className="min-h-screen bg-[#FAF7F0] text-[#2A3439]"
+      >
+        {/* NAVBAR */}
+        <Navbar
+          activePage="routes"
+          onHome={onBack}
+          onRoutes={() => {}}
+          onSavedPlaces={onSavedPlaces}
+          onSignIn={onSignIn}
+          onProfile={onProfile}
+          isAuthenticated={isAuthenticated}
+        />
 
-      {/* MAIN PAGE */}
-      <main className="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8 lg:pt-6">
+        {/* MAIN PAGE */}
+        <main className="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8 lg:pt-6">
+          {viewingDetails && selectedRoute ? (
+            <RouteDetails
+              route={selectedRoute}
+              index={selectedIndex}
+              origin={result.origin}
+              destination={result.destination}
+              engine={result.engine}
+              warnings={result.warnings}
+              sources={result.sources}
+              onBack={() => setViewingDetails(false)}
+              choiceButtonRef={setChoiceButtonContainer}
+            />
+          ) : (
+            <>
 
-        {viewingDetails && selectedRoute ? (
-          <RouteDetails
-            route={selectedRoute}
-            index={selectedIndex}
-            origin={result.origin}
-            destination={result.destination}
-            engine={result.engine}
-            warnings={result.warnings}
-            sources={result.sources}
-            onBack={() => setViewingDetails(false)}
-          />
-        ) : (
-          <>
 
             {/* SEARCH LAYOUT */}
             <div className="grid grid-cols-1 gap-6">
@@ -739,66 +771,93 @@ useEffect(() => {
                       />
                     )}
 
-                  {showRoute && (
-                    <>
-                      {/* Destination marker */}
-                      {hasCoordinates(destinationLocation) && (
-                        <Marker
-                          position={[
-                            destinationLocation.latitude,
-                            destinationLocation.longitude,
-                          ]}
-                          icon={destinationIcon}
-                        >
-                          <Popup>Destination</Popup>
-                        </Marker>
-                      )}
-
-                      {/* Route outline */}
-                      {routeCoordinates.length > 0 && (
+                 
+                      {showRoute && (
                         <>
-                          <Polyline
-                            positions={routeCoordinates}
-                            pathOptions={{
-                              color: 'white',
-                              weight: 10,
-                              opacity: 0.9,
-                              lineCap: 'round',
-                              lineJoin: 'round',
-                            }}
-                          />
+                          {/* DESTINATION */}
+                          {hasCoordinates(destinationLocation) && (
+                            <Marker
+                              position={[
+                                destinationLocation.latitude,
+                                destinationLocation.longitude,
+                              ]}
+                              icon={destinationIcon}
+                            >
+                              <Popup>Destination</Popup>
+                            </Marker>
+                          )}
 
-                          {/* Main route */}
-                          <Polyline
-                            positions={routeCoordinates}
-                            pathOptions={{
-                              color: '#2F6FED',
-                              weight: 6,
-                              opacity: 0.95,
-                              lineCap: 'round',
-                              lineJoin: 'round',
-                            }}
-                          />
+                          {/* Route outline */}
+                          {routeCoordinates.length > 0 && (
+                            <>
+                              <Polyline
+                                positions={routeCoordinates}
+                                pathOptions={{
+                                  color: 'white',
+                                  weight: 10,
+                                  opacity: 0.9,
+                                  lineCap: 'round',
+                                  lineJoin: 'round',
+                                }}
+                              />
+
+                              {/* Main route */}
+                              <Polyline
+                                positions={routeCoordinates}
+                                pathOptions={{
+                                  color: '#2F6FED',
+                                  weight: 6,
+                                  opacity: 0.95,
+                                  lineCap: 'round',
+                                  lineJoin: 'round',
+                                }}
+                              />
+                            </>
+                          )}
                         </>
                       )}
-                    </>
-                  )}
-                </MapContainer>
-              </section>
-            </div>
-          </section>
-        </>
-      )}
 
-        {result?.recommendationId && selectedRoute && (
-          <div hidden={!viewingDetails}>
-            <RouteChoice key={result.recommendationId}
-              recommendationId={result.recommendationId} routeId={selectedRoute.id} />
-          </div>
+                    
+                  </MapContainer>
+                </section>
+              </div>
+            </section>
+           
+            {result?.recommendationId && selectedRoute && (
+              <div hidden={!viewingDetails}>
+                <RouteChoice
+                  key={result.recommendationId}
+                  recommendationId={result.recommendationId}
+                  routeId={selectedRoute.id}
+                  onChoiceChange={setChoice}
+                  visible={viewingDetails && !navigating}
+                  canStartNavigation={canStartNavigation}
+                  canContinueNavigation={
+                    activeNavigation?.recommendationId === result.recommendationId &&
+                    activeNavigation?.routeId === selectedRoute.id
+                  }
+                  onStartNavigation={() => {
+                    if (canStartNavigation) {
+                      setActiveNavigation({
+                        recommendationId: result.recommendationId,
+                        routeId: selectedRoute.id,
+                      })
+                      setNavigating(true)
+                    }
+                  }}
+                  renderButton={(button) =>
+                    choiceButtonContainer
+                      ? createPortal(button, choiceButtonContainer)
+                      : null
+                  }
+                />
+              </div>
+            )}
+          </>
         )}
-      </main >
-
-    </div >
+      </main>
+    </div>
+    </>
   )
 }
 
