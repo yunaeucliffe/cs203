@@ -1,4 +1,5 @@
 import Logo from './Logo'
+import { SharingIndicator } from './TripSharing'
 
 function Navbar({ activePage, onHome, onRoutes, onSavedPlaces, onSignIn, onProfile, isAuthenticated = false }) {
 
@@ -14,6 +15,9 @@ function Navbar({ activePage, onHome, onRoutes, onSavedPlaces, onSignIn, onProfi
         >
           <Logo />
         </button>
+
+        <div className="flex items-center gap-3">
+        <SharingIndicator />
 
         <div className="flex items-center gap-1 rounded-full border border-[#7A7F7A]/30 bg-[#FAF7F0] p-1.5">
 
@@ -58,6 +62,7 @@ function Navbar({ activePage, onHome, onRoutes, onSavedPlaces, onSignIn, onProfi
             {isAuthenticated ? 'Profile' : 'Sign in'}
           </button>
 
+        </div>
         </div>
 
       </div>

@@ -48,7 +48,7 @@ psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f database/schema.sql
 psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/mockdata.sql
 ```
 
-`schema.sql` creates `silverroute` if needed and sets up `users`, `user_preferences`, `saved_places`, `categories`, and `route_choice_snapshots`. It automatically applies both migrations, so no separate migration commands are needed for a fresh installation.
+`schema.sql` creates `silverroute` if needed and sets up `users`, `user_preferences`, `saved_places`, `categories`, `route_choice_snapshots`, and `trip_shares`. It automatically applies all migrations, so no separate migration commands are needed for a fresh installation.
 
 Saved preferences now contain walking speed, independent 0–100 walking and shelter priority scores, and an automatic-learning toggle. Walking tolerance and the shelter boolean are no longer stored.
 
@@ -56,20 +56,28 @@ Saved preferences now contain walking speed, independent 0–100 walking and she
 
 ### Existing database
 
-Stop the backend, then run these migrations from the repository directory:
+If you already have a `silverroute` database, update it after pulling new changes:
 
-```sh
-psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/001_preference_priorities.sql
-psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/002_saved_place_categories.sql
-```
+1. Stop the backend.
+2. From the repository directory, run:
 
-Migration 001 adds the priority scores, learning fields, and route-choice table. It converts old preferences only where scores are missing. It then removes the obsolete walking-tolerance and shelter-boolean columns. Existing scores and user records are preserved; the migration can be rerun. All migration steps run in one transaction, so an error rolls back the upgrade. Rerun it when upgrading to AI learning and undo to add their tracking columns.
+   ```sh
+   psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/001_preference_priorities.sql
+   psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/002_saved_place_categories.sql
+   psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/003_trip_shares.sql
+   ```
 
-Migration 002 adds user-owned categories with a name and hex colour, and an optional `category_id` on saved places. Category names are unique per user, ignoring case. Existing places remain uncategorised; deleting a category keeps its places. The API checks that an assigned category belongs to the same user as the place.
+3. Start the backend again.
 
-Restart the updated backend afterward. Hibernate uses `ddl-auto=validate`, so it checks the schema but does not apply migrations automatically. You do not need to rerun `mockdata.sql` for an upgrade.
+It's safe to run all three every time: they keep your existing data and skip anything already done.
 
-These commands work in PowerShell, macOS, and Linux terminals. `psql` prompts for a password when required; it does not read the project's `.env`. If needed, add `-h ::1` or `-h 127.0.0.1` to match your backend's `DB_HOST`.
+If you skip this, the backend won't start, because it checks that the database matches the code.
+
+- 001: walking and shelter preferences, and route choices
+- 002: saved place categories
+- 003: trip and live location sharing
+
+Tip: `psql` asks for your PostgreSQL password. If it can't connect, add `-h 127.0.0.1` (or `-h ::1`).
 
 ## Environment variables
 
