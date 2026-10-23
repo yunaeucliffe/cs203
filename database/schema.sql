@@ -72,3 +72,5 @@ ON saved_places(user_id, label);
 -- Also upgrades existing installations; paths are relative to this file.
 \ir migrations/001_preference_priorities.sql
 \ir migrations/002_saved_place_categories.sql
+
+\ir migrations/003_trip_shares.sql
