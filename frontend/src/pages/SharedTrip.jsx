@@ -50,23 +50,42 @@ export default function SharedTrip({ token }) {
   const active = trip && new Date(trip.expiresAt).getTime() > now
   const hasLocation = active && Number.isFinite(trip.latitude) && Number.isFinite(trip.longitude)
   const outdated = hasLocation && now - new Date(trip.locationUpdatedAt).getTime() > 60000
-  return <main className="min-h-screen bg-[#FAF7F0] p-6 text-[#2A3439]">
-    <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-3xl font-semibold">SilverRoute shared trip</h1>
-      {!active ? <p role="status">{message || 'This sharing link has expired.'}</p> : <>
-        <h2 className="text-xl">{trip.origin} to {trip.destination}</h2>
-        <p>{formatRouteSummary(trip.routeSummary)}</p>
-        {new Date(trip.estimatedArrival).getTime() > now
-          ? <p>Estimated arrival: {formatDateTime(trip.estimatedArrival)} (Singapore time)</p>
-          : <p>Expected to arrive by {formatDateTime(trip.estimatedArrival)} (Singapore time). They have not confirmed arrival yet.</p>}
-        {trip.liveLocation ? <>
-          <p role="status">{hasLocation ? `${outdated ? 'Outdated location - updates have stopped. ' : ''}Last updated ${updatedAgo(trip.locationUpdatedAt, now)}` : 'Waiting for the first location update.'}</p>
-          {hasLocation && <MapContainer center={[trip.latitude, trip.longitude]} zoom={16} className="h-96 w-full rounded-xl">
-            <TileLayer url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png" attribution="&copy; OneMap contributors" />
-            <FollowLocation latitude={trip.latitude} longitude={trip.longitude} />
-            <CircleMarker center={[trip.latitude, trip.longitude]} radius={10} pathOptions={{ color: outdated ? '#777' : '#2F6FED' }}><Popup>Latest shared location</Popup></CircleMarker>
-          </MapContainer>}
-        </> : <p>Trip details only. Live location is not shared.</p>}
+  const arrivalPassed = active && new Date(trip.estimatedArrival).getTime() <= now
+  const card = 'rounded-[24px] border border-[#7A7F7A]/20 bg-white p-5 sm:p-6'
+  return <main className="min-h-screen bg-[#FAF7F0] px-4 py-8 text-[#2A3439] sm:px-6">
+    <div className="mx-auto max-w-3xl space-y-5">
+      <header>
+        <p className="text-sm font-semibold uppercase tracking-wide text-[#7A7F7A]">SilverRoute</p>
+        <h1 className="text-2xl font-semibold sm:text-3xl">Shared trip</h1>
+      </header>
+      {!active ? <section className={`${card} text-lg`} role="status">{message || 'This sharing link has expired.'}</section> : <>
+        <section className={card}>
+          <h2 className="text-xl font-semibold">{trip.origin} → {trip.destination}</h2>
+          <p className="mt-1 text-[#555C60]">{formatRouteSummary(trip.routeSummary)}</p>
+          <div className="mt-4 rounded-xl bg-[#FAF7F0] p-4">
+            <p className="text-sm text-[#7A7F7A]">{arrivalPassed ? 'Expected to arrive by' : 'Estimated arrival'}</p>
+            <p className="text-lg font-semibold">{formatDateTime(trip.estimatedArrival)} <span className="text-sm font-normal text-[#7A7F7A]">Singapore time</span></p>
+            {arrivalPassed && <p className="mt-1 text-sm">They have not confirmed arrival yet.</p>}
+          </div>
+        </section>
+        <section className={card}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Live location</h2>
+            {hasLocation && <span className={`rounded-full px-3 py-1 text-sm font-semibold ${outdated ? 'bg-amber-100 text-amber-900' : 'bg-[#DCE7D2]'}`}>
+              {outdated ? 'Outdated' : 'Live'}
+            </span>}
+          </div>
+          {!trip.liveLocation ? <p className="mt-2 text-[#555C60]">Live location is not shared for this trip.</p> : <>
+            <p role="status" className="mt-2 text-[#555C60]">{hasLocation
+              ? `${outdated ? 'Updates have stopped. ' : ''}Last updated ${updatedAgo(trip.locationUpdatedAt, now)}.`
+              : 'Waiting for the first location update.'}</p>
+            {hasLocation && <MapContainer center={[trip.latitude, trip.longitude]} zoom={16} className="mt-4 h-80 w-full rounded-xl sm:h-96">
+              <TileLayer url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png" attribution="&copy; OneMap contributors" />
+              <FollowLocation latitude={trip.latitude} longitude={trip.longitude} />
+              <CircleMarker center={[trip.latitude, trip.longitude]} radius={10} pathOptions={{ color: outdated ? '#777' : '#2F6FED' }}><Popup>Latest shared location</Popup></CircleMarker>
+            </MapContainer>}
+          </>}
+        </section>
       </>}
     </div>
   </main>

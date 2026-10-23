@@ -15,10 +15,10 @@ The migration has not been applied automatically by this change.
 
 1. Sign in, find routes, and open the details of the route you want to share.
 2. Near Start navigation, optionally check Include my live location. There is no duration to choose.
-3. Click Share trip with family. For live sharing, the browser requests location access. If denied or unavailable, a details-only link is still created and a message explains the fallback.
+3. Click Create sharing link. For live sharing, the browser requests location access. If denied or unavailable, a details-only link is still created and a message explains the fallback.
 4. The same section now shows Your trip is being shared, with Share link and Copy link buttons. A selectable link is available under Sharing details.
 5. A recipient opens the link without signing in. They see origin, destination, a plain-word route summary (e.g. Walk → Bus 10 → Train EW) and estimated arrival, plus a map and "Last updated less than a minute ago" (or N minutes ago) when a live location is available. Once the estimated arrival has passed without confirmation, the page says so.
-6. At the destination, tap I've arrived to immediately revoke the link and clear the stored location; the recipient then sees "They have arrived. Trip sharing has ended." with no trip details. Stop sharing revokes the link the same way, and the recipient sees the standard invalid/ended message. A compact Manage sharing indicator provides access elsewhere in the app, while live updates continue in the background.
+6. At the destination, tap I've arrived to immediately revoke the link and clear the stored location; the recipient then sees "They have arrived. Trip sharing has ended." with no trip details. Stop sharing revokes the link the same way, and the recipient sees the standard invalid/ended message. A "Sharing live location" pill in the navbar provides access elsewhere in the app, while live updates continue in the background.
 7. After refreshing the app, active shares are recovered from the server. Live shares need the Resume live location button before sending location again.
 8. Sharing has a fixed 24-hour privacy backup if the user forgets to end it. It does not end at the estimated arrival time. Existing links keep their original expiry.
 
