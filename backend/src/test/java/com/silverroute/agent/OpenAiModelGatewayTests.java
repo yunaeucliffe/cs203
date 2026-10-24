@@ -21,24 +21,30 @@ class OpenAiModelGatewayTests {
     }
     @Test void parsesStructuredOutputAndBuildsStrictAllowlistedSchema() throws Exception {
         var model=gateway();
-        var result=model.parseResponse(response("{\"rankings\":[{\"routeId\":\"onemap-route-1\",\"reasons\":[\"Less walking\"],\"warnings\":[]}]}"));
+        var result=model.parseResponse(response("{\"rankings\":[{\"routeId\":\"onemap-route-1\",\"warnings\":[]}]}"));
         assertThat(result.rankings().getFirst().routeId()).isEqualTo("onemap-route-1");
         var body=new ObjectMapper().valueToTree(model.requestBody(TestRoutes.trip().context()));
         var context=new ObjectMapper().readTree(body.at("/input/1/content").asText());
         assertThat(context.at("/preferences/minimizeWalkingPriority").isInt()).isTrue();
         assertThat(context.at("/preferences/shelterPriority").isInt()).isTrue();
         assertThat(body.at("/input/0/content").asText()).contains("independent priorities");
+        assertThat(body.at("/text/format/schema/properties/rankings/items/properties").has("reasons")).isFalse();
         assertThat(body.path("store").asBoolean()).isFalse();
         assertThat(body.at("/text/format/strict").asBoolean()).isTrue();
         assertThat(body.at("/text/format/schema/properties/rankings/items/properties/routeId/enum/0").asText()).isEqualTo("onemap-route-1");
         assertThat(body.at("/text/format/schema/properties/rankings/maxItems").asInt()).isEqualTo(1);
+        assertThat(body.at("/text/format/schema/properties/rankings/minItems").asInt()).isZero();
         assertThat(body.toString()).doesNotContain("test-key","routePaths","Secret Name");
+    }
+    @Test void acceptsEmptyRankingWhenAllRoutesAreUnavailable() throws Exception {
+        assertThat(gateway().parseResponse(response("{\"rankings\":[]}")).rankings()).isEmpty();
     }
     @Test void rejectsRefusalsIncompleteAndMalformedResponses() throws Exception {
         var model=gateway();
         for(String invalid:List.of("null","{}","{\"status\":\"incomplete\"}",
                 "{\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"content\":[{\"type\":\"refusal\"}]}]}",
-                response("not json"),response("{\"rankings\":[{\"routeId\":1,\"reasons\":[],\"warnings\":[]}]}"),
+                response("{\"rankings\":[{\"routeId\":\"onemap-route-1\",\"reasons\":[],\"warnings\":[]}]}"),
+                response("not json"),response("{\"rankings\":[{\"routeId\":1,\"warnings\":[]}]}"),
                 response("{\"rankings\":[],\"extra\":true}"))) {
             assertThatThrownBy(() -> model.parseResponse(invalid)).isInstanceOf(ModelAgentException.class);
         }
@@ -58,7 +64,7 @@ class OpenAiModelGatewayTests {
         var builder=RestClient.builder().baseUrl("https://api.openai.com/v1");
         var server=MockRestServiceServer.bindTo(builder).build();
         server.expect(requestTo("https://api.openai.com/v1/responses")).andRespond(withSuccess(response(
-                "{\"rankings\":[{\"routeId\":\"onemap-route-1\",\"reasons\":[\"22 metres walking\"],\"warnings\":[]}]}"),MediaType.APPLICATION_JSON));
+                "{\"rankings\":[{\"routeId\":\"onemap-route-1\",\"warnings\":[]}]}"),MediaType.APPLICATION_JSON));
         var gateway=new OpenAiModelGateway("test-key","configured-model",builder.build());
         var trip=TestRoutes.trip();
         var answer=RouteRecommendationAgent.validateAndBuild(trip,gateway.rank(trip.context()),gateway.engine());

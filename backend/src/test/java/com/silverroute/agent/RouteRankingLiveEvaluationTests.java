@@ -7,6 +7,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import static org.assertj.core.api.Assertions.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.silverroute.routing.*;
+import com.silverroute.api.RouteOption;
 
 /** Explicit opt-in: paid model quality evaluation, separate from deterministic contract tests. */
 @EnabledIfEnvironmentVariable(named="RUN_OPENAI_EVAL",matches="true")
@@ -27,7 +28,18 @@ class RouteRankingLiveEvaluationTests {
                 List.of(candidate("unknown-data",30,5,300.0,null)),List.of("Shelter and accessibility could not be verified"));
         for(var scenario:List.of(lowWalking,preferShelter,missingEvidence)) {
             var result=gateway.rank(scenario);
-            report.add(Map.of("model",model,"context",scenario,"result",result));
+            var routes=scenario.candidates().stream().map(c -> new RouteOption(c.id(),c.summary(),
+                    c.durationMinutes(),c.walkingMinutes(),c.transfers(),c.accessibility(),c.walkingDistanceMeters(),
+                    null,c.estimatedShelteredWalkingMeters(),List.of(),List.of(),c.evidence(),List.of(),List.of())).toList();
+            var resolved=RouteRecommendationAgent.validateAndBuild(new AggregatedTrip(scenario,routes,List.of("synthetic")),result,gateway.engine());
+            var displayed = new ArrayList<RouteOption>();
+            displayed.add(resolved.recommendedRoute());
+            displayed.addAll(resolved.alternatives());
+            for (int i = 0; i < displayed.size(); i++) {
+                assertThat(displayed.get(i).reasons()).isEqualTo(RouteExplanationGenerator.explain(displayed, i, scenario.preferences()));
+            }
+            assertThat(resolved.reasons()).isEqualTo(resolved.recommendedRoute().reasons());
+            report.add(Map.of("model",model,"context",scenario,"result",result,"resolved",resolved));
         }
         Files.createDirectories(Path.of("target"));
         new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(Path.of("target/route-ranking-evaluation.json").toFile(),report);
