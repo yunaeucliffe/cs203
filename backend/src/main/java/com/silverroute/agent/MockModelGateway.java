@@ -15,6 +15,6 @@ public class MockModelGateway implements ModelGateway {
                 .sorted(Comparator.comparing(RouteContext.Candidate::walkingMinutes,
                         Comparator.nullsLast(Comparator.naturalOrder())))
                 .limit(3).map(route -> new RankingResult.Selection(route.id(),
-                        List.of("Demo ranking by walking time"), List.of("Mock data; not for navigation"))).toList());
+                        List.of("Mock data; not for navigation"))).toList());
     }
 }

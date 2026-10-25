@@ -52,10 +52,10 @@ public class OpenAiModelGateway implements ModelGateway {
         if(ids.isEmpty()) throw new ModelAgentException("No candidates were supplied to the model");
         Map<String,Object> strings=Map.of("type","array","items",Map.of("type","string"));
         Map<String,Object> selection=Map.of("type","object","additionalProperties",false,
-                "required",List.of("routeId","reasons","warnings"),"properties",Map.of(
-                "routeId",Map.of("type","string","enum",ids),"reasons",strings,"warnings",strings));
+                "required",List.of("routeId","warnings"),"properties",Map.of(
+                "routeId",Map.of("type","string","enum",ids),"warnings",strings));
         Map<String,Object> schema=Map.of("type","object","additionalProperties",false,"required",List.of("rankings"),
-                "properties",Map.of("rankings",Map.of("type","array","minItems",Math.min(3,ids.size()),
+                "properties",Map.of("rankings",Map.of("type","array","minItems",0,
                         "maxItems",Math.min(3,ids.size()),"items",selection)));
         return Map.of("model",model,"store",false,"max_output_tokens",2500,
                 "input",List.of(Map.of("role","developer","content",prompt),Map.of("role","user","content",input)),
@@ -79,9 +79,9 @@ public class OpenAiModelGateway implements ModelGateway {
             JsonNode json=mapper.readTree(texts.getFirst());
             if(!json.isObject() || json.size()!=1 || !json.path("rankings").isArray()) throw new IllegalArgumentException("Invalid rankings");
             for(JsonNode item:json.path("rankings")) {
-                if(!item.isObject() || item.size()!=3 || !item.path("routeId").isTextual()
-                        || !item.path("reasons").isArray() || !item.path("warnings").isArray()) throw new IllegalArgumentException("Invalid selection");
-                for(String field:List.of("reasons","warnings")) for(JsonNode text:item.path(field))
+                if(!item.isObject() || item.size()!=2 || !item.path("routeId").isTextual()
+                        || !item.path("warnings").isArray()) throw new IllegalArgumentException("Invalid selection");
+                for(JsonNode text:item.path("warnings"))
                     if(!text.isTextual()) throw new IllegalArgumentException("Invalid explanation");
             }
             return mapper.treeToValue(json,RankingResult.class);

@@ -402,6 +402,9 @@ function RouteDetails({
                             <h3 className="font-semibold">
                                 Why this route?
                             </h3>
+                            <p className="mt-2 text-sm">
+                                These comparisons describe the route’s trade-offs. Route order is selected by AI.
+                            </p>
 
                             <ul className="mt-2 list-disc space-y-2 pl-5 text-sm">
                                 {route.reasons.map((reason, i) => (

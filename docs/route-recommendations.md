@@ -1,6 +1,6 @@
 # Personalized route recommendations — backend and frontend contract
 
-The backend resolves a trip with OneMap, attaches relevant conditions and evidence to candidate routes, loads the signed-in user's saved preferences, and makes one OpenAI ranking request. The model selects existing route IDs and supplies explanations. The backend validates those IDs and restores original route metrics and geometry. It never accepts model-generated itineraries.
+The backend resolves a trip with OneMap, attaches relevant conditions and evidence to candidate routes, loads the signed-in user's saved preferences, and makes one OpenAI ranking request. The model selects existing route IDs and supplies service warnings; Java generates deterministic factual explanations. The backend validates those IDs and restores original route metrics and geometry. It never accepts model-generated itineraries.
 
 ## Configuration
 
@@ -79,25 +79,25 @@ Do not send user ID, email, walking limits or preferences. Preferences come from
     "legs": [],
     "routePaths": [],
     "evidence": [],
-    "reasons": ["Short walking distance suits your preference for less walking."],
+    "reasons": ["Walking priority: 80/100. Walking distance: 22 m."],
     "warnings": ["Accessibility has not been verified."]
   },
   "alternatives": [],
-  "reasons": ["Short walking distance suits your preference for less walking."],
+  "reasons": ["Walking priority: 80/100. Walking distance: 22 m."],
   "warnings": ["Accessibility has not been verified."],
   "sources": ["onemap-route-data"],
   "engine": "openai:configured-model"
 }
 ```
 
-This abbreviated example is illustrative, not a real recommendation. Successful responses contain exactly `min(3, available candidate count)` unique routes. `recommendedRoute` is rank 1; `alternatives` contains ranks 2 and 3 when available. Reasons at the top level repeat the first route's reasons for compatibility; each route also has its own reasons and warnings. Route IDs are request-local and must not be reused across trips.
+This abbreviated example is illustrative, not a real recommendation. Successful responses contain one to three unique routes, excluding candidates the model identifies as unavailable from relevant service alerts. If none remain, the endpoint returns HTTP 503 with a no-usable-routes message instead of route suggestions. `recommendedRoute` is rank 1; `alternatives` contains ranks 2 and 3 when available. Reasons at the top level repeat the first route's reasons for compatibility; each route also has its own reasons and warnings. Route IDs are request-local and must not be reused across trips.
 
 - Missing metrics are `null`, not zero. Render them as “Unavailable.”
 - `accessibility` is currently `unknown`, replacing the unverified `wheelchairAccessible: false` field. Do not infer wheelchair access from a bus vehicle's WAB feature or lack of maintenance reports.
 - `routePaths` is an array of leg polylines; each polyline is an array of `[latitude, longitude]` pairs, suitable for the existing Leaflet map. Never join disconnected legs with a straight line.
 - `legs` preserves order and includes mode, service, from/to stops (`id`, `code`, `name`, `latitude`, `longitude`), duration in seconds, distance in metres, optional start/end timestamps, and the decoded `path`.
 - `evidence` has `source`, `observedAt`, `retrievedAt`, `availability`, and source-specific `details`. Unknown provider observation times are null. Fetch time is not observation time.
-- Display shelter as “Estimated sheltered walking: … m”; it does not prove full coverage. Model reasons should be displayed as text, never injected HTML.
+- Display shelter as “Estimated sheltered walking: … m”; it does not prove full coverage. Reasons and model warnings should be displayed as text, never injected HTML.
 
 ### Errors
 
@@ -121,20 +121,25 @@ Address-confirmation responses also contain `query` (the original address) and `
 - OneMap metrics remain provider estimates. The backend preserves ordered legs and service/stop identifiers. Missing required itinerary arrays are errors, not empty successful data.
 - Bus arrivals match both stop code and service. Unknown stop IDs can be matched using a unique exact normalized stop name within 100 metres, using paginated cached LTA bus-stop reference data. Ambiguous matches stay unknown.
 - Train alerts match relevant lines. Maintenance matches station codes or normalized names. Crowding matches station codes and known line aliases. Unrecognized identifiers are reported as missing evidence.
+- Alert handling remains an AI ranking decision; the backend does not exclude affected routes. The model uses relevant alert messages, timestamps, segments and direction to distinguish reported suspensions, delays/reduced service and unknown severity. It omits routes with confirmed unavailable legs entirely, weighs delay trade-offs and warns about uncertain evidence without inventing delay or recovery estimates. The schema permits fewer than three routes, including an empty ranking when all are unavailable; the backend turns an empty ranking into HTTP 503 without suggestions. This is prompt guidance, not a deterministic eligibility guarantee.
 - Rain uses the most recent observation within 15 minutes, choosing available gauges within 5 km of walking-leg endpoints. These are nearby observations, not route-specific forecasts. Zero is used only when explicitly reported.
 - Departures more than 15 minutes ahead or behind server time exclude bus arrivals, rainfall and current crowding. Current train alerts and maintenance remain labelled snapshots, never forecasts.
 - Shelter estimates intersect walking polylines with buffered covered-linkway geometry in Singapore's metric SVY21 coordinate system (EPSG:3414). The tolerance defaults to 10 metres (`routing.shelter-tolerance-meters`). Overlapping buffers are unioned to avoid double counting, and estimated distance is capped by known provider walking distance. Missing walking geometry or invalid/empty linkway data produces null, not zero.
 - Reference data is cached for 24 hours; live data and provider failures for 60 seconds. A request-local cache prevents duplicate fetches for the same bus stop or line. Expired data is not silently served as current evidence.
 - Optional source failures produce explicit warnings while retaining OneMap routes. If OneMap itself fails there is no ranking call.
 - The model context is an allowlist built from `RouteContext`, with no user/account identity or route geometry. Input is capped at 80,000 characters; excessively large evidence produces an error rather than silently dropping facts.
-- OpenAI receives a strict JSON schema with candidate IDs as an enum. Backend validation independently requires the correct count, unique existing IDs and bounded explanations. Schema validation does not prove that prose explanations are factually correct; model-quality evaluation remains necessary.
+- OpenAI receives a strict JSON schema with candidate IDs as an enum. Backend validation independently enforces a maximum of three selections, unique existing IDs and bounded warnings. Schema validation does not prove that model warnings are factually correct; model-quality evaluation remains necessary.
+
+The internal model response contains only `routeId` and `warnings` per selection; `reasons` is not accepted from AI. After ranking, Java generates four factual comparisons: walking distance, estimated sheltered walking percentage, journey duration, and transfers. Walking and shelter appear first in descending saved-priority order (walking wins ties), followed by duration and transfers. Each priority is displayed numerically. The recommended route compares against the runner-up; every alternative compares against the recommendation. A single remaining route receives standalone facts. Missing values are explicitly unavailable, never zero; zero walking makes shelter percentage inapplicable. Distances and percentages use half-up rounding to whole units before comparisons; estimated shelter percentage is capped at 100%. These statements describe trade-offs, not why the model made its ranking decision. Identical route metrics, preferences and final order produce identical reasons; ranking and model warnings remain nondeterministic.
+
+Model warnings reference other returned routes using `{{route:ID}}` placeholders, resolved against final display order. Unknown, omitted, self-referential, malformed, bare-ID and manually numbered references are invalid model responses (HTTP 502). Public `reasons` and `warnings` remain string arrays. Top-level reasons duplicate the recommendation's generated reasons; route cards show the first generated reason and details show all four. No database migration is needed.
 
 ## Tests and live verification
 
 Run `./mvnw test` in `backend`. Application-context tests require the configured PostgreSQL database. Focused route tests can run without PostgreSQL:
 
 ```sh
-./mvnw test -Dtest='RouteParserTests,EvidenceCacheTests,RouteConditionsServiceTests,ShelterEstimatorTests,RouteDataAggregatorServiceTests,RouteRecommendationAgentTests,OpenAiModelGatewayTests,RouteRecommendationSecurityTests'
+./mvnw test -Dtest='RouteParserTests,EvidenceCacheTests,RouteConditionsServiceTests,ShelterEstimatorTests,RouteDataAggregatorServiceTests,RouteExplanationGeneratorTests,RouteRecommendationAgentTests,OpenAiModelGatewayTests,RouteRecommendationSecurityTests'
 ```
 
 Fixtures in `src/test/resources/routes` are synthetic provider-shaped cases. Credentials were not configured during implementation, so live provider schemas, account permissions and live model quality still need verification. Record sanitized provider responses from a configured account and rerun adapter tests before release.
@@ -145,4 +150,4 @@ The opt-in `RouteRankingLiveEvaluationTests` makes paid OpenAI requests and is d
 2. High shelter priority: with equal journey/walking metrics, the more sheltered option ranks first.
 3. Unknown accessibility/shelter: explanations must not claim verified access or guaranteed shelter.
 
-Review each explanation against the supplied evidence, including units, stale data, and uncertainty. Repeat across representative Singapore trips and compare model changes against this baseline; passing structural tests alone is not evidence of ranking quality.
+Review AI ranking and warnings against the supplied evidence, including stale data and uncertainty; the report also includes the resolved response with deterministic reasons. Repeat across representative Singapore trips and compare model changes against this baseline; passing structural tests alone is not evidence of ranking quality.
