@@ -1,3 +1,4 @@
+import TripSharing from './TripSharing'
 import { useEffect } from 'react'
 import L from 'leaflet'
 import BusArrivals from './BusArrivals'
@@ -271,6 +272,7 @@ function RouteDetails({
                 <p className="mt-2 text-[#555C60]">
                     {route.summary}
                 </p>
+                <TripSharing key={route.id} route={route} origin={origin} destination={destination} />
                 <BusArrivals key={route.id} route={route} live={!isDemo} />
 
 
