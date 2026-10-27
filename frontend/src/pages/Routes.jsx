@@ -1,24 +1,11 @@
 import { createPortal } from 'react-dom'
 import RouteChoice from '../components/RouteChoice'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import L from 'leaflet'
 import { searchRoutes } from '../api/routes'
 import RouteCard from '../components/RouteCard'
 import RouteDetails from '../components/RouteDetails'
+import RouteSearchMap from '../components/RouteSearchMap'
 import NavigationPage from './Navigation'
-import TravelTimeDisclaimer from '../components/TravelTimeDisclaimer'
-
-import {
-
-  MapContainer,
-  useMap,
-  TileLayer,
-  Polyline,
-  Popup,
-  Marker,
-} from 'react-leaflet'
-
-import 'leaflet/dist/leaflet.css'
 
 import {
   MapPin,
@@ -33,112 +20,6 @@ function hasCoordinates(location) {
   return Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude)
 }
 
-function FitRoute({ origin, destination, paths }) {
-  const map = useMap()
-useEffect(() => {
-  const points = paths.flat().map((point) => {
-    if (Array.isArray(point)) return point
-    return [point.latitude, point.longitude]
-  })
-
-  if (hasCoordinates(origin)) {
-    points.push([origin.latitude, origin.longitude])
-  }
-
-  if (hasCoordinates(destination)) {
-    points.push([destination.latitude, destination.longitude])
-  }
-
-  if (points.length === 0) return
-
-  const timer = setTimeout(() => {
-    map.invalidateSize({ pan: false })
-    map.fitBounds(points, {
-      padding: [60, 60],
-      maxZoom: 14,
-    })
-  }, 200)
-
-  return () => clearTimeout(timer)
- }, [map, origin, destination, paths])
-
-  return null
-}
-
-function ResizeMap({ trigger }) {
-  const map = useMap()
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      map.invalidateSize({ pan: false })
-    }, 150)
-
-    return () => clearTimeout(timer)
-  }, [map, trigger])
-
-  return null
-}
-
-function LocationDot({ position }) {
-  const icon = L.divIcon({
-    className: '',
-    html: `
-      <div style="
-        width: 22px;
-        height: 22px;
-        box-sizing: border-box;
-        background: #2F6FED;
-        border: 3px solid white;
-        border-radius: 50%;
-        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-      "></div>
-    `,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-  })
-
-  return (
-    <Marker
-      position={position}
-      icon={icon}
-      zIndexOffset={1000}
-    />
-  )
-}
-
-function DirectionMarker({ position, heading }) {
-  const rotation = heading ?? 0
-
-  const icon = L.divIcon({
-    className: 'direction-marker-icon',
-    html: `
-      <svg
-        width="80"
-        height="80"
-        viewBox="0 0 80 80"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M40 4
-            C53 14, 61 27, 66 44
-            C57 40, 49 38, 40 38
-            C31 38, 23 40, 14 44
-            C19 27, 27 14, 40 4 Z"
-          fill="rgba(47, 111, 237, 0.25)"
-          transform="rotate(${rotation} 40 40)"
-        />
-      </svg>
-    `,
-    iconSize: [80, 80],
-    iconAnchor: [40, 40],
-  })
-
-  return <Marker position={position} icon={icon} />
-}
-
-
-const EMPTY_PATHS = []
-
 function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = '', initialDestinationPlace = null }) {
   const [destination, setDestination] = useState(initialDestination)
   const [originText, setOriginText] = useState('')
@@ -146,97 +27,16 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const [destinationPlace, setDestinationPlace] = useState(initialDestinationPlace)
   const [deviceLocation, setDeviceLocation] = useState(null)
   const [result, setResult] = useState(null)
+  const [hasSearched, setHasSearched] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [loading, setLoading] = useState(false)
   const [locating, setLocating] = useState(false)
   const [error, setError] = useState('')
   const [addressSuggestion, setAddressSuggestion] = useState(null)
+  const resultsSection = useRef(null)
   const pending = useRef(null)
   const locationRequest = useRef(0)
   const locationWatch = useRef(null)
-  const [isMobileDevice, setIsMobileDevice] = useState(false)
-  const [deviceHeading, setDeviceHeading] = useState(null)
-  const compassListeners = useRef(null)
-
-  const stopCompassTracking = useCallback(() => {
-    const listeners = compassListeners.current
-    if (!listeners) return
-
-    window.removeEventListener(
-      'deviceorientation',
-      listeners.ios
-    )
-    window.removeEventListener(
-      'deviceorientationabsolute',
-      listeners.absolute
-    )
-
-    compassListeners.current = null
-  }, [])
-
-  const startCompassTracking = async () => {
-    stopCompassTracking()
-    setDeviceHeading(null)
-
-    const OrientationEvent = window.DeviceOrientationEvent
-
-    // Some browsers, including iOS Safari, require permission.
-    if (typeof OrientationEvent?.requestPermission === 'function') {
-      try {
-        const permission = await OrientationEvent.requestPermission(true)
-        if (permission !== 'granted') return
-      } catch {
-        return
-      }
-    }
-
-    // iOS: use the actual compass heading.
-    const handleIOSCompass = (event) => {
-      const heading = event.webkitCompassHeading
-
-      if (Number.isFinite(heading) && heading >= 0) {
-        setDeviceHeading(heading)
-      }
-    }
-
-    // Android/Chrome: use absolute orientation, not GPS movement.
-    const handleAbsoluteCompass = (event) => {
-      if (Number.isFinite(event.alpha)) {
-        setDeviceHeading((360 - event.alpha) % 360)
-      }
-    }
-
-  window.addEventListener('deviceorientation', handleIOSCompass)
-  window.addEventListener(
-    'deviceorientationabsolute',
-    handleAbsoluteCompass
-  )
-
-  compassListeners.current = {
-    ios: handleIOSCompass,
-    absolute: handleAbsoluteCompass,
-  }
-}
-
-
-useEffect(() => {
-  const mediaQuery = window.matchMedia(
-    '(max-width: 768px) and (pointer: coarse)'
-  )
-
-  const updateDeviceType = () => {
-    setIsMobileDevice(mediaQuery.matches)
-  }
-
-  updateDeviceType()
-
-  mediaQuery.addEventListener('change', updateDeviceType)
-
-  return () => {
-    mediaQuery.removeEventListener('change', updateDeviceType)
-  }
-}, [])
-
   const [viewingDetails, setViewingDetails] = useState(false)
   const [navigating, setNavigating] = useState(false)
   const [activeNavigation, setActiveNavigation] = useState(null)
@@ -259,10 +59,15 @@ useEffect(() => {
       navigator.geolocation.clearWatch(locationWatch.current)
     }
 
-    stopCompassTracking()
     locationRequest.current += 1
   }
-}, [stopCompassTracking])
+}, [])
+
+  useEffect(() => {
+    if (result) {
+      resultsSection.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [result])
 
   const selectedRoute = result?.routes[selectedIndex]
   const canStartNavigation = Boolean(
@@ -271,39 +76,7 @@ useEffect(() => {
     choice?.routeId === selectedRoute.id && !choice.saving &&
     !result.engine?.startsWith('mock')
   )
-  const showRoute = Boolean(selectedRoute)
-  const currentLocation = deviceLocation || selectedRoute?.legs?.[0]?.from
-  const destinationLocation = selectedRoute?.legs?.at(-1)?.to
-  const routeCoordinates = selectedRoute?.routePaths || EMPTY_PATHS
-
-  const destinationIcon = L.divIcon({
-    className: '',
-    html: `
-      <div style="
-        width: 32px;
-        height: 32px;
-        background: #e53935;
-        border: 3px solid white;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      ">
-        <div style="
-          width: 10px;
-          height: 10px;
-          background: white;
-          border-radius: 50%;
-          position: absolute;
-          top: 8px;
-          left: 8px;
-        "></div>
-      </div>
-    `,
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-  })
-
-  const clearResult = () => {
+  const clearResult = useCallback(() => {
     pending.current?.abort()
     pending.current = null
     setLoading(false)
@@ -312,10 +85,9 @@ useEffect(() => {
     setNavigating(false)
     setError('')
     setAddressSuggestion(null)
+  }, [])
 
-  }
-
-  const useMyLocation = () => {
+  const useMyLocation = useCallback(() => {
     clearResult()
     if (locationWatch.current !== null) {
       navigator.geolocation.clearWatch(locationWatch.current)
@@ -325,13 +97,6 @@ useEffect(() => {
     if (!navigator.geolocation) {
       setError('Location is unavailable in this browser. Enter a starting point instead.')
       return
-    }
-
-    if (isMobileDevice) {
-      void startCompassTracking()
-    } else {
-      stopCompassTracking()
-      setDeviceHeading(null)
     }
 
     const request = ++locationRequest.current
@@ -350,6 +115,7 @@ useEffect(() => {
           latitude: coords.latitude,
           longitude: coords.longitude,
           name: 'Current location',
+          accuracy: coords.accuracy,
         }
 
         setDeviceLocation(newLocation)
@@ -392,7 +158,13 @@ useEffect(() => {
         maximumAge: 0,
       }
     )
-  }
+  }, [clearResult])
+
+  useEffect(() => {
+    // Defer until mount completes; cancelling also avoids duplicate requests in Strict Mode.
+    const timer = window.setTimeout(useMyLocation, 0)
+    return () => window.clearTimeout(timer)
+  }, [useMyLocation])
 
   const handleFindRoute = async () => {
     if (loading || locating) return
@@ -419,6 +191,7 @@ useEffect(() => {
         setError('No public transport routes were found. Try another starting point or destination.')
         return
       }
+      setHasSearched(true)
       setSelectedIndex(0)
       setResult({ ...recommendations, origin, destination: target, routes })
     } catch (failure) {
@@ -490,7 +263,7 @@ useEffect(() => {
 
 
             {/* SEARCH LAYOUT */}
-            <div className="grid grid-cols-1 gap-6">
+            <div className={`grid grid-cols-1 items-start gap-6 ${hasSearched ? '' : 'lg:grid-cols-2'}`}>
               {/* ====================================== */}
               {/* LEFT SIDE */}
               {/* ====================================== */}
@@ -507,7 +280,7 @@ useEffect(() => {
                       From
                     </label>
 
-                    <div className="flex h-[62px] items-center gap-3 rounded-2xl bg-[#FAF7F0] px-4">
+                    <div className="flex min-h-[62px] flex-wrap items-center gap-3 py-3 rounded-2xl bg-[#FAF7F0] px-4">
 
                       <LocateFixed
                         size={21}
@@ -567,7 +340,7 @@ useEffect(() => {
                       To
                     </label>
 
-                    <div className="flex h-[62px] items-center gap-3 rounded-2xl bg-[#FAF7F0] px-4">
+                    <div className="flex min-h-[62px] flex-wrap items-center gap-3 py-3 rounded-2xl bg-[#FAF7F0] px-4">
 
                       <MapPin
                         size={21}
@@ -603,7 +376,7 @@ useEffect(() => {
                     onClick={handleFindRoute}
                     disabled={loading || locating}
                     aria-busy={loading}
-                    className="mt-5 flex h-[62px] w-full items-center justify-center gap-3 rounded-2xl bg-[#3E424B] text-lg font-semibold text-white transition hover:scale-[1.01]"
+                    className="mt-5 flex min-h-[62px] w-full px-4 py-3 items-center justify-center gap-3 rounded-2xl bg-[#3E424B] text-lg font-semibold text-white transition hover:scale-[1.01]"
                   >
                     {loading ? 'Comparing routes…' : 'Find recommended routes'}
 
@@ -617,6 +390,17 @@ useEffect(() => {
                     )}
 
                   </button>
+
+                  <div aria-label="Map legend" className="mt-5 flex flex-wrap gap-x-6 gap-y-3 border-t border-[#7A7F7A]/20 pt-5 text-base font-semibold text-[#2A3439]">
+                    <p className="flex items-center gap-3">
+                      <span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full border-2 border-white bg-[#2F6FED] ring-1 ring-[#2F6FED]" />
+                      Starting point
+                    </p>
+                    <p className="flex items-center gap-3">
+                      <span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full border-2 border-white bg-[#C83232] ring-1 ring-[#C83232]" />
+                      Destination
+                    </p>
+                  </div>
 
                 </div>
 
@@ -664,25 +448,18 @@ useEffect(() => {
                     ))}
                   </div>
                 )}
-                {loading && <p role="status" className="mt-4">Comparing routes with your saved preferences and available travel conditions…</p>}
-
+                
               </section>
 
+              {!hasSearched && <RouteSearchMap
+                deviceLocation={deviceLocation}
+                origin={originPlace}
+                destination={destinationPlace}
+              />}
             </div>
 
-        {/* ROUTE RESULTS — cards left, map right */}
-          <section className="mt-8">
-
-           <div
-              className={`mt-5 grid grid-cols-1 items-stretch gap-6 ${
-                result ? 'lg:grid-cols-[0.9fr_1.1fr]' : 'grid-cols-1'
-              }`}
-            >
-
-              {/* LEFT SIDE — ROUTE CARDS */}
-              <div className="min-w-0">
-                {result && (
-                  <>
+            {result && (
+              <section ref={resultsSection} aria-label="Recommended routes" className="mt-8 scroll-mt-6">
                     <h2
                       className="mb-5 text-3xl text-[#2A3439]"
                       style={{ fontFamily: '"DM Serif Display", serif' }}
@@ -690,7 +467,7 @@ useEffect(() => {
                       Your recommended routes
                     </h2>
 
-                <div className="grid grid-cols-1 gap-5">
+                <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                   {result.routes.map((route, index) => (
                     <RouteCard
                       key={route.id}
@@ -703,126 +480,12 @@ useEffect(() => {
                     />
                   ))}
                 </div>
+              </section>
+            )}
 
-                {/* TRAVEL WARNINGS */}
-                {result.warnings?.length > 0 && (
-                  <details className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
-                    <summary className="cursor-pointer font-semibold">
-                      Travel data notices ({result.warnings.length})
-                    </summary>
 
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
-                      {result.warnings.map((warning, index) => (
-                        <li key={index}>{warning}</li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-
-                <TravelTimeDisclaimer />
-                  </>
-                )}
-              </div>
-
-              {/* RIGHT SIDE — MAP */}
-              <section
-                className="route-map-container h-[500px] min-w-0 overflow-hidden rounded-[28px] border border-[#7A7F7A]/20 sm:h-[600px] lg:h-[700px]"
-              >
-                <MapContainer
-                  center={[1.3521, 103.8198]}
-                  zoom={15}
-                  scrollWheelZoom={true}
-                  className="h-full w-full"
-                >
-
-                <ResizeMap trigger={result?.routes?.length ?? 0} />
-
-                  <TileLayer
-                    url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.onemap.gov.sg/">OneMap</a> contributors | Singapore Land Authority'
-                  />
-
-                  <FitRoute
-                    origin={currentLocation}
-                    destination={destinationLocation}
-                    paths={routeCoordinates}
-                  />
-
-                  {/* Current location */}
-                  {hasCoordinates(currentLocation) && (
-                    <LocationDot
-                      position={[
-                        currentLocation.latitude,
-                        currentLocation.longitude,
-                      ]}
-                    />
-                  )}
-
-                  {/* Direction indicator on mobile */}
-                  {isMobileDevice &&
-                    hasCoordinates(currentLocation) &&
-                    deviceHeading !== null && (
-                      <DirectionMarker
-                        position={[
-                          currentLocation.latitude,
-                          currentLocation.longitude,
-                        ]}
-                        heading={deviceHeading}
-                      />
-                    )}
-
-                 
-                      {showRoute && (
-                        <>
-                          {/* DESTINATION */}
-                          {hasCoordinates(destinationLocation) && (
-                            <Marker
-                              position={[
-                                destinationLocation.latitude,
-                                destinationLocation.longitude,
-                              ]}
-                              icon={destinationIcon}
-                            >
-                              <Popup>Destination</Popup>
-                            </Marker>
-                          )}
-
-                          {/* Route outline */}
-                          {routeCoordinates.length > 0 && (
-                            <>
-                              <Polyline
-                                positions={routeCoordinates}
-                                pathOptions={{
-                                  color: 'white',
-                                  weight: 10,
-                                  opacity: 0.9,
-                                  lineCap: 'round',
-                                  lineJoin: 'round',
-                                }}
-                              />
-
-                              {/* Main route */}
-                              <Polyline
-                                positions={routeCoordinates}
-                                pathOptions={{
-                                  color: '#2F6FED',
-                                  weight: 6,
-                                  opacity: 0.95,
-                                  lineCap: 'round',
-                                  lineJoin: 'round',
-                                }}
-                              />
-                            </>
-                          )}
-                        </>
-                      )}
-
-                    
-                  </MapContainer>
-                </section>
-              </div>
-            </section>
-           
+          </>
+        )}
             {result?.recommendationId && selectedRoute && (
               <div hidden={!viewingDetails}>
                 <RouteChoice
@@ -853,8 +516,6 @@ useEffect(() => {
                 />
               </div>
             )}
-          </>
-        )}
       </main>
     </div>
     </>
