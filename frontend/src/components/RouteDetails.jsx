@@ -1,4 +1,4 @@
-import TripSharing from './TripSharing'
+import { TripSharingButton } from './TripSharing'
 import { useEffect } from 'react'
 import L from 'leaflet'
 import BusArrivals from './BusArrivals'
@@ -191,6 +191,7 @@ function RouteDetails({
     engine,
     onBack,
     choiceButtonRef,
+    canShare = false,
 }) {
     const paths = route.routePaths || []
 
@@ -257,7 +258,10 @@ function RouteDetails({
                     </div>
 
 
-                    <div ref={choiceButtonRef} />
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div ref={choiceButtonRef} />
+                        <TripSharingButton key={route.id} canShare={canShare} route={route} origin={origin} destination={destination} />
+                    </div>
 
                 </div>
 
@@ -272,7 +276,6 @@ function RouteDetails({
                 <p className="mt-2 text-[#555C60]">
                     {route.summary}
                 </p>
-                <TripSharing key={route.id} route={route} origin={origin} destination={destination} />
                 <BusArrivals key={route.id} route={route} live={!isDemo} />
 
 

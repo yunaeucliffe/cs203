@@ -8,9 +8,7 @@ import RouteSearchMap from '../components/RouteSearchMap'
 import NavigationPage from './Navigation'
 
 import {
-  MapPin,
   Navigation,
-  LocateFixed,
 } from 'lucide-react'
 
 import Navbar from '../components/Navbar'
@@ -257,6 +255,10 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               sources={result.sources}
               onBack={() => setViewingDetails(false)}
               choiceButtonRef={setChoiceButtonContainer}
+              canShare={Boolean(
+                choice?.recommendationId === result.recommendationId &&
+                choice?.routeId === selectedRoute.id && !choice.saving
+              )}
             />
           ) : (
             <>
@@ -282,10 +284,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
                     <div className="flex min-h-[62px] flex-wrap items-center gap-3 py-3 rounded-2xl bg-[#FAF7F0] px-4">
 
-                      <LocateFixed
-                        size={21}
-                        className="shrink-0 text-[#7A7F7A]"
-                      />
 
                       <LocationAutocomplete
                         label="Starting point"
@@ -342,10 +340,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
                     <div className="flex min-h-[62px] flex-wrap items-center gap-3 py-3 rounded-2xl bg-[#FAF7F0] px-4">
 
-                      <MapPin
-                        size={21}
-                        className="shrink-0 text-[#7A7F7A]"
-                      />
 
                       <LocationAutocomplete
                         label="Destination"
@@ -391,7 +385,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
                   </button>
 
-                  <div aria-label="Map legend" className="mt-5 flex flex-wrap gap-x-6 gap-y-3 border-t border-[#7A7F7A]/20 pt-5 text-base font-semibold text-[#2A3439]">
+                  {!hasSearched && <div aria-label="Map legend" className="mt-5 flex flex-wrap gap-x-6 gap-y-3 border-t border-[#7A7F7A]/20 pt-5 text-base font-semibold text-[#2A3439]">
                     <p className="flex items-center gap-3">
                       <span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full border-2 border-white bg-[#2F6FED] ring-1 ring-[#2F6FED]" />
                       Starting point
@@ -400,7 +394,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                       <span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full border-2 border-white bg-[#C83232] ring-1 ring-[#C83232]" />
                       Destination
                     </p>
-                  </div>
+                  </div>}
 
                 </div>
 
