@@ -1,4 +1,5 @@
-import { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, Copy, MapPin, Share2, X } from 'lucide-react'
 import { TripSharingContext } from './TripSharingContext'
 import { shareRequest, shareUrl, requestLocation } from '../api/tripShares'
@@ -12,7 +13,7 @@ const buttons = {
   success: `${button} bg-[#DCE7D2] hover:bg-[#CFDDC3]`,
   danger: `${button} border border-red-200 bg-white text-red-800 hover:bg-red-50`,
 }
-const card = 'mt-5 rounded-[24px] border border-[#7A7F7A]/20 bg-white p-5 sm:p-6'
+const card = 'mt-5'
 
 // Shows a short message on the clicked button (e.g. "Link copied"), then puts its label back.
 function useButtonMessage() {
@@ -190,6 +191,31 @@ export function TripSharingProvider({ children }) {
   </TripSharingContext.Provider>
 }
 
+export function TripSharingButton({ route, origin, destination, canShare = false }) {
+  const dialog = useRef(null)
+  const titleId = useId()
+
+  return <>
+    <button type="button" disabled={!canShare} aria-label={canShare ? 'Share this trip' : 'Choose this route before sharing'} title={canShare ? 'Share this trip' : 'Choose this route before sharing'} aria-haspopup="dialog"
+      onClick={() => dialog.current?.showModal()}
+      className="flex min-h-[52px] min-w-[52px] items-center justify-center rounded-xl border border-[#7A7F7A]/40 bg-white text-[#3E424B] transition enabled:hover:bg-[#DCE7D2] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3E424B]">
+      <Share2 size={24} aria-hidden="true" />
+    </button>
+    {canShare && createPortal(
+      <dialog ref={dialog} aria-labelledby={titleId}
+        className="fixed inset-0 m-auto max-h-[85vh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-3xl bg-white p-5 text-[#2A3439] shadow-xl backdrop:bg-black/40 sm:p-6">
+        <div className="flex items-center justify-between gap-4">
+          <h2 id={titleId} className="text-2xl font-semibold">Share trip with family</h2>
+          <button type="button" aria-label="Close sharing options" onClick={() => dialog.current?.close()}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl hover:bg-[#FAF7F0] focus-visible:outline-2 focus-visible:outline-offset-2">
+            <X size={24} aria-hidden="true" />
+          </button>
+        </div>
+        <TripSharing route={route} origin={origin} destination={destination} />
+      </dialog>, document.body)}
+  </>
+}
+
 export default function TripSharing({ route, origin, destination }) {
   const { add, shares } = useContext(TripSharingContext)
   const [label, show] = useButtonMessage()
@@ -219,7 +245,6 @@ export default function TripSharing({ route, origin, destination }) {
     {shared.map(share => <div key={share.id} className="space-y-4"><SharingStatus share={share} /><ActiveShare share={share} /></div>)}
   </section>
   return <section className={card} aria-label="Share this trip">
-    <h3 className="flex items-center gap-2 text-lg font-semibold"><Share2 size={20} />Share trip with family</h3>
     <p className="mt-1 text-[#555C60]">Send a link so your family or caregiver can follow your trip.</p>
     <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl bg-[#FAF7F0] p-4">
       <input className="mt-0.5 h-5 w-5 shrink-0 accent-[#3E424B]" type="checkbox" checked={live} onChange={event => setLive(event.target.checked)} />

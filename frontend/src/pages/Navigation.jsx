@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import L from 'leaflet'
+import { TripSharingButton } from '../components/TripSharing'
 
 import {
   MapContainer,
@@ -14,9 +15,12 @@ import {
 
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   ChevronDown,
   ChevronUp,
-  LocateFixed,
+  Plus,
+  Minus,
   Footprints,
   Bus,
   Train,
@@ -123,6 +127,16 @@ function FitNavigationRoute({ paths, start, end }) {
   return null
 }
 
+function ResizeNavigationMap() {
+  const map = useMap()
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize({ pan: false }))
+    observer.observe(map.getContainer())
+    return () => observer.disconnect()
+  }, [map])
+  return null
+}
+
 function LiveLocation({ location, following, onFollowingChange }) {
   const map = useMap()
 
@@ -165,11 +179,19 @@ function MapControls({ start, end, paths, location, following, onFollowingChange
     <button type="button" onClick={() => onFollowingChange(true)} disabled={!location}
       aria-label="Follow my location" aria-pressed={following}
       className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md disabled:opacity-50">
-      <LocateFixed size={22} className={following ? 'text-blue-600' : ''} />
+      <span aria-hidden="true" className="h-5 w-5 rounded-full border-2 border-white bg-[#2F6FED] ring-1 ring-[#2F6FED]" />
     </button>
     <button type="button" onClick={showEntireRoute} aria-label="Show entire route"
       className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md">
-      <MapPin size={22} />
+      <span aria-hidden="true" className="h-5 w-5 rounded-full border-2 border-white bg-[#C83232] ring-1 ring-[#C83232]" />
+    </button>
+    <button type="button" aria-label="Zoom in" onClick={() => { onFollowingChange(false); map.zoomIn() }}
+      className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md hover:bg-[#FAF7F0]">
+      <Plus size={24} aria-hidden="true" />
+    </button>
+    <button type="button" aria-label="Zoom out" onClick={() => { onFollowingChange(false); map.zoomOut() }}
+      className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md hover:bg-[#FAF7F0]">
+      <Minus size={24} aria-hidden="true" />
     </button>
   </div>
 }
@@ -197,6 +219,7 @@ function Navigation({
   onBack,
   onEnd,
 }) {
+  const [sidebarHidden, setSidebarHidden] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [location, setLocation] = useState(null)
   const [locationError, setLocationError] = useState('')
@@ -235,9 +258,10 @@ function Navigation({
   const end = legs.at(-1)?.to || destination
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#FAF7F0] text-[#2A3439]">
+    <div className={`relative h-dvh w-full overflow-hidden bg-[#FAF7F0] text-[#2A3439] ${sidebarHidden ? '' : 'lg:grid lg:grid-cols-[400px_minmax(0,1fr)] xl:grid-cols-[440px_minmax(0,1fr)]'}`}>
 
-      {/* FULL-SCREEN MAP */}
+      <div className="relative h-full min-w-0 lg:col-start-2 lg:row-start-1">
+      {/* NAVIGATION MAP */}
       <MapContainer
         center={[1.3521, 103.8198]}
         zoom={13}
@@ -245,6 +269,7 @@ function Navigation({
         zoomControl={false}
         className="h-full w-full"
       >
+        <ResizeNavigationMap />
         <TileLayer
           url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.onemap.gov.sg/">OneMap</a> contributors'
@@ -265,13 +290,6 @@ function Navigation({
           onFollowingChange={setFollowing}
         />
         <LiveLocation location={location} following={following} onFollowingChange={setFollowing} />
-
-        {/* START MARKER */}
-        {hasCoordinates(start) && (
-          <Marker position={[start.latitude, start.longitude]}>
-            <Popup>Starting point</Popup>
-          </Marker>
-        )}
 
         {/* DESTINATION MARKER */}
         {hasCoordinates(end) && (
@@ -311,18 +329,32 @@ function Navigation({
         )}
       </MapContainer>
 
-      {/* BACK BUTTON */}
-      <button
-        type="button"
-        onClick={onBack}
-        className="absolute left-5 top-5 z-[1000] flex items-center gap-2 rounded-full bg-white px-5 py-3 font-semibold shadow-md transition hover:bg-[#FAF7F0]"
-      >
-        <ArrowLeft size={20} />
-        Back
+      {sidebarHidden && (
+        <button type="button" onClick={onBack}
+          className="absolute left-5 top-5 z-[1000] flex min-h-12 items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold shadow-md hover:bg-[#FAF7F0]">
+          <ArrowLeft size={20} aria-hidden="true" /> Back
+        </button>
+      )}
+
+      </div>
+
+      <button type="button" onClick={() => setSidebarHidden(hidden => !hidden)}
+        aria-label={sidebarHidden ? 'Show directions' : 'Hide directions'}
+        title={sidebarHidden ? 'Show directions' : 'Hide directions'}
+        aria-expanded={!sidebarHidden} aria-controls="journey-sidebar"
+        className={`absolute left-0 top-1/2 z-[1100] flex h-16 w-12 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 border-[#7A7F7A]/20 bg-white text-[#3E424B] shadow-md hover:bg-[#FAF7F0] focus-visible:outline-2 focus-visible:outline-offset-2 ${sidebarHidden ? '' : 'lg:left-[400px] xl:left-[440px]'}`}>
+        {sidebarHidden ? <ChevronRight size={28} aria-hidden="true" /> : <ChevronLeft size={28} aria-hidden="true" />}
       </button>
 
-      {/* BOTTOM NAVIGATION PANEL */}
-      <section className="absolute bottom-4 left-1/2 z-[1000] w-[calc(100%-32px)] max-w-2xl -translate-x-1/2 overflow-hidden rounded-[28px] border border-white/70 bg-[#FAF7F0]/95 shadow-2xl backdrop-blur-md">
+      {/* JOURNEY SIDEBAR; COLLAPSIBLE PANEL ON MOBILE */}
+      {!sidebarHidden && <section id="journey-sidebar" aria-label="Journey directions" className="absolute bottom-4 left-1/2 z-[1000] max-h-[85dvh] w-[calc(100%-32px)] max-w-2xl -translate-x-1/2 overflow-y-auto rounded-[28px] border border-white/70 bg-[#FAF7F0]/95 shadow-2xl backdrop-blur-md lg:static lg:col-start-1 lg:row-start-1 lg:flex lg:max-h-none lg:w-full lg:max-w-none lg:translate-x-0 lg:flex-col lg:rounded-none lg:border-0 lg:border-r lg:border-[#7A7F7A]/20 lg:bg-[#FAF7F0] lg:pt-6 lg:shadow-none lg:backdrop-blur-none">
+
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-6 py-3 lg:pb-5 lg:pt-0">
+          <button type="button" onClick={onBack} className="flex min-h-12 items-center gap-2 rounded-xl px-3 font-semibold hover:bg-white">
+            <ArrowLeft size={20} aria-hidden="true" /> Back
+          </button>
+
+        </div>
 
         {/* COLLAPSE HANDLE */}
         <button
@@ -330,17 +362,10 @@ function Navigation({
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
           aria-label={expanded ? 'Collapse journey details' : 'Expand journey details'}
-          className="flex w-full items-center justify-center py-3"
+          className="flex w-full items-center justify-center py-3 lg:hidden"
         >
           <div className="h-1.5 w-12 rounded-full bg-[#7A7F7A]/40" />
         </button>
-
-        <p role="status" className="px-6 pb-3 text-sm text-[#555C60]">
-          {!navigator.geolocation ? 'Live location is unavailable in this browser.'
-            : locationError || (!location ? 'Waiting for your live location…'
-              : `Live location · accuracy ±${Math.round(location.accuracy)} m${following ? ' · Following you' : ' · Map following paused'}`)}
-        </p>
-        <p className="px-6 pb-3 text-sm text-[#555C60]">Follow the journey steps below. Steps and routes do not update automatically.</p>
 
         {/* DESTINATION HEADER */}
         <div className="flex items-start justify-between gap-4 px-6 pb-4">
@@ -351,21 +376,24 @@ function Navigation({
             </p>
 
             <h1
-              className="mt-1 truncate text-2xl"
+              className="mt-1 break-words text-2xl"
               style={{ fontFamily: '"DM Serif Display", serif' }}
             >
               {destination?.name || end?.name || 'Your destination'}
             </h1>
           </div>
 
+          <div className="flex shrink-0 items-center gap-3">
+            <TripSharingButton route={route} origin={origin} destination={destination} canShare />
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
             aria-label={expanded ? 'Collapse panel' : 'Expand panel'}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white lg:hidden"
           >
             {expanded ? <ChevronDown size={21} /> : <ChevronUp size={21} />}
           </button>
+          </div>
 
         </div>
 
@@ -394,9 +422,10 @@ function Navigation({
 
         </div>
 
+        {locationError && <p role="status" className="px-6 pb-4 text-sm text-amber-900">{locationError}</p>}
+
         {/* EXPANDED CONTENT */}
-        {expanded && (
-          <div className="max-h-[38dvh] overflow-y-auto border-t border-[#7A7F7A]/15 px-6 py-5">
+          <div className={`${expanded ? 'block' : 'hidden'} max-h-[38dvh] overflow-y-auto border-t border-[#7A7F7A]/15 px-6 py-5 lg:block lg:max-h-none lg:min-h-0 lg:flex-1`}>
 
             <h2 className="mb-4 text-lg font-semibold">
               Your journey
@@ -453,10 +482,9 @@ function Navigation({
             )}
 
           </div>
-        )}
 
         {/* END NAVIGATION */}
-        <div className="border-t border-[#7A7F7A]/15 p-4">
+        <div className="shrink-0 border-t border-[#7A7F7A]/15 p-4">
 
           <button
             type="button"
@@ -469,7 +497,7 @@ function Navigation({
 
         </div>
 
-      </section>
+      </section>}
 
     </div>
   )

@@ -1,4 +1,4 @@
-import TripSharing from './TripSharing'
+import { TripSharingButton } from './TripSharing'
 import { useEffect } from 'react'
 import L from 'leaflet'
 import BusArrivals from './BusArrivals'
@@ -191,6 +191,7 @@ function RouteDetails({
     engine,
     onBack,
     choiceButtonRef,
+    canShare = false,
 }) {
     const paths = route.routePaths || []
 
@@ -257,7 +258,10 @@ function RouteDetails({
                     </div>
 
 
-                    <div ref={choiceButtonRef} />
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div ref={choiceButtonRef} />
+                        <TripSharingButton key={route.id} canShare={canShare} route={route} origin={origin} destination={destination} />
+                    </div>
 
                 </div>
 
@@ -272,7 +276,6 @@ function RouteDetails({
                 <p className="mt-2 text-[#555C60]">
                     {route.summary}
                 </p>
-                <TripSharing key={route.id} route={route} origin={origin} destination={destination} />
                 <BusArrivals key={route.id} route={route} live={!isDemo} />
 
 
@@ -287,7 +290,7 @@ function RouteDetails({
 
 
             {/* MAIN CONTENT */}
-            <div className="grid items-start gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+            <div className="grid items-start gap-6 lg:grid-cols-[1fr_1fr]">
 
                 {/* LEFT: JOURNEY INFORMATION */}
                 <section className="rounded-[24px] bg-white p-6">
@@ -397,16 +400,16 @@ function RouteDetails({
 
                     {/* RECOMMENDATION REASONS */}
                     {route.reasons?.length > 0 && (
-                        <div className="mt-6 rounded-xl bg-[#DCE7D2]/50 p-4">
+                        <div className="mt-6 rounded-xl bg-[#DCE7D2]/50 p-5 text-[#2A3439]">
 
-                            <h3 className="font-semibold">
+                            <h3 className="text-xl font-semibold">
                                 Why this route?
                             </h3>
                             <p className="mt-2 text-sm">
                                 These comparisons describe the route’s trade-offs. Route order is selected by AI.
                             </p>
 
-                            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm">
+                            <ul className="mt-4 list-disc space-y-4 pl-6 text-lg leading-relaxed">
                                 {route.reasons.map((reason, i) => (
                                     <li key={i}>{reason}</li>
                                 ))}

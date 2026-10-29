@@ -52,7 +52,7 @@ export default function RouteChoice({ recommendationId, routeId, onChoiceChange,
   }
   const button = <button ref={chooseButton} type="button" disabled={saving}
     onClick={() => canContinueNavigation && canStartNavigation ? onStartNavigation() : receipt ? setShowConfirmation(true) : submit()}
-    className="flex h-[52px] items-center justify-center rounded-xl bg-[#3E424B] px-8 text-base font-semibold text-white transition hover:bg-[#2A3439] disabled:opacity-60">
+    className="flex min-h-[52px] items-center justify-center rounded-xl bg-[#3E424B] px-8 py-3 text-base font-semibold text-white transition hover:bg-[#2A3439] disabled:opacity-60">
     {saving ? 'Saving choice…' : canContinueNavigation && canStartNavigation ? 'Continue navigation' : 'Choose this route'}
   </button>
 
@@ -61,13 +61,12 @@ export default function RouteChoice({ recommendationId, routeId, onChoiceChange,
     {notice && <p role="status" className="mt-3">{notice}</p>}
     {!receipt && error && <p role="alert" className="mt-3 text-red-700">{error}</p>}
     {createPortal(
-      <dialog ref={dialog} aria-labelledby="route-choice-title" aria-describedby="route-choice-message"
+      <dialog ref={dialog} aria-labelledby="route-choice-title"
         onCancel={event => event.preventDefault()}
         className="fixed inset-0 m-auto w-[calc(100%-3rem)] max-w-md rounded-3xl bg-white p-7 text-[#2A3439] shadow-xl backdrop:bg-black/40">
-        <h2 id="route-choice-title" className="text-2xl font-semibold">Route chosen</h2>
-        <p id="route-choice-message" className="mt-3">Ready to start navigation? You can also undo your choice to return to route details.</p>
+        <h2 id="route-choice-title" className="text-center text-2xl font-semibold">Route chosen</h2>
         {error && <p role="alert" className="mt-4 text-red-700">{error}</p>}
-        <div className="mt-6 flex flex-wrap justify-end gap-3">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button type="button" disabled={saving} onClick={() => submit(true)}
             className="rounded-full border border-[#3E424B] px-6 py-3 disabled:opacity-60">
             {saving ? 'Undoing choice…' : 'Undo choice'}

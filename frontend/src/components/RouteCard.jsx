@@ -14,7 +14,7 @@ function RouteCard({ route, index, onClick }) {
             className="flex h-full w-full cursor-pointer flex-col rounded-[24px] border-2 border-[#7A7F7A]/20 bg-white p-6 text-left transition hover:-translate-y-1 hover:border-[#3E424B] hover:shadow-md"
         >
             {/* ROUTE NUMBER + RECOMMENDED BADGE */}
-            <div className="flex min-h-8 items-center gap-3">
+            <div className="flex min-h-8 flex-wrap items-center gap-3">
                 <p className="shrink-0 text-sm font-bold text-[#7A7F7A]">
                     ROUTE {index + 1}
                 </p>
@@ -36,7 +36,7 @@ function RouteCard({ route, index, onClick }) {
             </h3>
 
             {/* ROUTE SUMMARY */}
-            <p className="mt-3 text-sm text-[#555C60]">
+            <p className="mt-3 text-base text-[#555C60]">
                 {route.summary}
             </p>
             
@@ -45,9 +45,9 @@ function RouteCard({ route, index, onClick }) {
             <div className="mt-6 flex-1 space-y-4 border-t border-[#7A7F7A]/20 pt-5">
 
                 {/* WALKING */}
-                <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-2">
-                        <Footprints size={19} />
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
+                        <Footprints size={22} />
                         Walking
                     </span>
                     <span className="font-semibold">
@@ -58,9 +58,9 @@ function RouteCard({ route, index, onClick }) {
                 </div>
 
                 {/* TRANSFERS */}
-                <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-2">
-                        <Bus size={19} />
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
+                        <Bus size={22} />
                         Transfers
                     </span>
                     <span className="font-semibold">
@@ -69,9 +69,9 @@ function RouteCard({ route, index, onClick }) {
                 </div>
 
                 {/* SHELTERED WALKING */}
-                <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-2">
-                        <Umbrella size={19} />
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
+                        <Umbrella size={22} />
                         Sheltered walking
                     </span>
                     <span className="font-semibold">
@@ -82,9 +82,9 @@ function RouteCard({ route, index, onClick }) {
                 </div>
 
                 {/* DISTANCE */}
-                <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-2">
-                        <Navigation size={19} />
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
+                        <Navigation size={22} />
                         Distance
                     </span>
                     <span className="font-semibold">
@@ -98,7 +98,7 @@ function RouteCard({ route, index, onClick }) {
 
             {/* RECOMMENDATION REASON */}
             {route.reasons?.length > 0 && (
-                <p className="mt-5 rounded-xl bg-white/60 p-3 text-sm">
+                <p className="mt-5 rounded-xl bg-[#DCE7D2]/50 p-4 text-lg leading-relaxed text-[#2A3439]">
                     {route.reasons[0]}
                 </p>
             )}
