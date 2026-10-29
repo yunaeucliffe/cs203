@@ -59,7 +59,7 @@ function Preferences({ onComplete }) {
                         Set your preferences
                     </h1>
 
-                    <p className="mt-3 text-[#7A7F7A]">
+                    <p className="mt-3 text-[#555C60]">
                         Help us find routes that suit you better.
                     </p>
                 </div>

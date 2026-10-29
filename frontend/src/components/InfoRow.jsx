@@ -9,7 +9,7 @@ function InfoRow({ icon, label, value, last = false }) {
       </div>
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#7A7F7A]">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#555C60]">
           {label}
         </p>
 

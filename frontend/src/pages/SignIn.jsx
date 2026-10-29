@@ -60,21 +60,26 @@ function SignIn({ onSignIn, onSignUp, onHome }) {
 
               {/* Email */}
 
+              <label htmlFor="signin-email" className="mb-2 block font-medium text-[#2A3439]">
+                Email
+              </label>
+
               <div className="flex h-[68px] items-center gap-4 rounded-full border border-[#7A7F7A]/40 px-6">
 
                 <Mail
                   size={20}
-                  className="shrink-0 text-[#7A7F7A]"
+                  className="shrink-0 text-[#555C60]"
+                  aria-hidden="true"
                 />
 
                 <input
-                  aria-label="Email"
+                  id="signin-email"
                   name="email"
                   autoComplete="email"
                   type="email"
                   placeholder="Email"
                   required
-                  className="h-full w-full bg-transparent text-lg outline-none placeholder:text-[#7A7F7A]"
+                  className="h-full w-full bg-transparent text-lg outline-none placeholder:text-[#555C60]"
                 />
 
               </div>
@@ -83,25 +88,14 @@ function SignIn({ onSignIn, onSignUp, onHome }) {
 
               {/* Password */}
 
-              <div className="mt-4">
+              <div className="mt-5">
                 <Input
+                  id="signin-password"
+                  label="Password"
                   name="password"
                   autoComplete="current-password"
                   required
                 />
-              </div>
-
-              {/* Forgot password */}
-
-              <div className="mt-4 text-right">
-
-                <button
-                  type="button"
-                  className="font-medium text-[#7A7F7A] underline underline-offset-4 transition hover:text-[#2A3439]"
-                >
-                  Forgot password?
-                </button>
-
               </div>
 
 
@@ -131,7 +125,7 @@ function SignIn({ onSignIn, onSignUp, onHome }) {
 
             {/* Sign up */}
 
-            <div className="mt-10 flex items-center justify-center gap-1.5 text-base text-[#7A7F7A]">
+            <div className="mt-10 flex items-center justify-center gap-1.5 text-base text-[#555C60]">
 
               <span>
                 Don't have an account?
@@ -140,7 +134,7 @@ function SignIn({ onSignIn, onSignUp, onHome }) {
               <button
                 type="button"
                 onClick={onSignUp}
-                className="font-semibold text-[#2A3439] underline underline-offset-4 transition hover:text-[#A88FA1]"
+                className="font-semibold text-[#2A3439] underline underline-offset-4 transition hover:text-[#6F5468]"
               >
                 Create an account
               </button>

@@ -11,6 +11,7 @@ import Navbar from '../components/Navbar'
 import { API_URL, getCsrfToken } from '../api'
 import { lookupPostalCode } from '../api/locations'
 import CategoryTag from '../components/CategoryTag'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 const CATEGORY_COLORS = [
   '#E8DFF5', // Lavender
@@ -46,6 +47,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
   const [formCategoryId, setFormCategoryId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [confirmation, setConfirmation] = useState(null)
 
   const [editingPlace, setEditingPlace] = useState(startAdding ? { id: null } : null)
   const [form, setForm] = useState(emptyForm)
@@ -159,7 +161,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
     )
 
     if (exists) {
-      alert('This category already exists.')
+      setError('You already have a category with this name. Choose a different name.')
       return
     }
 
@@ -192,7 +194,6 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
 
   const deleteCategory = async () => {
     if (creatingCategory || !editingCategory) return
-    if (!window.confirm(`Delete "${editingCategory.name}"? Its saved places will have no category.`)) return
     setCreatingCategory(true)
     setError('')
     try {
@@ -351,12 +352,6 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
 
   // DELETE PLACE
   const deletePlace = async (place) => {
-    const confirmed = window.confirm(
-      `Remove ${place.label} from your saved places?`
-    )
-    if (!confirmed) {
-      return
-    }
     setError('')
 
     try {
@@ -417,7 +412,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
         isAuthenticated={isAuthenticated}
       />
 
-      <main className="mx-auto max-w-7xl px-8 py-12">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-12">
 
         {/* ADD / EDIT PLACE */}
         {editingPlace ? (
@@ -427,7 +422,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
             <button
               type="button"
               onClick={() => setEditingPlace(null)}
-              className="flex items-center gap-2 font-semibold text-[#7A7F7A] transition hover:text-[#2A3439]"
+              className="flex items-center gap-2 font-semibold text-[#555C60] transition hover:text-[#2A3439]"
             >
               <ArrowLeft size={19} />
               Back to saved places
@@ -436,14 +431,14 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
             {/* HEADING */}
             <div className="mt-8">
 
-              <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#7A7F7A]">
+              <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#555C60]">
                 {editingPlace.id
                   ? 'Edit place'
                   : 'New place'}
               </p>
 
               <h1
-                className="mt-2 text-5xl text-[#2A3439]"
+                className="mt-2 text-4xl text-[#2A3439] sm:text-5xl"
                 style={{
                   fontFamily: '"DM Serif Display", serif',
                 }}
@@ -453,7 +448,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                   : 'Add a saved place'}
               </h1>
 
-              <p className="mt-3 text-[#7A7F7A]">
+              <p className="mt-3 text-[#555C60]">
                 Save somewhere you visit often for quicker route planning.
               </p>
 
@@ -495,7 +490,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
 
                 <div className="mt-5">
                   <label htmlFor="place-postal-code" className="mb-2 block font-semibold">
-                    Postal code <span className="ml-2 text-sm font-normal text-[#7A7F7A]">Optional</span>
+                    Postal code <span className="ml-2 text-sm font-normal text-[#555C60]">Optional</span>
                   </label>
                   <input id="place-postal-code" type="text" inputMode="numeric" autoComplete="postal-code"
                     maxLength={6} pattern="[0-9]{6}" value={postalCode}
@@ -558,7 +553,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
 
                   <label className="mb-3 block font-semibold">
                     Category
-                    <span className="ml-2 text-sm font-normal text-[#7A7F7A]">
+                    <span className="ml-2 text-sm font-normal text-[#555C60]">
                       Optional
                     </span>
                   </label>
@@ -667,17 +662,17 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
             {/* SAVED PLACES HEADER */}
             {/* ================================================= */}
 
-            <div className="flex items-end justify-between">
+            <div className="flex flex-wrap items-end justify-between gap-4">
 
               <div>
 
-                <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#7A7F7A]">
+                <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#555C60]">
                   Your shortcuts
                 </p>
 
 
                 <h1
-                  className="mt-2 text-5xl text-[#2A3439]"
+                  className="mt-2 text-4xl text-[#2A3439] sm:text-5xl"
                   style={{
                     fontFamily: '"DM Serif Display", serif',
                   }}
@@ -686,7 +681,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                 </h1>
 
 
-                <p className="mt-3 text-base text-[#7A7F7A]">
+                <p className="mt-3 text-base text-[#555C60]">
                   Keep the places you visit often in one place.
                 </p>
 
@@ -748,7 +743,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                         type="button"
                         aria-label={`Edit ${category.name} category`}
                         onClick={() => openCategoryForm(category)}
-                        className="rounded-lg p-2 text-[#7A7F7A] transition hover:bg-white hover:text-[#3E424B]"
+                        className="rounded-lg p-2 text-[#555C60] transition hover:bg-white hover:text-[#3E424B]"
                       >
                         <Edit3 size={16} />
                       </button>
@@ -777,7 +772,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
             )}
 
             {loading && (
-              <p className="mt-10 text-[#7A7F7A]">
+              <p className="mt-10 text-[#555C60]">
                 Loading saved places...
               </p>
 
@@ -802,20 +797,43 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                   Add your first saved place
                 </p>
 
-                <p className="mt-1 text-sm text-[#7A7F7A]">
+                <p className="mt-1 text-sm text-[#555C60]">
                   Your saved places will also appear on Home.
                 </p>
               </button>
             )}
 
+            {/* NO PLACES IN THE CHOSEN CATEGORY */}
+            {!loading && places.length > 0 && filteredPlaces.length === 0 && (
+              <div className="mt-10 rounded-[18px] border-2 border-dashed border-[#A88FA1]/45 px-6 py-12 text-center">
+
+                <p className="text-lg font-semibold">
+                  Nothing saved under {categories.find(category => category.id === selectedCategory)?.name || "this category"} yet
+                </p>
+
+                <p className="mt-1 text-sm text-[#555C60]">
+                  Your other saved places are still here.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("all")}
+                  className="mt-6 min-h-12 rounded-full bg-[#3E424B] px-6 py-3 font-bold text-white transition hover:bg-[#2A3439]"
+                >
+                  Show all places
+                </button>
+
+              </div>
+            )}
+
             {/* SAVED PLACE CARDS */}
-            {!loading && places.length > 0 && (
-              <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {!loading && filteredPlaces.length > 0 && (
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:mt-10 sm:gap-5 md:grid-cols-2 lg:grid-cols-3">
 
                 {filteredPlaces.map((place) => (
                   <div
                     key={place.id}
-                    className="flex min-h-[220px] flex-col rounded-[18px] border-2 border-[#3E424B]/80 bg-[#DCE7D2] px-7 py-6"
+                    className="flex flex-col rounded-[18px] border-2 border-[#3E424B]/80 bg-[#DCE7D2] px-5 py-4 sm:min-h-[220px] sm:px-7 sm:py-6"
                   >
 
                     <div className="flex items-start justify-between gap-3">
@@ -850,7 +868,11 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                         <button
                           type="button"
                           aria-label={`Delete ${place.label}`}
-                          onClick={() => deletePlace(place)}
+                          onClick={() => setConfirmation({
+                            message: `Remove ${place.label} from your saved places?`,
+                            confirmLabel: 'Remove place',
+                            onConfirm: () => deletePlace(place),
+                          })}
                           className="rounded-full p-2 text-[#8A3A3A] transition hover:bg-white/70"
                         >
                           <Trash2 size={18} />
@@ -862,7 +884,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                       {place.label}
                     </h2>
 
-                    <p className="mt-1 text-sm leading-6 text-[#7A7F7A]">
+                    <p className="mt-1 text-sm leading-6 text-[#555C60]">
                       {place.address}
                     </p>
 
@@ -897,7 +919,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
           <h2 id="category-dialog-title" className="text-lg font-semibold">{editingCategory ? 'Edit category' : 'Create a category'}</h2>
           {/* LIVE PREVIEW */}
           <div className="pt-2">
-            <p className="mb-3 text-sm font-semibold text-[#7A7F7A]">
+            <p className="mb-3 text-sm font-semibold text-[#555C60]">
               Preview
             </p>
             <div>
@@ -909,7 +931,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
 
             </div>
 
-            <p className="mt-2 text-xs text-[#7A7F7A]">
+            <p className="mt-2 text-xs text-[#555C60]">
               This is how your category will appear on saved places.
             </p>
 
@@ -975,7 +997,11 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
             {editingCategory && (
               <button
                 type="button"
-                onClick={deleteCategory}
+                onClick={() => setConfirmation({
+                  message: `Delete "${editingCategory.name}"? Its saved places will have no category.`,
+                  confirmLabel: 'Delete category',
+                  onConfirm: deleteCategory,
+                })}
                 disabled={creatingCategory}
                 className="mr-auto flex items-center gap-2 rounded-xl px-3 py-3 font-semibold text-[#A12B2B] hover:bg-[#FCE4E6] disabled:opacity-40"
               >
@@ -1004,6 +1030,18 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
           {error && <p role="alert" className="mt-4 text-sm font-semibold text-[#A12B2B]">{error}</p>}
         </form>
       </dialog>
+
+      {confirmation && (
+        <ConfirmDialog
+          message={confirmation.message}
+          confirmLabel={confirmation.confirmLabel}
+          onCancel={() => setConfirmation(null)}
+          onConfirm={() => {
+            setConfirmation(null)
+            confirmation.onConfirm()
+          }}
+        />
+      )}
     </div>
   )
 }
