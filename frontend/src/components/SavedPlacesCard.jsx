@@ -23,7 +23,7 @@ function SavedPlacesCard({ label, address, category, onClick }) {
         {label}
       </h3>
 
-      <p className="mt-1.5 text-[15px] text-[#7A7F7A]">
+      <p className="mt-1.5 text-sm text-[#7A7F7A]">
         {address}
       </p>
 

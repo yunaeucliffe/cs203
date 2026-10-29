@@ -436,7 +436,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
             {/* HEADING */}
             <div className="mt-8">
 
-              <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-[#7A7F7A]">
+              <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#7A7F7A]">
                 {editingPlace.id
                   ? 'Edit place'
                   : 'New place'}
@@ -671,7 +671,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
 
               <div>
 
-                <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-[#7A7F7A]">
+                <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#7A7F7A]">
                   Your shortcuts
                 </p>
 
@@ -686,7 +686,7 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                 </h1>
 
 
-                <p className="mt-3 text-[16px] text-[#7A7F7A]">
+                <p className="mt-3 text-base text-[#7A7F7A]">
                   Keep the places you visit often in one place.
                 </p>
 
@@ -862,14 +862,14 @@ function SavedPlaces({ onHome, onRoutes, onProfile, onSignIn, onUsePlace, onPlac
                       {place.label}
                     </h2>
 
-                    <p className="mt-1 text-[14px] leading-6 text-[#7A7F7A]">
+                    <p className="mt-1 text-sm leading-6 text-[#7A7F7A]">
                       {place.address}
                     </p>
 
                     <button
                       type="button"
                       onClick={() => onUsePlace(place)}
-                      className="group mt-auto flex items-center gap-2 pt-5 text-left text-[14px] font-bold"
+                      className="group mt-auto flex items-center gap-2 pt-5 text-left text-sm font-bold"
                     >
                       Plan route
                       <ArrowRight

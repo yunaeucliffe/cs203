@@ -221,7 +221,7 @@ function Home() {
                         <section className="flex flex-col justify-center border-r border-[#7A7F7A]/20 py-12 pr-14">
 
                             {/* Greeting */}
-                            <p className="mb-4 text-[18px] font-semibold text-[#7A7F7A]">
+                            <p className="mb-4 text-base font-semibold text-[#7A7F7A]">
                                 Hello, {isAuthenticated ? userName : 'there'}
                             </p>
 
@@ -259,7 +259,7 @@ function Home() {
                                                 setDestinationPlace(place)
                                             }}
                                             onSubmit={handleSearch}
-                                            className="h-[70px] w-full bg-transparent text-[18px] text-[#2A3439] outline-none placeholder:text-[#7A7F7A]"
+                                            className="h-[70px] w-full bg-transparent text-base text-[#2A3439] outline-none placeholder:text-[#7A7F7A]"
                                         />
 
                                     </div>
@@ -268,7 +268,7 @@ function Home() {
                                     {/* Find Route */}
                                     <button
                                         onClick={handleSearch}
-                                        className="flex min-w-[170px] items-center justify-center gap-3 bg-[#3E424B] px-7 text-[17px] font-bold text-white transition hover:bg-[#2A3439]"
+                                        className="flex min-w-[170px] items-center justify-center gap-3 bg-[#3E424B] px-7 text-base font-bold text-white transition hover:bg-[#2A3439]"
                                     >
                                         Find route
 
@@ -292,7 +292,7 @@ function Home() {
                             <div className="mb-6 flex items-end justify-between">
 
                                 <div>
-                                    <p className="mb-1 text-[13px] font-bold uppercase tracking-[0.16em] text-[#7A7F7A]">
+                                    <p className="mb-1 text-sm font-bold uppercase tracking-[0.16em] text-[#7A7F7A]">
                                         Quick access
                                     </p>
 
@@ -306,7 +306,7 @@ function Home() {
                                     </h2>
                                 </div>
 
-                                <button onClick={openSavedPlaces} className="text-[15px] font-bold text-[#7A7F7A] underline underline-offset-4 transition hover:text-[#2A3439]">
+                                <button onClick={openSavedPlaces} className="text-sm font-bold text-[#7A7F7A] underline underline-offset-4 transition hover:text-[#2A3439]">
                                     View all
                                 </button>
 
@@ -342,7 +342,7 @@ function Home() {
 
                                 <div className="flex-1">
                                     <h3
-                                        className="text-[19px] text-[#2A3439]"
+                                        className="text-lg text-[#2A3439]"
                                         style={{
                                             fontFamily: '"DM Serif Display", serif',
                                         }}
@@ -351,7 +351,7 @@ function Home() {
                                         Add a saved place
                                     </h3>
 
-                                    <p className="mt-1 text-[13px] text-[#7A7F7A]">
+                                    <p className="mt-1 text-sm text-[#7A7F7A]">
                                         Keep somewhere you visit often.
                                     </p>
 
