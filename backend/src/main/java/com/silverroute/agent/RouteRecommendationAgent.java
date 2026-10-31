@@ -45,7 +45,7 @@ public class RouteRecommendationAgent {
         if (result == null || result.rankings() == null || result.rankings().size() > expected || expected == 0)
             throw new ModelAgentException("The model returned an invalid number of routes");
         if (result.rankings().isEmpty())
-            throw new RouteDataUnavailableException("No usable routes could be recommended based on the current service alerts. Please try another departure time or destination.");
+            throw new RouteDataUnavailableException("Train service disruptions affect every route for this trip right now. Try again later, or choose a different starting point or destination.");
         Map<String, RouteOption> candidates = new HashMap<>();
         trip.routes().forEach(route -> candidates.put(route.id(), route));
         Map<String, String> labels = new LinkedHashMap<>();

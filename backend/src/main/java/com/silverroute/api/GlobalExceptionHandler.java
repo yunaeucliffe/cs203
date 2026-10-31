@@ -25,6 +25,8 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidation(
             MethodArgumentNotValidException exception,
@@ -90,7 +92,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleAgentFailure(
             RuntimeException exception,
             HttpServletRequest request) {
-        return error(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
+        // AI errors are technical (e.g. missing API keys), so keep them in the server log only.
+        log.warn("Route ranking failed for request {}", RequestIdFilter.from(request), exception);
+        return error(HttpStatus.BAD_GATEWAY,
+                "We couldn't rank routes for you right now. Please try again in a few minutes.", request);
     }
 
     @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
