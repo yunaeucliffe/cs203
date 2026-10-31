@@ -5,8 +5,14 @@ import {
     Navigation,
     ArrowRight,
 } from 'lucide-react'
+import RouteModeChain from './transit/RouteModeChain'
+import { formatTime, getLegMode, formatDistance } from '../utils/transit'
 
 function RouteCard({ route, index, onClick }) {
+    const firstTransitLeg = route.legs?.find((leg) => getLegMode(leg) !== 'WALK')
+    const departureTime = formatTime(firstTransitLeg?.startTime)
+    const departureFrom = firstTransitLeg?.from?.name
+
     return (
         <button
             type="button"
@@ -36,10 +42,16 @@ function RouteCard({ route, index, onClick }) {
             </h3>
 
             {/* ROUTE SUMMARY */}
-            <p className="mt-3 text-base text-[#555C60]">
-                {route.summary}
-            </p>
-            
+            <div className="mt-3">
+                <RouteModeChain legs={route.legs} />
+            </div>
+
+            {departureTime && departureFrom && (
+                <p className="mt-2 text-sm text-[#7A7F7A]">
+                    Depart {departureTime} from {departureFrom}
+                </p>
+            )}
+
 
             {/* ROUTE DETAILS */}
             <div className="mt-6 flex-1 space-y-4 border-t border-[#7A7F7A]/20 pt-5">
@@ -75,9 +87,7 @@ function RouteCard({ route, index, onClick }) {
                         Sheltered walking
                     </span>
                     <span className="font-semibold">
-                        {route.estimatedShelteredWalkingMeters == null
-                            ? 'Unavailable'
-                            : `${Math.round(route.estimatedShelteredWalkingMeters)} m`}
+                        {formatDistance(route.estimatedShelteredWalkingMeters)}
                     </span>
                 </div>
 
@@ -88,20 +98,11 @@ function RouteCard({ route, index, onClick }) {
                         Distance
                     </span>
                     <span className="font-semibold">
-                        {route.distanceMeters == null
-                            ? 'Unavailable'
-                            : `${(route.distanceMeters / 1000).toFixed(1)} km`}
+                        {formatDistance(route.distanceMeters)}
                     </span>
                 </div>
 
             </div>
-
-            {/* RECOMMENDATION REASON */}
-            {route.reasons?.length > 0 && (
-                <p className="mt-5 rounded-xl bg-[#DCE7D2]/50 p-4 text-lg leading-relaxed text-[#2A3439]">
-                    {route.reasons[0]}
-                </p>
-            )}
 
             {/* VIEW DETAILS INDICATOR */}
             <div className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-[#FAF7F0] px-4 py-3 font-semibold text-[#2A3439] transition">
