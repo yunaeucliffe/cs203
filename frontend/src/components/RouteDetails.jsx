@@ -267,7 +267,7 @@ function RouteDetails({
 
 
                 {/* ORIGIN AND DESTINATION */}
-                <p className="mt-2 text-[#7A7F7A]">
+                <p className="mt-2 text-[#555C60]">
                     {origin?.name} → {destination?.name}
                 </p>
 
@@ -293,7 +293,7 @@ function RouteDetails({
             <div className="grid items-start gap-6 lg:grid-cols-[1fr_1fr]">
 
                 {/* LEFT: JOURNEY INFORMATION */}
-                <section className="rounded-[24px] bg-white p-6">
+                <section className="rounded-[24px] bg-white p-5 sm:p-6">
 
                     <h2
                         className="text-2xl"
@@ -309,7 +309,7 @@ function RouteDetails({
                         {/* DURATION */}
                         <div>
                             <Clock size={20} />
-                            <p className="mt-2 text-sm text-[#7A7F7A]">
+                            <p className="mt-2 text-sm text-[#555C60]">
                                 Duration
                             </p>
                             <p className="font-semibold">
@@ -322,7 +322,7 @@ function RouteDetails({
                         {/* TOTAL DISTANCE */}
                         <div>
                             <Navigation size={20} />
-                            <p className="mt-2 text-sm text-[#7A7F7A]">
+                            <p className="mt-2 text-sm text-[#555C60]">
                                 Total distance
                             </p>
                             <p className="font-semibold">
@@ -333,7 +333,7 @@ function RouteDetails({
                         {/* WALKING DURATION */}
                         <div>
                             <Footprints size={20} />
-                            <p className="mt-2 text-sm text-[#7A7F7A]">
+                            <p className="mt-2 text-sm text-[#555C60]">
                                 Walking
                             </p>
                             <p className="font-semibold">
@@ -346,7 +346,7 @@ function RouteDetails({
                         {/* WALKING DISTANCE */}
                         <div>
                             <Footprints size={20} />
-                            <p className="mt-2 text-sm text-[#7A7F7A]">
+                            <p className="mt-2 text-sm text-[#555C60]">
                                 Walking distance
                             </p>
                             <p className="font-semibold">
@@ -357,7 +357,7 @@ function RouteDetails({
                         {/* TRANSFERS */}
                         <div>
                             <Bus size={20} />
-                            <p className="mt-2 text-sm text-[#7A7F7A]">
+                            <p className="mt-2 text-sm text-[#555C60]">
                                 Transfers
                             </p>
                             <p className="font-semibold">
@@ -368,7 +368,7 @@ function RouteDetails({
                         {/* SHELTERED WALKING */}
                         <div>
                             <Umbrella size={20} />
-                            <p className="mt-2 text-sm text-[#7A7F7A]">
+                            <p className="mt-2 text-sm text-[#555C60]">
                                 Sheltered walking
                             </p>
                             <p className="font-semibold">
@@ -390,7 +390,7 @@ function RouteDetails({
                                     Accessibility
                                 </p>
 
-                                <p className="text-sm text-[#7A7F7A]">
+                                <p className="text-sm text-[#555C60]">
                                     {accessibilityText}
                                 </p>
                             </div>
@@ -427,7 +427,7 @@ function RouteDetails({
 
                         {route.legs?.length > 0 ? (
 
-                            <div className="mt-5 space-y-6">
+                            <div className="mt-5 space-y-4 sm:space-y-6">
 
                                 {route.legs.map((leg, legIndex) => {
 
@@ -459,7 +459,7 @@ function RouteDetails({
                                             <div className="min-w-0 flex-1 pb-3">
 
                                                 {/* TRANSPORT MODE */}
-                                                <div className="flex items-center gap-2 text-sm font-semibold text-[#7A7F7A]">
+                                                <div className="flex items-center gap-2 text-sm font-semibold text-[#555C60]">
                                                     <ModeIcon mode={mode} />
                                                     {getModeLabel(leg)}
 
@@ -477,7 +477,7 @@ function RouteDetails({
 
                                                 {/* FROM */}
                                                 {leg.from?.name && (
-                                                    <p className="mt-1 text-sm text-[#7A7F7A]">
+                                                    <p className="mt-1 text-sm text-[#555C60]">
                                                         FROM: {leg.from.name}
                                                     </p>
                                                 )}
@@ -509,14 +509,6 @@ function RouteDetails({
                                                     )}
 
 
-                                                {/* TO */}
-                                                {leg.to?.name && (
-                                                    <p className="mt-2 text-sm text-[#7A7F7A]">
-                                                        TO: {leg.to.name}
-                                                    </p>
-                                                )}
-
-
                                                 {/* DURATION + DISTANCE */}
                                                 <p className="mt-2 text-sm text-[#555C60]">
                                                     {formatDuration(leg.durationSeconds)}
@@ -544,7 +536,7 @@ function RouteDetails({
 
                         ) : (
 
-                            <p className="mt-4 text-sm text-[#7A7F7A]">
+                            <p className="mt-4 text-sm text-[#555C60]">
                                 Detailed journey instructions are not available.
                             </p>
 
@@ -556,7 +548,7 @@ function RouteDetails({
 
 
                 {/* RIGHT: INTERACTIVE MAP */}
-                <section className="h-[500px] overflow-hidden rounded-[24px] border border-[#7A7F7A]/20 bg-white lg:sticky lg:top-6 lg:h-[calc(100vh-80px)]">
+                <section className="order-first h-[320px] overflow-hidden rounded-[24px] border border-[#7A7F7A]/20 bg-white sm:h-[500px] lg:order-none lg:sticky lg:top-6 lg:h-[calc(100vh-80px)]">
 
                     <MapContainer
                         center={[1.3521, 103.8198]}

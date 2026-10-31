@@ -60,7 +60,7 @@ export default function SharedTrip({ token }) {
   return <main className="min-h-screen bg-[#FAF7F0] px-4 py-8 text-[#2A3439] sm:px-6">
     <div className="mx-auto max-w-3xl space-y-5">
       <header>
-        <p className="text-sm font-semibold uppercase tracking-wide text-[#7A7F7A]">SilverRoute</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-[#555C60]">SilverRoute</p>
         <h1 className="text-2xl font-semibold sm:text-3xl">Shared trip</h1>
       </header>
       {!active ? <section className={`${card} text-lg`} role="status">{message || 'This sharing link has expired.'}</section> : <>
@@ -68,8 +68,8 @@ export default function SharedTrip({ token }) {
           <h2 className="text-xl font-semibold">{trip.origin} → {trip.destination}</h2>
           <p className="mt-1 text-[#555C60]">{formatRouteSummary(trip.routeSummary)}</p>
           <div className="mt-4 rounded-xl bg-[#FAF7F0] p-4">
-            <p className="text-sm text-[#7A7F7A]">{arrivalPassed ? 'Expected to arrive by' : 'Estimated arrival'}</p>
-            <p className="text-lg font-semibold">{formatDateTime(trip.estimatedArrival)} <span className="text-sm font-normal text-[#7A7F7A]">Singapore time</span></p>
+            <p className="text-sm text-[#555C60]">{arrivalPassed ? 'Expected to arrive by' : 'Estimated arrival'}</p>
+            <p className="text-lg font-semibold">{formatDateTime(trip.estimatedArrival)} <span className="text-sm font-normal text-[#555C60]">Singapore time</span></p>
             {arrivalPassed && <p className="mt-1 text-sm">They have not confirmed arrival yet.</p>}
           </div>
         </section>

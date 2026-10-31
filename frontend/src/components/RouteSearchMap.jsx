@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Circle, CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import DirectionMarker from './DirectionMarker'
 
 function hasCoordinates(place) {
   return Number.isFinite(place?.latitude) && Number.isFinite(place?.longitude)
@@ -26,17 +27,21 @@ function MapViewport({ origin, destination }) {
   return null
 }
 
-export default function RouteSearchMap({ deviceLocation, origin, destination }) {
+export default function RouteSearchMap({ deviceLocation, origin, destination, heading = null }) {
   const start = deviceLocation || origin
 
   return (
     <section aria-label="Route search map" className="min-w-0 overflow-hidden rounded-[24px] border border-[#7A7F7A]/20 bg-white">
-      <div className="relative z-0 h-[450px] sm:h-[550px] lg:h-[650px]">
+      <div className="relative z-0 h-[300px] sm:h-[550px] lg:h-[650px]">
         <MapContainer center={[1.3521, 103.8198]} zoom={12} scrollWheelZoom={false} className="h-full w-full">
           <TileLayer url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.onemap.gov.sg/">OneMap</a> | Singapore Land Authority' />
           <MapViewport origin={start} destination={destination} />
           {hasCoordinates(start) && (
             <>
+              {/* Compass cone on phones, only when the start is the user's own location */}
+              {deviceLocation && heading !== null && (
+                <DirectionMarker position={[start.latitude, start.longitude]} heading={heading} />
+              )}
               {deviceLocation?.accuracy > 0 && (
                 <Circle center={[start.latitude, start.longitude]} radius={deviceLocation.accuracy} pathOptions={{ color: '#2F6FED', weight: 1, fillOpacity: 0.1 }} />
               )}

@@ -5,7 +5,7 @@ export function PreferenceCard({ icon, label, value }) {
         {icon}
       </div>
 
-      <p className="text-xs font-semibold uppercase tracking-wide text-[#7A7F7A]">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[#555C60]">
         {label}
       </p>
 
@@ -30,7 +30,7 @@ export function PreferenceSelector({
         {title}
       </p>
 
-      <p className="mt-1 text-sm text-[#7A7F7A]">
+      <p className="mt-1 text-sm text-[#555C60]">
         {description}
       </p>
 
@@ -43,7 +43,7 @@ export function PreferenceSelector({
             className={`min-w-[120px] rounded-full border px-6 py-3 font-medium transition ${
               value === option
                 ? 'border-[#3E424B] bg-[#DCE7D2] text-[#2A3439]'
-                : 'border-[#7A7F7A]/30 bg-transparent text-[#7A7F7A] hover:border-[#3E424B]'
+                : 'border-[#7A7F7A]/30 bg-transparent text-[#555C60] hover:border-[#3E424B]'
             }`}
           >
             {option}

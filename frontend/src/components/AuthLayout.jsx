@@ -3,12 +3,13 @@ import { ArrowLeft } from 'lucide-react'
 
 function AuthLayout({ title, description, children, onHome }) {
   return (
-    <div className="min-h-screen bg-[#FAF7F0] p-5">
+    <div className="min-h-screen bg-[#FAF7F0] p-3 sm:p-5">
 
-      <div className="grid min-h-[calc(100vh-40px)] grid-cols-2">
+      {/* Stacked on phones; side by side on large screens */}
+      <div className="grid min-h-[calc(100vh-40px)] grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-0">
 
         {/* LEFT SIDE */}
-        <div className="flex flex-col p-10">
+        <div className="flex flex-col p-3 lg:p-10">
           <button
             type="button"
             onClick={onHome}
@@ -17,7 +18,7 @@ function AuthLayout({ title, description, children, onHome }) {
           >
             <Logo />
           </button>
-          <div className="flex flex-1 items-center justify-center">
+          <div className="hidden flex-1 items-center justify-center lg:flex">
             <img
               src="/image.png"
               alt="finding their way"
@@ -29,7 +30,7 @@ function AuthLayout({ title, description, children, onHome }) {
 
 
         {/* RIGHT SIDE */}
-        <div className="flex items-center justify-center rounded-[32px] bg-white p-12">
+        <div className="flex items-start justify-center rounded-[32px] bg-white p-6 sm:p-12 lg:items-center">
 
           <div className="w-full max-w-[520px]">
             <button
@@ -41,13 +42,13 @@ function AuthLayout({ title, description, children, onHome }) {
               Back to home
             </button>
             <h1
-              className="text-5xl"
+              className="text-4xl sm:text-5xl"
               style={{ fontFamily: '"DM Serif Display", serif' }}
             >
               {title}
             </h1>
 
-            <p className="mt-4 text-lg text-[#7A7F7A]">
+            <p className="mt-4 text-lg text-[#555C60]">
               {description}
             </p>
 
