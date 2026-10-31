@@ -191,7 +191,15 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
       }
       setHasSearched(true)
       setSelectedIndex(0)
-      setResult({ ...recommendations, origin, destination: target, routes })
+      console.log('First route:', routes[0])
+      console.log('First route evidence:', routes[0]?.evidence)
+      setResult({
+          ...recommendations,
+          origin,
+          destination: target,
+          routes,
+          sources: recommendations.sources ?? [],
+      })
     } catch (failure) {
       if (!controller.signal.aborted) {
         setError(failure.message)
