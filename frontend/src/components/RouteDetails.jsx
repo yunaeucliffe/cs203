@@ -1,7 +1,11 @@
 import { TripSharingButton } from './TripSharing'
 import { useEffect } from 'react'
-import L from 'leaflet'
-import BusArrivals from './BusArrivals'
+import useBusArrivals from '../hooks/useBusArrivals'
+import RouteModeChain from './transit/RouteModeChain'
+import JourneyTimeline from './transit/JourneyTimeline'
+import { formatDistance } from '../utils/transit'
+import { hasCoordinates } from '../utils/geo'
+import { createDestinationIcon } from '../utils/mapIcons'
 
 import {
     MapContainer,
@@ -17,125 +21,12 @@ import {
     Clock,
     Footprints,
     Bus,
-    Train,
     Umbrella,
     Navigation,
     Accessibility,
 } from 'lucide-react'
 
 import 'leaflet/dist/leaflet.css'
-
-
-// HELPERS
-
-function hasCoordinates(location) {
-    return Number.isFinite(location?.latitude) &&
-        Number.isFinite(location?.longitude)
-}
-
-function formatDuration(seconds) {
-    if (seconds == null || !Number.isFinite(Number(seconds))) {
-        return 'Unavailable'
-    }
-
-    return `${Math.ceil(Number(seconds) / 60)} min`
-}
-
-function formatDistance(meters) {
-    if (meters == null || !Number.isFinite(Number(meters))) {
-        return 'Unavailable'
-    }
-
-    const distance = Number(meters)
-
-    if (distance >= 1000) {
-        return `${(distance / 1000).toFixed(1)} km`
-    }
-
-    return `${Math.round(distance)} m`
-}
-
-function formatTime(time) {
-    if (!time) return null
-
-    const date = new Date(time)
-
-    if (Number.isNaN(date.getTime())) {
-        return null
-    }
-
-    return new Intl.DateTimeFormat('en-SG', {
-        timeZone: 'Asia/Singapore',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-    }).format(date)
-}
-
-function getMode(leg) {
-    const mode = String(leg.mode || '').toUpperCase()
-
-    if (mode.includes('WALK')) return 'WALK'
-    if (mode.includes('BUS')) return 'BUS'
-
-    if (
-        mode.includes('TRAIN') ||
-        mode.includes('MRT') ||
-        mode.includes('LRT') ||
-        mode.includes('RAIL') ||
-        mode.includes('SUBWAY')
-    ) {
-        return 'TRAIN'
-    }
-
-    return mode || 'OTHER'
-}
-
-function getInstruction(leg) {
-    const mode = getMode(leg)
-
-    const from = leg.from?.name
-    const to = leg.to?.name
-    const service = leg.service
-
-    if (mode === 'WALK') {
-        return to ? `Walk to ${to}` : 'Walk to the next stop'
-    }
-
-    if (mode === 'BUS') {
-        return service
-            ? `Take Bus ${service}${to ? ` to ${to}` : ''}`
-            : `Take the bus${to ? ` to ${to}` : ''}`
-    }
-
-    if (mode === 'TRAIN') {
-        return service
-            ? `Take ${service}${to ? ` to ${to}` : ''}`
-            : `Take the train${to ? ` to ${to}` : ''}`
-    }
-
-    return from && to
-        ? `Travel from ${from} to ${to}`
-        : 'Continue your journey'
-}
-
-function getModeLabel(leg) {
-    const mode = getMode(leg)
-
-    if (mode === 'WALK') return 'Walking'
-    if (mode === 'BUS') return 'Bus'
-    if (mode === 'TRAIN') return 'Train'
-
-    return 'Transport'
-}
-
-function ModeIcon({ mode }) {
-    if (mode === 'WALK') return <Footprints size={19} />
-    if (mode === 'BUS') return <Bus size={19} />
-    if (mode === 'TRAIN') return <Train size={19} />
-
-    return <Navigation size={19} />
-}
 
 
 // MAP
@@ -165,20 +56,7 @@ function FitRoute({ paths, origin, destination }) {
     return null
 }
 
-const destinationIcon = L.divIcon({
-    className: '',
-    html: `
-        <div style="
-            width: 28px;
-            height: 28px;
-            background: #e53935;
-            border: 3px solid white;
-            border-radius: 50%;
-        "></div>
-    `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-})
+const destinationIcon = createDestinationIcon({ size: 28 })
 
 
 // COMPONENT
@@ -199,6 +77,8 @@ function RouteDetails({
     const end = route.legs?.at(-1)?.to || destination
 
     const isDemo = engine?.startsWith('mock')
+
+    const { buses: liveBuses } = useBusArrivals(route, !isDemo)
 
     const accessibility = route.accessibility
 
@@ -273,10 +153,9 @@ function RouteDetails({
 
 
                 {/* ROUTE SUMMARY */}
-                <p className="mt-2 text-[#555C60]">
-                    {route.summary}
-                </p>
-                <BusArrivals key={route.id} route={route} live={!isDemo} />
+                <div className="mt-3">
+                    <RouteModeChain legs={route.legs} size="md" />
+                </div>
 
 
                 {/* DEMO NOTICE */}
@@ -398,26 +277,6 @@ function RouteDetails({
 
                     </div>
 
-                    {/* RECOMMENDATION REASONS */}
-                    {route.reasons?.length > 0 && (
-                        <div className="mt-6 rounded-xl bg-[#DCE7D2]/50 p-5 text-[#2A3439]">
-
-                            <h3 className="text-xl font-semibold">
-                                Why this route?
-                            </h3>
-                            <p className="mt-2 text-sm">
-                                These comparisons describe the route’s trade-offs. Route order is selected by AI.
-                            </p>
-
-                            <ul className="mt-4 list-disc space-y-4 pl-6 text-lg leading-relaxed">
-                                {route.reasons.map((reason, i) => (
-                                    <li key={i}>{reason}</li>
-                                ))}
-                            </ul>
-
-                        </div>
-                    )}
-
                     {/* JOURNEY STEPS */}
                     <div className="mt-8 border-t border-[#7A7F7A]/20 pt-6">
 
@@ -425,130 +284,11 @@ function RouteDetails({
                             Journey steps
                         </h3>
 
-                        {route.legs?.length > 0 ? (
-
-                            <div className="mt-5 space-y-6">
-
-                                {route.legs.map((leg, legIndex) => {
-
-                                    const mode = getMode(leg)
-                                    const startTime = formatTime(leg.startTime)
-                                    const endTime = formatTime(leg.endTime)
-
-                                    return (
-                                        <div
-                                            key={legIndex}
-                                            className="flex gap-4"
-                                        >
-
-                                            {/* STEP NUMBER */}
-                                            <div className="flex flex-col items-center">
-
-                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#DCE7D2] font-semibold">
-                                                    {legIndex + 1}
-                                                </div>
-
-                                                {legIndex < route.legs.length - 1 && (
-                                                    <div className="mt-2 min-h-6 w-px flex-1 bg-[#7A7F7A]/30" />
-                                                )}
-
-                                            </div>
-
-
-                                            {/* STEP CONTENT */}
-                                            <div className="min-w-0 flex-1 pb-3">
-
-                                                {/* TRANSPORT MODE */}
-                                                <div className="flex items-center gap-2 text-sm font-semibold text-[#7A7F7A]">
-                                                    <ModeIcon mode={mode} />
-                                                    {getModeLabel(leg)}
-
-                                                    {leg.service && (
-                                                        <span>· {leg.service}</span>
-                                                    )}
-                                                </div>
-
-
-                                                {/* INSTRUCTION */}
-                                                <p className="mt-2 font-semibold">
-                                                    {getInstruction(leg)}
-                                                </p>
-
-
-                                                {/* FROM */}
-                                                {leg.from?.name && (
-                                                    <p className="mt-1 text-sm text-[#7A7F7A]">
-                                                        FROM: {leg.from.name}
-                                                    </p>
-                                                )}
-
-
-                                                {/* INTERMEDIATE STOPS */}
-                                                {mode !== 'WALK' &&
-                                                    Array.isArray(leg.intermediateStops) &&
-                                                    leg.intermediateStops.length > 0 && (
-
-                                                        <details className="mt-3 rounded-xl bg-[#FAF7F0] p-3">
-
-                                                            <summary className="cursor-pointer text-sm font-semibold">
-                                                                View {leg.intermediateStops.length} intermediate stops
-                                                            </summary>
-
-                                                            <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[#555C60]">
-                                                                {leg.intermediateStops.map((stop, stopIndex) => (
-                                                                    <li key={stopIndex}>
-                                                                        {typeof stop === 'string'
-                                                                            ? stop
-                                                                            : stop.name || `Stop ${stopIndex + 1}`}
-                                                                    </li>
-                                                                ))}
-                                                            </ol>
-
-                                                        </details>
-
-                                                    )}
-
-
-                                                {/* TO */}
-                                                {leg.to?.name && (
-                                                    <p className="mt-2 text-sm text-[#7A7F7A]">
-                                                        TO: {leg.to.name}
-                                                    </p>
-                                                )}
-
-
-                                                {/* DURATION + DISTANCE */}
-                                                <p className="mt-2 text-sm text-[#555C60]">
-                                                    {formatDuration(leg.durationSeconds)}
-                                                    {' · '}
-                                                    {formatDistance(leg.distanceMeters)}
-                                                </p>
-
-
-                                                {/* DEPARTURE / ARRIVAL */}
-                                                {(startTime || endTime) && (
-                                                    <p className="mt-2 text-sm text-[#555C60]">
-                                                        {startTime && `Depart ${startTime}`}
-                                                        {startTime && endTime && ' · '}
-                                                        {endTime && `Arrive ${endTime}`}
-                                                    </p>
-                                                )}
-
-                                            </div>
-
-                                        </div>
-                                    )
-                                })}
-
-                            </div>
-
-                        ) : (
-
-                            <p className="mt-4 text-sm text-[#7A7F7A]">
-                                Detailed journey instructions are not available.
-                            </p>
-
-                        )}
+                        <JourneyTimeline
+                            legs={route.legs}
+                            liveBuses={liveBuses}
+                            live={!isDemo}
+                        />
 
                     </div>
 
