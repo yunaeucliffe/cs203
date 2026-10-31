@@ -2,6 +2,7 @@ import { TripSharingButton } from './TripSharing'
 import { useEffect } from 'react'
 import L from 'leaflet'
 import BusArrivals from './BusArrivals'
+import RouteConditions from './RouteConditions'
 
 import {
     MapContainer,
@@ -189,6 +190,7 @@ function RouteDetails({
     origin,
     destination,
     engine,
+    warnings = [],
     onBack,
     choiceButtonRef,
     canShare = false,
@@ -212,7 +214,7 @@ function RouteDetails({
                     : accessibility.verified === true
                         ? (accessibility.summary || accessibility.status || 'Verified')
                         : 'Unverified'
-
+    const isWalkingOnly = Array.isArray(route.legs) && route.legs.length > 0 && route.legs.every((leg) => getMode(leg) === 'WALK')
     return (
         <div>
 
@@ -424,6 +426,21 @@ function RouteDetails({
                         <h3 className="text-xl font-semibold">
                             Journey steps
                         </h3>
+                        {isWalkingOnly && (
+                            <div
+                                role="status"
+                                className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+                            >
+                                <p className="font-semibold">
+                                    No public transport legs found
+                                </p>
+
+                                <p className="mt-1">
+                                    This itinerary contains walking only. Public transport
+                                    availability may be limited at your selected departure time.
+                                </p>
+                            </div>
+                        )}
 
                         {route.legs?.length > 0 ? (
 
@@ -624,6 +641,12 @@ function RouteDetails({
                 </section>
 
             </div>
+
+            {/* ROUTE CONDITIONS & WARNINGS */}
+            <RouteConditions
+                warnings={warnings}
+                sources={route.evidence ?? []}
+            />
 
         </div>
     )
