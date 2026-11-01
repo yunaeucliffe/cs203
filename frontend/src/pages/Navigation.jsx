@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import L from 'leaflet'
 import { TripSharingButton } from '../components/TripSharing'
 import JourneyTimeline from '../components/transit/JourneyTimeline'
 import useBusArrivals from '../hooks/useBusArrivals'
