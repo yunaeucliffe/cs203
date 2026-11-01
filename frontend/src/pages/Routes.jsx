@@ -69,6 +69,9 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
   const pending = useRef(null)
   const locationRequest = useRef(0)
   const locationWatch = useRef(null)
+  const [navigating, setNavigating] = useState(
+    Boolean(resumeJourneyOnOpen && initialJourney?.route)
+  )
   const [viewingDetails, setViewingDetails] = useState(false)
   const [choice, setChoice] = useState(null)
   const [choiceButtonContainer, setChoiceButtonContainer] = useState(null)
@@ -139,10 +142,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
     return null
   })
 
-  const [navigating, setNavigating] = useState(
-      Boolean(resumeJourneyOnOpen && initialJourney?.route)
-  )
-
   const [activeNavigation, setActiveNavigation] = useState(() => {
     if (initialJourney) return initialJourney
 
@@ -194,7 +193,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
     setNavigating(false)
     setError('')
     setAddressSuggestion(null)
-  }, [])
+  }, [setNavigating])
 
   const locateUser = useCallback(() => {
     clearResult()
@@ -273,10 +272,8 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
   useEffect(() => {
     if (!resumeJourneyOnOpen || !initialJourney?.route) return
 
-    setNavigating(true)
     startCompass()
-  }, [resumeJourneyOnOpen, initialJourney, startCompass])
-
+  }, [resumeJourneyOnOpen, initialJourney?.route, startCompass])
   useEffect(() => {
     // Don't overwrite a restored journey or saved route search.
     if (initialJourney?.route || savedSearch?.routes?.length) return
