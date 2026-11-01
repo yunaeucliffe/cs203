@@ -20,15 +20,47 @@ function hasCoordinates(location) {
   return Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude)
 }
 
-function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = '', initialDestinationPlace = null }) {
-  const [destination, setDestination] = useState(initialDestination)
-  const [originText, setOriginText] = useState('')
-  const [originPlace, setOriginPlace] = useState(null)
-  const [destinationPlace, setDestinationPlace] = useState(initialDestinationPlace)
-  const [deviceLocation, setDeviceLocation] = useState(null)
-  const [result, setResult] = useState(null)
-  const [hasSearched, setHasSearched] = useState(false)
-  const [selectedIndex, setSelectedIndex] = useState(0)
+function loadRouteSearchState() {
+  try {
+    return JSON.parse(localStorage.getItem('routeSearchState')) || null
+  } catch {
+    return null
+  }
+}
+
+function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAuthenticated, initialDestination = '', initialDestinationPlace = null, initialJourney = null, resumeJourneyOnOpen = false }) {
+  const [savedSearch] = useState(loadRouteSearchState)
+  const [destination, setDestination] = useState(
+    initialDestination || savedSearch?.destination?.name || ''
+  )
+
+  const [originText, setOriginText] = useState(
+    savedSearch?.origin?.name || ''
+  )
+
+  const [originPlace, setOriginPlace] = useState(
+    savedSearch?.origin && hasCoordinates(savedSearch.origin)
+      ? savedSearch.origin
+      : null
+  )
+
+  const [destinationPlace, setDestinationPlace] = useState(
+    initialDestinationPlace || savedSearch?.destination || null
+  )
+
+  const [deviceLocation, setDeviceLocation] = useState(
+    savedSearch?.origin?.name === 'Current location'
+      ? savedSearch.origin
+      : null
+  )
+
+  const [hasSearched, setHasSearched] = useState(
+    Boolean(savedSearch?.hasSearched)
+  )
+
+  const [selectedIndex, setSelectedIndex] = useState(
+    initialJourney?.selectedIndex ?? savedSearch?.selectedIndex ?? 0
+  )
   const [loading, setLoading] = useState(false)
   const [locating, setLocating] = useState(false)
   const [error, setError] = useState('')
@@ -38,20 +70,19 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const locationRequest = useRef(0)
   const locationWatch = useRef(null)
   const [viewingDetails, setViewingDetails] = useState(false)
-  const [navigating, setNavigating] = useState(false)
-  const [activeNavigation, setActiveNavigation] = useState(null)
   const [choice, setChoice] = useState(null)
   const [choiceButtonContainer, setChoiceButtonContainer] = useState(null)
   const { heading, start: startCompass, stop: stopCompass } = useCompassHeading()
 
-  // Opening route details or navigation adds a browser history entry (see openDetails and
-  // onStartNavigation), so the phone's Back button steps back within SilverRoute.
+  // Opening route details or navigation adds a browser history entry.
+  // The phone's Back button can then navigate within SilverRoute.
   useEffect(() => {
     const onPopState = (event) => {
       const view = event.state?.view
       setNavigating(view === 'navigation')
       setViewingDetails(view === 'details' || view === 'navigation')
     }
+
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
@@ -59,9 +90,68 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const openDetails = (index) => {
     setSelectedIndex(index)
     setViewingDetails(true)
+
+    try {
+      const previous = JSON.parse(
+        localStorage.getItem('routeSearchState') || '{}'
+      )
+
+      localStorage.setItem(
+        'routeSearchState',
+        JSON.stringify({
+          ...previous,
+          selectedIndex: index,
+          viewingDetails: true,
+        })
+      )
+    } catch (error) {
+      console.error('Unable to save route selection:', error)
+    }
+
     window.history.pushState({ page: 'routes', view: 'details' }, '')
   }
 
+  const [result, setResult] = useState(() => {
+    // Restore the active journey first, if one exists.
+    if (initialJourney?.route) {
+      return {
+        recommendationId: initialJourney.recommendationId,
+        origin: initialJourney.origin,
+        destination: initialJourney.destination,
+        routes: initialJourney.routes || [initialJourney.route],
+        sources: [],
+        engine: undefined,
+      }
+    }
+
+    // Otherwise, restore the previous route search.
+    if (savedSearch?.routes?.length) {
+      return {
+        recommendationId: savedSearch.recommendationId,
+        origin: savedSearch.origin,
+        destination: savedSearch.destination,
+        routes: savedSearch.routes,
+        sources: savedSearch.sources || [],
+        engine: savedSearch.engine,
+      }
+    }
+
+    return null
+  })
+
+  const [navigating, setNavigating] = useState(
+      Boolean(resumeJourneyOnOpen && initialJourney?.route)
+  )
+
+  const [activeNavigation, setActiveNavigation] = useState(() => {
+    if (initialJourney) return initialJourney
+
+    try {
+      return JSON.parse(localStorage.getItem('activeJourney')) || null
+    } catch {
+      return null
+    }
+  })
 
   useEffect(() => {
     window.scrollTo({
@@ -88,7 +178,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     }
   }, [result])
 
-  const selectedRoute = result?.routes[selectedIndex]
+  const selectedRoute = result?.routes?.[selectedIndex] ?? (initialJourney?.route || activeNavigation?.route || null)
   const canStartNavigation = Boolean(
     selectedRoute && result?.recommendationId &&
     choice?.recommendationId === result.recommendationId &&
@@ -181,10 +271,21 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   }, [clearResult, stopCompass])
 
   useEffect(() => {
+    if (!resumeJourneyOnOpen || !initialJourney?.route) return
+
+    setNavigating(true)
+    startCompass()
+  }, [resumeJourneyOnOpen, initialJourney, startCompass])
+
+  useEffect(() => {
+    // Don't overwrite a restored journey or saved route search.
+    if (initialJourney?.route || savedSearch?.routes?.length) return
+
     // Defer until mount completes; cancelling also avoids duplicate requests in Strict Mode.
     const timer = window.setTimeout(locateUser, 0)
+
     return () => window.clearTimeout(timer)
-  }, [locateUser])
+  }, [locateUser, initialJourney?.route, savedSearch?.routes?.length])
 
   const handleFindRoute = async () => {
     if (loading || locating) return
@@ -215,12 +316,25 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
       setSelectedIndex(0)
       console.log('First route:', routes[0])
       console.log('First route evidence:', routes[0]?.evidence)
+      const searchState = {
+        recommendationId: recommendations.recommendationId,
+        origin,
+        destination: target,
+        routes,
+        sources: recommendations.sources ?? [],
+        engine: recommendations.engine,
+        selectedIndex: 0,
+        hasSearched: true,
+      }
+
+      localStorage.setItem('routeSearchState', JSON.stringify(searchState))
+
       setResult({
-          ...recommendations,
-          origin,
-          destination: target,
-          routes,
-          sources: recommendations.sources ?? [],
+        ...recommendations,
+        origin,
+        destination: target,
+        routes,
+        sources: recommendations.sources ?? [],
       })
     } catch (failure) {
       if (!controller.signal.aborted) {
@@ -246,15 +360,23 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
       {navigating && selectedRoute && (
         <NavigationPage
           route={selectedRoute}
-          origin={result.origin}
-          destination={result.destination}
+          origin={result?.origin ?? activeNavigation?.origin ?? initialJourney?.origin}
+          destination={result?.destination ?? activeNavigation?.destination ?? initialJourney?.destination}
           heading={heading}
           onStartCompass={startCompass}
-          onBack={() => window.history.back()}
+          onBack={() => {
+            setNavigating(false)
+            window.history.back()
+          }}
           onEnd={() => {
+            localStorage.removeItem('activeJourney')
             setActiveNavigation(null)
             stopCompass()
-            // Skip back past the navigation and route details entries to the results.
+            setNavigating(false)
+            setViewingDetails(false)
+            onJourneyEnd?.()
+
+            // Return to the route results after ending navigation.
             window.history.go(-2)
           }}
         />
@@ -532,16 +654,43 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     activeNavigation?.routeId === selectedRoute.id
                   }
                   onStartNavigation={() => {
-                    if (canStartNavigation) {
-                      setActiveNavigation({
-                        recommendationId: result.recommendationId,
-                        routeId: selectedRoute.id,
-                      })
+                    // Resume an existing journey without asking the user to choose again.
+                    if (
+                      activeNavigation?.recommendationId === result.recommendationId &&
+                      activeNavigation?.routeId === selectedRoute.id
+                    ) {
                       setNavigating(true)
-                      window.history.pushState({ page: 'routes', view: 'navigation' }, '')
-                      // Started from the "Start navigation" tap, which phones require for the compass.
+                      window.history.pushState(
+                        { page: 'routes', view: 'navigation' },
+                        ''
+                      )
+                      // Started from the navigation tap, which phones may require for the compass.
                       startCompass()
+                      return
                     }
+
+                    // Start a new journey only when the route choice is valid.
+                    if (!canStartNavigation) return
+
+                    const journey = {
+                      recommendationId: result.recommendationId,
+                      routeId: selectedRoute.id,
+                      route: selectedRoute,
+                      routes: result.routes,
+                      selectedIndex,
+                      origin: result.origin,
+                      destination: result.destination,
+                    }
+
+                    try {
+                      localStorage.setItem('activeJourney', JSON.stringify(journey))
+                      window.dispatchEvent(new Event('activeJourneyUpdated'))
+                    } catch (error) {
+                      console.error('Unable to save active journey:', error)
+                    }
+
+                    setActiveNavigation(journey)
+                    setNavigating(true)
                   }}
                   renderButton={(button) =>
                     choiceButtonContainer

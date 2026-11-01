@@ -50,10 +50,21 @@ export default function RouteChoice({ recommendationId, routeId, onChoiceChange,
       pending.current = null
     }
   }
-  const button = <button ref={chooseButton} type="button" disabled={saving}
-    onClick={() => canContinueNavigation && canStartNavigation ? onStartNavigation() : receipt ? setShowConfirmation(true) : submit()}
+  const button = <button
+    ref={chooseButton}
+    type="button"
+    disabled={saving}
+    onClick={() => {
+      if (canContinueNavigation) {
+        onStartNavigation()
+      } else if (receipt) {
+        setShowConfirmation(true)
+      } else {
+        submit()
+      }
+    }}
     className="flex min-h-[52px] items-center justify-center rounded-xl bg-[#3E424B] px-8 py-3 text-base font-semibold text-white transition hover:bg-[#2A3439] disabled:opacity-60">
-    {saving ? 'Saving choice…' : canContinueNavigation && canStartNavigation ? 'Continue navigation' : 'Choose this route'}
+    {saving ? 'Saving choice…' : canContinueNavigation ? 'Continue navigation' : 'Choose this route'}
   </button>
 
   return <>

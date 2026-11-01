@@ -14,12 +14,14 @@ import {
     Plus,
     ArrowRight,
     Search,
+    Navigation,
 } from 'lucide-react'
 
 function Home() {
     const [destination, setDestination] = useState('')
     const [destinationPlace, setDestinationPlace] = useState(null)
     const [currentPage, setCurrentPage] = useState('home')
+    const [resumeJourneyOnOpen, setResumeJourneyOnOpen] = useState(false)
     const [isAuthenticated, setIsAuthenticated] = useState(false)
     const [userName, setUserName] = useState('there')
     const [savedPlaces, setSavedPlaces] = useState([])
@@ -38,6 +40,35 @@ function Home() {
         const onPopState = (event) => setCurrentPage(event.state?.page ?? 'home')
         window.addEventListener('popstate', onPopState)
         return () => window.removeEventListener('popstate', onPopState)
+    }, [])
+
+    const [activeJourney, setActiveJourney] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('activeJourney')) || null
+        } catch {
+            return null
+        }
+    })
+
+    useEffect(() => {
+        const syncActiveJourney = () => {
+            try {
+                setActiveJourney(
+                    JSON.parse(localStorage.getItem('activeJourney')) || null
+                )
+            } catch {
+                setActiveJourney(null)
+            }
+        }
+
+        // Sync when returning to Home or when Routes updates the journey.
+        window.addEventListener('focus', syncActiveJourney)
+        window.addEventListener('activeJourneyUpdated', syncActiveJourney)
+
+        return () => {
+            window.removeEventListener('focus', syncActiveJourney)
+            window.removeEventListener('activeJourneyUpdated', syncActiveJourney)
+        }
     }, [])
 
     useEffect(() => {
@@ -203,10 +234,15 @@ function Home() {
                 isAuthenticated={isAuthenticated}
                 initialDestination={destination}
                 initialDestinationPlace={destinationPlace}
+                initialJourney={activeJourney}
+                resumeJourneyOnOpen={resumeJourneyOnOpen}
+                onJourneyEnd={() => {
+                    setActiveJourney(null)
+                    setResumeJourneyOnOpen(false)
+                }}
             />
         )
     }
-
     return (
         <div className=" relative min-h-screen bg-[#FAF7F0] text-[#2A3439]">
 
@@ -232,7 +268,45 @@ function Home() {
                 {/* MAIN */}
                 <main className="mx-auto max-w-7xl px-4 sm:px-8">
 
-                    <div className="grid grid-cols-1 lg:min-h-[calc(100vh-87px)] lg:grid-cols-[1.12fr_0.88fr]">
+                {activeJourney?.route && (
+                    <div className="mb-6 mt-6 rounded-2xl border border-[#D9E2D5] bg-white p-6 shadow-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div>
+                                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-green-700">
+                                    <Navigation size={18} />
+                                    Journey in progress
+                                </div>
+
+                                <h2 className="text-xl font-semibold">
+                                    {typeof activeJourney.origin === 'string'
+                                        ? activeJourney.origin
+                                        : activeJourney.origin?.name || 'Current location'}
+                                    {' → '}
+                                    {typeof activeJourney.destination === 'string'
+                                        ? activeJourney.destination
+                                        : activeJourney.destination?.name || 'Destination'}
+                                </h2>
+
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Your route is saved. Continue where you left off.
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    setResumeJourneyOnOpen(true)
+                                    goTo('routes')
+                                }}
+                                className="shrink-0 rounded-xl bg-[#2A3439] px-5 py-3 font-medium text-white transition hover:opacity-90"
+                            >
+                                Continue Journey
+                                <ArrowRight size={16} className="ml-2 inline" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:min-h-[calc(100vh-87px)] lg:grid-cols-[1.12fr_0.88fr]">
 
 
                         {/* ================================================= */}
