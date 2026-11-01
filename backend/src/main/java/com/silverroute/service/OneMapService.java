@@ -6,6 +6,7 @@ import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,7 +14,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.silverroute.api.RouteOption;
 import com.silverroute.api.LocationResult;
 import com.silverroute.api.LocationSuggestion;
+import com.silverroute.exception.InvalidAddressException;
+import com.silverroute.exception.RouteDataUnavailableException;
 
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -205,22 +209,46 @@ public class OneMapService {
         departureTime = singaporeDeparture(departureTime);
         final OffsetDateTime localDeparture = departureTime;
         // OneMap expects a Singapore local date and time.
-        return restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/api/public/routingsvc/route")
-                        .queryParam("start", originLat + "," + originLon)
-                        .queryParam("end", destinationLat + "," + destinationLon)
-                        .queryParam("routeType", "pt")
-                        .queryParam("date", localDeparture.format(
-                                DateTimeFormatter.ofPattern("MM-dd-yyyy")))
-                        .queryParam("time", localDeparture.toLocalTime().format(
-                                DateTimeFormatter.ofPattern("HH:mm:ss")))
-                        .queryParam("mode", "transit")
-                        .queryParam("numItineraries", "3")
-                        .build())
-                .header("Authorization", token)
-                .retrieve()
-                .body(String.class);
+        try {
+            return restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/public/routingsvc/route")
+                            .queryParam("start", originLat + "," + originLon)
+                            .queryParam("end", destinationLat + "," + destinationLon)
+                            .queryParam("routeType", "pt")
+                            .queryParam("date", localDeparture.format(
+                                    DateTimeFormatter.ofPattern("MM-dd-yyyy")))
+                            .queryParam("time", localDeparture.toLocalTime().format(
+                                    DateTimeFormatter.ofPattern("HH:mm:ss")))
+                            .queryParam("mode", "transit")
+                            .queryParam("numItineraries", "3")
+                            .build())
+                    .header("Authorization", token)
+                    .retrieve()
+                    .body(String.class);
+        } catch (HttpClientErrorException exception) {
+            // OneMap replies 400 when a point is outside Singapore, and 404 when no route exists,
+            // e.g. late at night when buses and trains have stopped and the trip is too far to walk.
+            if (exception.getResponseBodyAsString().contains("outside Singapore")) {
+                throw new InvalidAddressException(
+                        "Your starting point or destination is outside Singapore. Choose places in Singapore and try again.");
+            }
+            if (exception.getStatusCode().value() == 404) {
+                throw new RouteDataUnavailableException(noRouteMessage(localDeparture));
+            }
+            throw exception;
+        }
+    }
+
+    // Explains why no route was found and what the user can do next.
+    public static String noRouteMessage(OffsetDateTime departureTime) {
+        LocalTime time = singaporeDeparture(departureTime).toLocalTime();
+        if (time.isBefore(LocalTime.of(5, 30))) {
+            return "No public transport routes are available right now. Buses and trains may have stopped for the night. "
+                    + "Try again after 5:30 am, or choose a starting point closer to your destination.";
+        }
+        return "No public transport routes are available for this trip right now. "
+                + "Try again later, or choose a different starting point or destination.";
     }
 
     public static OffsetDateTime singaporeDeparture(OffsetDateTime value) {

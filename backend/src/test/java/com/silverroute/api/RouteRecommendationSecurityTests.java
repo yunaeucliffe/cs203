@@ -48,6 +48,14 @@ class RouteRecommendationSecurityTests {
         mvc.perform(post("/api/route-recommendations").with(user("alice@example.com")).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isForbidden()); verifyNoInteractions(agent);
     }
+    @Test void aiFailureShowsPlainMessageWithoutTechnicalDetails() throws Exception {
+        when(agent.recommend(any(),anyString())).thenThrow(new com.silverroute.exception.ModelAgentException(
+                "OpenAI ranking is not configured; set OPENAI_API_KEY and OPENAI_MODEL on the backend"));
+        mvc.perform(post("/api/route-recommendations").with(user("alice@example.com")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.message").value("We couldn't rank routes for you right now. Please try again in a few minutes."));
+    }
     @Test void usesSessionIdentityAndDoesNotRequireClientPreferences() throws Exception {
         when(agent.recommend(any(),anyString())).thenReturn(new AgentRecommendation(TestRoutes.route(),List.of(),List.of("Reason"),List.of(),List.of("OneMap"),"test"));
         mvc.perform(post("/api/route-recommendations").with(user("alice@example.com")).with(csrf())

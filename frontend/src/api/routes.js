@@ -1,4 +1,6 @@
-import { API_URL, getCsrfToken } from '../api.js'
+import { API_URL, CONNECTION_ERROR, getCsrfToken } from '../api.js'
+
+const UNEXPECTED_RESPONSE = 'Something went wrong while getting your routes. Please try again.'
 
 async function getJson(path, signal, options = {}) {
   let response
@@ -6,7 +8,7 @@ async function getJson(path, signal, options = {}) {
     response = await fetch(`${API_URL}${path}`, { ...options, signal, credentials: 'include' })
   } catch (error) {
     if (error.name === 'AbortError') throw error
-    throw new Error('Cannot reach the backend. Check that it is running and try again.', { cause: error })
+    throw new Error(CONNECTION_ERROR, { cause: error })
   }
   const body = await response.json().catch(() => null)
   if (response.status === 401) throw new Error('Your session has expired. Sign in again to get personalized routes.')
@@ -19,7 +21,7 @@ async function getJson(path, signal, options = {}) {
     }
     throw error
   }
-  if (body === null) throw new Error('The backend returned an invalid response.')
+  if (body === null) throw new Error(UNEXPECTED_RESPONSE)
   return body
 }
 
@@ -45,12 +47,12 @@ export async function searchRoutes(origin, destination, signal) {
     }),
   })
   if (!result.recommendedRoute || !Array.isArray(result.alternatives)) {
-    throw new Error('The backend returned an invalid recommendation.')
+    throw new Error(UNEXPECTED_RESPONSE)
   }
   const routes = [result.recommendedRoute, ...result.alternatives]
   if (routes.length > 3 || routes.some(route => !route || typeof route.id !== 'string') ||
       new Set(routes.map(route => route.id)).size !== routes.length) {
-    throw new Error('The backend returned invalid ranked routes.')
+    throw new Error(UNEXPECTED_RESPONSE)
   }
   return { ...result, routes }
 }

@@ -64,7 +64,7 @@ function SignUp({ onBackToLogin, onSignUp, onHome }) {
             type="text"
             placeholder="Enter your name"
             required
-            className="h-[68px] w-full rounded-full border border-[#7A7F7A]/40 bg-transparent px-6 text-lg outline-none placeholder:text-[#7A7F7A]"
+            className="h-[68px] w-full rounded-full border border-[#7A7F7A]/40 bg-transparent px-6 text-lg outline-none placeholder:text-[#555C60]"
           />
         </div>
 
@@ -85,10 +85,16 @@ function SignUp({ onBackToLogin, onSignUp, onHome }) {
             maxLength="50"
             pattern="[A-Za-z0-9._-]+"
             title="Use letters, numbers, dots, underscores, or hyphens"
+            aria-describedby="signup-username-hint"
             placeholder="Choose a username"
             required
-            className="h-[68px] w-full rounded-full border border-[#7A7F7A]/40 bg-transparent px-6 text-lg outline-none placeholder:text-[#7A7F7A]"
+            className="h-[68px] w-full rounded-full border border-[#7A7F7A]/40 bg-transparent px-6 text-lg outline-none placeholder:text-[#555C60]"
           />
+
+          {/* Shown on screen because hover tooltips don't appear on phones */}
+          <p id="signup-username-hint" className="text-sm text-[#555C60]">
+            3 to 50 characters. Use letters, numbers, dots (.), underscores (_) or hyphens (-).
+          </p>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -106,14 +112,25 @@ function SignUp({ onBackToLogin, onSignUp, onHome }) {
             type="email"
             placeholder="Enter your email"
             required
-            className="h-[68px] w-full rounded-full border border-[#7A7F7A]/40 bg-transparent px-6 text-lg outline-none placeholder:text-[#7A7F7A]"
+            className="h-[68px] w-full rounded-full border border-[#7A7F7A]/40 bg-transparent px-6 text-lg outline-none placeholder:text-[#555C60]"
           />
         </div>
-        <Input name="password" placeholder="Create a password" autoComplete="new-password" minLength="8" maxLength="72" required />
-        <Input 
-          name="confirmPassword" 
-          placeholder="Re-enter password" 
-          autoComplete="new-password" 
+        <Input
+          id="signup-password"
+          label="Password"
+          hint="At least 8 characters."
+          name="password"
+          placeholder="Create a password"
+          autoComplete="new-password"
+          minLength="8"
+          maxLength="72"
+          required />
+        <Input
+          id="signup-confirm-password"
+          label="Confirm password"
+          name="confirmPassword"
+          placeholder="Re-enter password"
+          autoComplete="new-password"
           required />
 
         {error && <p role="alert" className="text-center text-red-700">{error}</p>}
@@ -123,7 +140,7 @@ function SignUp({ onBackToLogin, onSignUp, onHome }) {
         </button>
       </form>
 
-      <p className="mt-10 text-center text-[#7A7F7A]">
+      <p className="mt-10 text-center text-[#555C60]">
         Already have an account?{' '}
         <button type="button" onClick={onBackToLogin}>
           Log In

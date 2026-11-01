@@ -17,11 +17,11 @@ function RouteCard({ route, index, onClick }) {
         <button
             type="button"
             onClick={onClick}
-            className="flex h-full w-full cursor-pointer flex-col rounded-[24px] border-2 border-[#7A7F7A]/20 bg-white p-6 text-left transition hover:-translate-y-1 hover:border-[#3E424B] hover:shadow-md"
+            className="flex h-full w-full cursor-pointer flex-col rounded-[24px] border-2 border-[#7A7F7A]/20 bg-white p-5 text-left transition sm:p-6 hover:-translate-y-1 hover:border-[#3E424B] hover:shadow-md"
         >
             {/* ROUTE NUMBER + RECOMMENDED BADGE */}
             <div className="flex min-h-8 flex-wrap items-center gap-3">
-                <p className="shrink-0 text-sm font-bold text-[#7A7F7A]">
+                <p className="shrink-0 text-sm font-bold text-[#555C60]">
                     ROUTE {index + 1}
                 </p>
                 {index === 0 && (
@@ -33,7 +33,7 @@ function RouteCard({ route, index, onClick }) {
 
             {/* DURATION */}
             <h3
-                className="mt-5 text-4xl text-[#2A3439]"
+                className="mt-3 text-3xl text-[#2A3439] sm:mt-5 sm:text-4xl"
                 style={{ fontFamily: '"DM Serif Display", serif' }}
             >
                 {route.durationMinutes == null
@@ -43,7 +43,7 @@ function RouteCard({ route, index, onClick }) {
 
             {/* ROUTE SUMMARY */}
             <div className="mt-3">
-                <RouteModeChain legs={route.legs} />
+                <RouteModeChain legs={route.legs} size="md" />
             </div>
 
             {departureTime && departureFrom && (
@@ -54,10 +54,10 @@ function RouteCard({ route, index, onClick }) {
 
 
             {/* ROUTE DETAILS */}
-            <div className="mt-6 flex-1 space-y-4 border-t border-[#7A7F7A]/20 pt-5">
+            <div className="mt-4 grid flex-1 grid-cols-2 gap-x-4 gap-y-3 border-t border-[#7A7F7A]/20 pt-4 sm:mt-6 sm:block sm:space-y-4 sm:pt-5">
 
                 {/* WALKING */}
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="flex flex-col gap-y-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
                     <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
                         <Footprints size={22} />
                         Walking
@@ -70,7 +70,7 @@ function RouteCard({ route, index, onClick }) {
                 </div>
 
                 {/* TRANSFERS */}
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="flex flex-col gap-y-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
                     <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
                         <Bus size={22} />
                         Transfers
@@ -81,7 +81,7 @@ function RouteCard({ route, index, onClick }) {
                 </div>
 
                 {/* SHELTERED WALKING */}
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="flex flex-col gap-y-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
                     <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
                         <Umbrella size={22} />
                         Sheltered walking
@@ -92,7 +92,7 @@ function RouteCard({ route, index, onClick }) {
                 </div>
 
                 {/* DISTANCE */}
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="flex flex-col gap-y-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
                     <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
                         <Navigation size={22} />
                         Distance
@@ -105,7 +105,7 @@ function RouteCard({ route, index, onClick }) {
             </div>
 
             {/* VIEW DETAILS INDICATOR */}
-            <div className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-[#FAF7F0] px-4 py-3 font-semibold text-[#2A3439] transition">
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-xl sm:mt-5 bg-[#FAF7F0] px-4 py-3 font-semibold text-[#2A3439] transition">
                 View details
                 <ArrowRight size={18} />
             </div>

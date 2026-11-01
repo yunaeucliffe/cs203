@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import L from 'leaflet'
 import { TripSharingButton } from '../components/TripSharing'
 import JourneyTimeline from '../components/transit/JourneyTimeline'
 import useBusArrivals from '../hooks/useBusArrivals'
 import { hasCoordinates } from '../utils/geo'
 import { createDestinationIcon } from '../utils/mapIcons'
+import DirectionMarker from '../components/DirectionMarker'
 
 import {
   MapContainer,
@@ -75,7 +77,20 @@ function ResizeNavigationMap() {
   return null
 }
 
-function LiveLocation({ location, following, onFollowingChange }) {
+function panelOverlap(map, panel) {
+  const sheet = panel?.current
+  if (!sheet) return 0
+  const mapArea = map.getContainer().getBoundingClientRect()
+  const sheetArea = sheet.getBoundingClientRect()
+  const sharedWidth = Math.min(mapArea.right, sheetArea.right) - Math.max(mapArea.left, sheetArea.left)
+  if (sharedWidth <= 0) return 0
+  const covered = Math.min(mapArea.bottom, sheetArea.bottom) - Math.max(mapArea.top, sheetArea.top)
+  // An expanded panel can cover most of the map; allowing for all of it would leave
+  // nothing to fit the route into, so give up half the map at most.
+  return Math.max(0, Math.min(covered, mapArea.height / 2))
+}
+
+function LiveLocation({ location, heading, following, onFollowingChange, panel }) {
   const map = useMap()
 
   useEffect(() => {
@@ -85,14 +100,18 @@ function LiveLocation({ location, following, onFollowingChange }) {
   }, [map, onFollowingChange])
 
   useEffect(() => {
-    if (following && location) {
-      map.setView([location.latitude, location.longitude], Math.max(map.getZoom(), 16))
-    }
-  }, [map, location, following])
+    if (!following || !location) return
+    const zoom = Math.max(map.getZoom(), 16)
+    const dot = map.project([location.latitude, location.longitude], zoom)
+    const centre = dot.add([0, panelOverlap(map, panel) / 2])
+    map.setView(map.unproject(centre, zoom), zoom)
+  }, [map, location, following, panel])
 
   if (!location) return null
 
   return <>
+    {/* Compass cone on phones showing which way the user is facing */}
+    {heading !== null && <DirectionMarker position={[location.latitude, location.longitude]} heading={heading} />}
     <Circle center={[location.latitude, location.longitude]} radius={location.accuracy}
       pathOptions={{ color: '#2F6FED', weight: 1, fillOpacity: 0.1 }} />
     <CircleMarker center={[location.latitude, location.longitude]} radius={9}
@@ -102,7 +121,7 @@ function LiveLocation({ location, following, onFollowingChange }) {
   </>
 }
 
-function MapControls({ start, end, paths, location, following, onFollowingChange }) {
+function MapControls({ start, end, paths, location, following, onFollowingChange, panel }) {
   const map = useMap()
 
   const showEntireRoute = () => {
@@ -110,7 +129,13 @@ function MapControls({ start, end, paths, location, following, onFollowingChange
     const points = paths.flat()
     if (hasCoordinates(start)) points.push([start.latitude, start.longitude])
     if (hasCoordinates(end)) points.push([end.latitude, end.longitude])
-    if (points.length > 0) map.fitBounds(points, { padding: [60, 60], maxZoom: 16 })
+    if (points.length > 0) {
+      map.fitBounds(points, {
+        paddingTopLeft: [40, 40],
+        paddingBottomRight: [40, 40 + panelOverlap(map, panel)],
+        maxZoom: 16,
+      })
+    }
   }
 
   return <div className="absolute right-5 top-5 z-[1000] flex flex-col gap-3">
@@ -142,11 +167,21 @@ function Navigation({
   destination,
   onBack,
   onEnd,
+  heading = null,
+  onStartCompass = () => {},
 }) {
   const [sidebarHidden, setSidebarHidden] = useState(false)
   const [location, setLocation] = useState(null)
   const [locationError, setLocationError] = useState('')
   const [following, setFollowing] = useState(true)
+  const panel = useRef(null)
+
+  // The compass starts from the "Start navigation" tap. Tapping "Follow my location"
+  // tries again, e.g. if the phone asked for permission and the user said no at first.
+  const changeFollowing = useCallback((value) => {
+    setFollowing(value)
+    if (value) onStartCompass()
+  }, [onStartCompass])
 
   useEffect(() => {
     if (!navigator.geolocation) return
@@ -212,9 +247,11 @@ function Navigation({
           end={end}
           location={location}
           following={following}
-          onFollowingChange={setFollowing}
+          onFollowingChange={changeFollowing}
+          panel={panel}
         />
-        <LiveLocation location={location} following={following} onFollowingChange={setFollowing} />
+        <LiveLocation location={location} heading={heading} following={following}
+          onFollowingChange={setFollowing} panel={panel} />
 
         {/* DESTINATION MARKER */}
         {hasCoordinates(end) && (
@@ -271,8 +308,8 @@ function Navigation({
         {sidebarHidden ? <ChevronRight size={28} aria-hidden="true" /> : <ChevronLeft size={28} aria-hidden="true" />}
       </button>
 
-      {/* JOURNEY SIDEBAR */}
-      {!sidebarHidden && <section id="journey-sidebar" aria-label="Journey directions" className="col-start-1 row-start-1 flex h-full min-w-0 flex-col overflow-hidden border-r border-[#7A7F7A]/20 bg-[#FAF7F0] pt-6">
+      {/* JOURNEY SIDEBAR; COLLAPSIBLE PANEL ON MOBILE */}
+      {!sidebarHidden && <section ref={panel} id="journey-sidebar" aria-label="Journey directions" className="absolute bottom-4 left-1/2 z-[1000] max-h-[85dvh] w-[calc(100%-32px)] max-w-2xl -translate-x-1/2 overflow-y-auto rounded-[28px] border border-white/70 bg-[#FAF7F0]/95 shadow-2xl backdrop-blur-md lg:static lg:col-start-1 lg:row-start-1 lg:flex lg:max-h-none lg:w-full lg:max-w-none lg:translate-x-0 lg:flex-col lg:rounded-none lg:border-0 lg:border-r lg:border-[#7A7F7A]/20 lg:bg-[#FAF7F0] lg:pt-6 lg:shadow-none lg:backdrop-blur-none">
 
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-6 pb-5">
           <button type="button" onClick={onBack} className="flex min-h-12 items-center gap-2 rounded-xl px-3 font-semibold hover:bg-white">
@@ -285,7 +322,7 @@ function Navigation({
         <div className="flex items-start justify-between gap-4 px-6 pb-4">
 
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[#7A7F7A]">
+            <p className="text-sm font-semibold text-[#555C60]">
               Navigating to
             </p>
 
@@ -307,7 +344,7 @@ function Navigation({
         <div className="grid grid-cols-2 gap-4 border-t border-[#7A7F7A]/15 px-6 py-4">
 
           <div>
-            <p className="text-sm text-[#7A7F7A]">
+            <p className="text-sm text-[#555C60]">
               Estimated duration
             </p>
             <p className="mt-1 text-xl font-bold">
@@ -318,7 +355,7 @@ function Navigation({
           </div>
 
           <div>
-            <p className="text-sm text-[#7A7F7A]">
+            <p className="text-sm text-[#555C60]">
               Total distance
             </p>
             <p className="mt-1 text-xl font-bold">

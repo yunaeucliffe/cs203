@@ -53,7 +53,7 @@ test('supports one candidate and rejects duplicate or absent recommendations', a
   ]) {
     globalThis.fetch = async url => ok(url.endsWith('/csrf') ? { token: 'token' } : result)
     if (result.recommendedRoute?.id === 'only') assert.equal((await searchRoutes(origin, destination)).routes.length, 1)
-    else await assert.rejects(searchRoutes(origin, destination), /invalid/)
+    else await assert.rejects(searchRoutes(origin, destination), /Something went wrong while getting your routes/)
   }
 })
 
@@ -173,4 +173,23 @@ test('address suggestions stop routing and retain the query and proposed coordin
     assert.deepEqual(error.suggestions, [destination])
     return true
   })
+})
+
+test('offline searches show a connection message instead of "Failed to fetch"', async () => {
+  globalThis.fetch = async () => { throw new TypeError('Failed to fetch') }
+  await assert.rejects(searchRoutes(origin, destination, new AbortController().signal),
+    { message: "Can't connect to SilverRoute. Check your internet connection and try again." })
+})
+
+test('no-route messages from the server are shown as written', async () => {
+  const message = 'No public transport routes are available right now. Buses and trains may have stopped for the night. Try again after 5:30 am, or choose a starting point closer to your destination.'
+  globalThis.fetch = async url => url.endsWith('/csrf') ? ok({ token: 't' })
+    : { ok: false, status: 503, json: async () => ({ message }) }
+  await assert.rejects(searchRoutes(origin, destination, new AbortController().signal), { message })
+})
+
+test('unexpected responses never mention the backend', async () => {
+  globalThis.fetch = async url => url.endsWith('/csrf') ? ok({ token: 't' }) : ok({ unexpected: true })
+  await assert.rejects(searchRoutes(origin, destination, new AbortController().signal),
+    error => !/backend/i.test(error.message) && /try again/.test(error.message))
 })

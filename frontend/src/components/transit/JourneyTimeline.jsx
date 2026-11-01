@@ -139,6 +139,7 @@ function JourneyTimeline({ legs, liveBuses = [], live = true, emptyMessage = 'De
                                                 <details className="mt-1">
                                                     <summary className="cursor-pointer text-base font-medium text-[#555C60]">
                                                         {formatDuration(leg.durationSeconds)} ({stopCount} stop{stopCount === 1 ? '' : 's'})
+                                                        {leg.distanceMeters != null && ` · ${formatDistance(leg.distanceMeters)}`}
                                                     </summary>
                                                     <ol className="mt-2 list-decimal space-y-1 pl-5 text-base text-[#555C60]">
                                                         {leg.intermediateStops.map((stop, stopIndex) => (
@@ -153,6 +154,7 @@ function JourneyTimeline({ legs, liveBuses = [], live = true, emptyMessage = 'De
                                             ) : (
                                                 <p className="mt-1 text-base font-medium text-[#555C60]">
                                                     {formatDuration(leg.durationSeconds)} ({stopCount} stop{stopCount === 1 ? '' : 's'})
+                                                    {leg.distanceMeters != null && ` · ${formatDistance(leg.distanceMeters)}`}
                                                 </p>
                                             )}
                                         </>

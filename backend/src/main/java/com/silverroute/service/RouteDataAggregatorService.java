@@ -14,6 +14,7 @@ import com.silverroute.exception.AddressNotFoundException;
 /** Deterministic collection: the model ranks only after all relevant sources have been attempted. */
 @Service
 public class RouteDataAggregatorService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RouteDataAggregatorService.class);
     private final RouteDataTool routes;
     private final RouteConditionsService conditions;
     private final Clock clock;
@@ -30,8 +31,12 @@ public class RouteDataAggregatorService {
         ToolExecutionResult result;
         try { result=routes.execute(localRequest); }
         catch(RouteDataUnavailableException | InvalidAddressException | AddressNotFoundException | AddressConfirmationRequiredException exception) { throw exception; }
-        catch(Exception exception) { throw new RouteDataUnavailableException("Route data could not be retrieved from OneMap"); }
-        if(result==null || result.routes().isEmpty()) throw new RouteDataUnavailableException("No public transport routes were found");
+        catch(Exception exception) {
+            // Keep the real cause in the server log; users get a plain message instead.
+            log.warn("Route data could not be retrieved", exception);
+            throw new RouteDataUnavailableException("Routes are temporarily unavailable. Please try again in a few minutes.");
+        }
+        if(result==null || result.routes().isEmpty()) throw new RouteDataUnavailableException(OneMapService.noRouteMessage(localTime));
         boolean live=!request.departureTime().toInstant().isAfter(clock.instant().plusSeconds(900))
                 && !request.departureTime().toInstant().isBefore(clock.instant().minusSeconds(900));
         List<String> warnings=new ArrayList<>(result.warnings());

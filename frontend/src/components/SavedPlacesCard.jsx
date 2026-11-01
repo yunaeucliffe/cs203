@@ -4,7 +4,7 @@ function SavedPlacesCard({ label, address, category, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="group flex min-h-[175px] flex-col justify-center rounded-[18px] border-2 border-[#3E424B]/80 bg-[#DCE7D2] px-7 py-6 text-left transition hover:-translate-y-1"
+      className="group flex flex-col justify-center rounded-[18px] border-2 border-[#3E424B]/80 bg-[#DCE7D2] px-5 py-4 sm:min-h-[175px] sm:px-7 sm:py-6 text-left transition hover:-translate-y-1"
     >
 
       {category && (
@@ -23,7 +23,7 @@ function SavedPlacesCard({ label, address, category, onClick }) {
         {label}
       </h3>
 
-      <p className="mt-1.5 text-sm text-[#7A7F7A]">
+      <p className="mt-1.5 text-sm text-[#555C60]">
         {address}
       </p>
 

@@ -42,6 +42,23 @@ class RouteDataAggregatorServiceTests {
                 .isSameAs(failure);
         verifyNoInteractions(enrichment);
     }
+    @Test void unexpectedProviderFailureShowsPlainMessage() throws Exception {
+        var tool=mock(RouteDataTool.class); var enrichment=mock(RouteConditionsService.class);
+        when(tool.execute(any())).thenThrow(new IllegalStateException("OneMap token response did not include an access token"));
+        assertThatThrownBy(() -> new RouteDataAggregatorService(tool,enrichment).aggregate(
+                new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal",50, 20)))
+                .isInstanceOf(RouteDataUnavailableException.class)
+                .hasMessage("Routes are temporarily unavailable. Please try again in a few minutes.");
+        verifyNoInteractions(enrichment);
+    }
+    @Test void noRouteMessageFromOneMapReachesTheUser() throws Exception {
+        var tool=mock(RouteDataTool.class); var enrichment=mock(RouteConditionsService.class);
+        var failure=new RouteDataUnavailableException(OneMapService.noRouteMessage(OffsetDateTime.now()));
+        when(tool.execute(any())).thenThrow(failure);
+        assertThatThrownBy(() -> new RouteDataAggregatorService(tool,enrichment).aggregate(
+                new TripRequest("A","B",OffsetDateTime.now()),new SavedPreferences("Normal",50, 20)))
+                .isSameAs(failure);
+    }
     @Test void normalizesTimeAndCollectsBeforeRankingWithFutureWarning() throws Exception {
         var tool=mock(RouteDataTool.class); var conditions=mock(RouteConditionsService.class);
         var clock=Clock.fixed(Instant.parse("2026-09-28T00:00:00Z"),ZoneOffset.UTC);

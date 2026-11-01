@@ -103,13 +103,15 @@ This abbreviated example is illustrative, not a real recommendation. Successful 
 
 | Status | Meaning |
 |---|---|
-| 400 | Invalid or missing trip fields |
+| 400 | Invalid or missing trip fields, or a starting point/destination outside Singapore |
 | 404 | Address could not be found |
 | 422 | Full address did not match; postal-code suggestions require confirmation |
 | 401 | No authenticated session (with a valid CSRF token) |
 | 403 | Missing/invalid CSRF token, including unauthenticated POSTs without a token |
 | 503 | Profile missing, OneMap failure, or no usable candidate routes |
 | 502 | OpenAI unconfigured, unavailable, refused, incomplete, or returned invalid selections |
+
+When OneMap finds no route (HTTP 404, e.g. after midnight when buses and trains have stopped and the trip is too far to walk), the 503 message says no public transport routes are available and what to try next; searches between 12:00 am and 5:30 am Singapore time also say services may have stopped for the night. Other OneMap failures return "Routes are temporarily unavailable. Please try again in a few minutes." and the original exception is logged on the server.
 
 Application errors contain `status`, `message`, `requestId`, and `timestamp`. Spring Security rejection bodies may differ; the frontend should handle non-JSON errors too. Provider diagnostics and credentials are not echoed to the browser.
 

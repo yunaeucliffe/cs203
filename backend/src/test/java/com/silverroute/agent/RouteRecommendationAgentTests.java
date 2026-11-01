@@ -93,7 +93,7 @@ class RouteRecommendationAgentTests {
         var trip=TestRoutes.trip();
         assertThatThrownBy(() -> RouteRecommendationAgent.validateAndBuild(trip,result("invented"),"test")).isInstanceOf(ModelAgentException.class);
         assertThatThrownBy(() -> RouteRecommendationAgent.validateAndBuild(trip,result(),"test"))
-                .isInstanceOf(RouteDataUnavailableException.class).hasMessageContaining("No usable routes");
+                .isInstanceOf(RouteDataUnavailableException.class).hasMessageContaining("Train service disruptions affect every route");
     }
     @Test void refusesDuplicateIdsAndReturnsOnlyTopThree() throws Exception {
         var one=TestRoutes.route();
@@ -122,7 +122,7 @@ class RouteRecommendationAgentTests {
         verify(aggregator).aggregate(request,preferences); verify(model,times(1)).rank(TestRoutes.trip().context());
         when(model.rank(any())).thenReturn(result());
         assertThatThrownBy(() -> new RouteRecommendationAgent(model,aggregator,profiles).recommend(request,"signed-in@example.com"))
-                .isInstanceOf(RouteDataUnavailableException.class).hasMessageContaining("No usable routes");
+                .isInstanceOf(RouteDataUnavailableException.class).hasMessageContaining("Train service disruptions affect every route");
     }
     @Test void missingProfileDoesNotCallProvidersOrModel() {
         var model=mock(ModelGateway.class); var aggregator=mock(RouteDataAggregatorService.class); var profiles=mock(ProfileService.class);

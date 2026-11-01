@@ -1,6 +1,7 @@
 import PrioritySettings from '../components/PrioritySettings'
 import {useEffect, useState} from 'react'
 import InfoRow from '../components/InfoRow'
+import Navbar from '../components/Navbar'
 import {PreferenceCard, PreferenceSelector} from '../components/PreferenceComponents'
 import {API_URL, getCsrfToken} from '../api'
 import {deleteAccount} from '../api/account'
@@ -14,7 +15,7 @@ import {
   Trash2,
 } from 'lucide-react'
 
-function Profile({ onBack, onLogout }) {
+function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, isAuthenticated }) {
   const [user, setUser] = useState(null)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
@@ -162,36 +163,42 @@ function Profile({ onBack, onLogout }) {
     setDeleteError('')
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-[#FAF7F0] px-8 py-10 text-[#2A3439]">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft size={20} />
-          Back
-        </button>
+  const page = (content) => (
+    <div className="min-h-screen bg-[#FAF7F0] text-[#2A3439]">
+      <Navbar
+        activePage="profile"
+        onHome={onHome}
+        onRoutes={onRoutes}
+        onSavedPlaces={onSavedPlaces}
+        onSignIn={onSignIn}
+        onProfile={() => {}}
+        isAuthenticated={isAuthenticated}
+      />
+      {content}
+    </div>
+  )
 
-        <p role="alert" className="mt-8 text-red-700">
+  if (error) {
+    return page(
+      <main className="mx-auto max-w-4xl px-4 py-10 sm:px-8">
+        <p role="alert" className="text-red-700">
           {error}
         </p>
-      </div>
+      </main>
     )
   }
 
   if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#FAF7F0] text-[#2A3439]">
+    return page(
+      <p role="status" className="mt-16 text-center text-[#555C60]">
         Loading profile...
-      </div>
+      </p>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-[#FAF7F0] text-[#2A3439]">
-      <main className="mx-auto max-w-4xl px-8 py-10">
+  return page(
+    <>
+      <main className="mx-auto max-w-4xl px-4 py-10 sm:px-8">
 
         {/* TOP BAR */}
         <div className="relative mb-12 flex items-center justify-between">
@@ -338,7 +345,7 @@ function Profile({ onBack, onLogout }) {
           <button
             type="button"
             onClick={handleLogout}
-            className="flex items-center gap-3 text-[#7A7F7A] transition hover:text-[#2A3439]"
+            className="flex items-center gap-3 text-[#555C60] transition hover:text-[#2A3439]"
           >
             <LogOut size={20} />
             <span className="font-medium">Sign out</span>
@@ -404,7 +411,7 @@ function Profile({ onBack, onLogout }) {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 

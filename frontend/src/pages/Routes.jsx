@@ -6,9 +6,11 @@ import RouteCard from '../components/RouteCard'
 import RouteDetails from '../components/RouteDetails'
 import RouteSearchMap from '../components/RouteSearchMap'
 import NavigationPage from './Navigation'
+import { useCompassHeading } from '../components/useCompassHeading'
 
 import {
   Navigation,
+  X,
 } from 'lucide-react'
 
 import Navbar from '../components/Navbar'
@@ -37,6 +39,25 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const [activeNavigation, setActiveNavigation] = useState(null)
   const [choice, setChoice] = useState(null)
   const [choiceButtonContainer, setChoiceButtonContainer] = useState(null)
+  const { heading, start: startCompass, stop: stopCompass } = useCompassHeading()
+
+  // Opening route details or navigation adds a browser history entry (see openDetails and
+  // onStartNavigation), so the phone's Back button steps back within SilverRoute.
+  useEffect(() => {
+    const onPopState = (event) => {
+      const view = event.state?.view
+      setNavigating(view === 'navigation')
+      setViewingDetails(view === 'details' || view === 'navigation')
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  const openDetails = (index) => {
+    setSelectedIndex(index)
+    setViewingDetails(true)
+    window.history.pushState({ page: 'routes', view: 'details' }, '')
+  }
 
 
   useEffect(() => {
@@ -83,7 +104,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     setAddressSuggestion(null)
   }, [])
 
-  const useMyLocation = useCallback(() => {
+  const locateUser = useCallback(() => {
     clearResult()
     if (locationWatch.current !== null) {
       navigator.geolocation.clearWatch(locationWatch.current)
@@ -129,6 +150,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
         }
 
         setLocating(false)
+        stopCompass()
 
         if (geoError.code === 1) {
           setError(
@@ -154,13 +176,13 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
         maximumAge: 0,
       }
     )
-  }, [clearResult])
+  }, [clearResult, stopCompass])
 
   useEffect(() => {
     // Defer until mount completes; cancelling also avoids duplicate requests in Strict Mode.
-    const timer = window.setTimeout(useMyLocation, 0)
+    const timer = window.setTimeout(locateUser, 0)
     return () => window.clearTimeout(timer)
-  }, [useMyLocation])
+  }, [locateUser])
 
   const handleFindRoute = async () => {
     if (loading || locating) return
@@ -216,11 +238,14 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
           route={selectedRoute}
           origin={result.origin}
           destination={result.destination}
-          onBack={() => setNavigating(false)}
+          heading={heading}
+          onStartCompass={startCompass}
+          onBack={() => window.history.back()}
           onEnd={() => {
             setActiveNavigation(null)
-            setNavigating(false)
-            setViewingDetails(false)
+            stopCompass()
+            // Skip back past the navigation and route details entries to the results.
+            window.history.go(-2)
           }}
         />
       )}
@@ -251,7 +276,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               engine={result.engine}
               warnings={result.warnings}
               sources={result.sources}
-              onBack={() => setViewingDetails(false)}
+              onBack={() => window.history.back()}
               choiceButtonRef={setChoiceButtonContainer}
               canShare={Boolean(
                 choice?.recommendationId === result.recommendationId &&
@@ -292,6 +317,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                           clearResult()
                           locationRequest.current += 1
                           setLocating(false)
+                          stopCompass()
                           setDeviceLocation(null)
                           setOriginPlace(null)
                           setOriginText(text)
@@ -308,6 +334,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                             locationWatch.current = null
                           }
                           setLocating(false)
+                          stopCompass()
                           setDeviceLocation(null)
                           setOriginText(place.name)
                           setOriginPlace(place)
@@ -318,9 +345,13 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
 
                       <button
                         type="button"
-                        onClick={useMyLocation}
+                        onClick={() => {
+                          // Phones also show which way the user is facing; this must start from a tap.
+                          startCompass()
+                          locateUser()
+                        }}
                         disabled={locating || loading}
-                        className="shrink-0 text-sm font-semibold text-[#7A7F7A] transition hover:text-[#2A3439]"
+                        className="shrink-0 text-sm font-semibold text-[#555C60] transition hover:text-[#2A3439]"
                       >
                         {locating ? 'Locating…' : 'Use my location'}
                       </button>
@@ -355,7 +386,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                         }}
                         onSubmit={handleFindRoute}
                         placeholder="Enter destination, landmark or address"
-                        className="w-full bg-transparent text-base outline-none placeholder:text-[#7A7F7A]"
+                        className="w-full bg-transparent text-base outline-none placeholder:text-[#555C60]"
                       />
 
                     </div>
@@ -405,17 +436,18 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                {error && (
                 <div
                   role="alert"
-                  className="fixed right-4 top-4 z-[2000] flex max-w-sm items-start gap-3 rounded-xl border border-red-200 bg-white p-4 text-red-800 shadow-lg"
+                  className="fixed left-4 right-4 top-4 z-[2000] flex items-start gap-2 rounded-xl border border-red-200 bg-white p-4 pr-2 text-red-800 shadow-lg sm:left-auto sm:max-w-sm"
                 >
-                  <p className="flex-1">{error}</p>
+                  <p className="flex-1 pt-2">{error}</p>
 
+                  {/* 44px target so it is easy to tap on a phone */}
                   <button
                     type="button"
                     onClick={() => setError('')}
                     aria-label="Dismiss error"
-                    className="font-bold text-red-800 hover:text-red-950"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-red-800 hover:bg-red-50 hover:text-red-950"
                   >
-                    ×
+                    <X size={24} aria-hidden="true" />
                   </button>
                 </div>
               )}
@@ -447,6 +479,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                 deviceLocation={deviceLocation}
                 origin={originPlace}
                 destination={destinationPlace}
+                heading={heading}
               />}
             </div>
 
@@ -465,10 +498,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                       key={route.id}
                       route={route}
                       index={index}
-                      onClick={() => {
-                        setSelectedIndex(index)
-                        setViewingDetails(true)
-                      }}
+                      onClick={() => openDetails(index)}
                     />
                   ))}
                 </div>
@@ -498,6 +528,9 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                         routeId: selectedRoute.id,
                       })
                       setNavigating(true)
+                      window.history.pushState({ page: 'routes', view: 'navigation' }, '')
+                      // Started from the "Start navigation" tap, which phones require for the compass.
+                      startCompass()
                     }
                   }}
                   renderButton={(button) =>
