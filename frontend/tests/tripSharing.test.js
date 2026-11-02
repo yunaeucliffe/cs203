@@ -20,7 +20,7 @@ test('an unavailable duration is rejected instead of showing the current time', 
 })
 
 test('route summary codes are shown as plain words', () => {
-  assert.equal(formatRouteSummary('WALK → BUS 10 → SUBWAY EW → WALK'), 'Walk → Bus 10 → Train EW → Walk')
+  assert.equal(formatRouteSummary('WALK → BUS 10 → SUBWAY EW → WALK'), 'Walk → Bus 10 → MRT EW → Walk')
   assert.equal(formatRouteSummary('Bus 10'), 'Bus 10')
 })
 
