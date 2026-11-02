@@ -19,7 +19,7 @@ class RouteRecommendationAgentTests {
             var stop = new RouteLeg.Stop("stop-" + i, null, "Stop " + i, 1.3 + i / 100.0, 103.8);
             var path = List.of(List.of(stop.latitude(), stop.longitude()));
             var leg = new RouteLeg("WALK", null, stop, stop, 60.0 * i, 100.0 * i, null, null, path);
-            routes.add(new RouteOption("onemap-route-" + i, "Candidate", 10 * i, i, 0, "unknown",
+            routes.add(new RouteOption("onemap-route-" + i, "Candidate", 10 * i, i, 0,
                     100.0 * i, 100.0 * i, null, List.of(leg), List.of(path), List.of(), List.of(), original.warnings()));
         }
         var context = TestRoutes.trip().context();
@@ -87,7 +87,7 @@ class RouteRecommendationAgentTests {
         assertThat(response.recommendedRoute().durationMinutes()).isEqualTo(trip.routes().getFirst().durationMinutes());
         assertThat(response.recommendedRoute().routePaths()).isEqualTo(trip.routes().getFirst().routePaths());
         assertThat(response.alternatives()).isEmpty();
-        assertThat(response.warnings()).contains("Some evidence is unavailable","Accessibility has not been verified.");
+        assertThat(response.warnings()).contains("Some evidence is unavailable");
     }
     @Test void refusesInventedIdsAndReportsNoUsableRoutesForEmptyRanking() throws Exception {
         var trip=TestRoutes.trip();
@@ -99,7 +99,7 @@ class RouteRecommendationAgentTests {
         var one=TestRoutes.route();
         List<RouteOption> routes=new ArrayList<>(List.of(one));
         for(int i=2;i<=4;i++) routes.add(new RouteOption("route-"+i,one.summary(),one.durationMinutes(),one.walkingMinutes(),one.transfers(),
-                one.accessibility(),one.walkingDistanceMeters(),one.distanceMeters(),null,one.legs(),one.routePaths(),List.of(),List.of(),List.of()));
+                one.walkingDistanceMeters(),one.distanceMeters(),null,one.legs(),one.routePaths(),List.of(),List.of(),List.of()));
         var trip=new AggregatedTrip(TestRoutes.trip().context(),routes,List.of("onemap"));
         assertThatThrownBy(() -> RouteRecommendationAgent.validateAndBuild(trip,result("route-2","route-2","route-3"),"test"))
                 .isInstanceOf(ModelAgentException.class);

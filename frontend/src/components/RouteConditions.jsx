@@ -1,10 +1,9 @@
-import { createElement } from 'react'
+import { createElement, useState } from 'react'
 import {
-    AlertTriangle,
     CheckCircle2,
+    ChevronDown,
     Clock,
     CloudRain,
-    Info,
     Train,
     Users,
     Accessibility,
@@ -187,43 +186,33 @@ function getEvidenceMessages(evidence) {
         }
     }
 
-    if (Array.isArray(details.stations)) {
-        details.stations.forEach((station) => {
-            const name = station.Station || 'Station'
-            const level = String(
-                station.CrowdLevel || ''
-            ).toLowerCase()
+    if (Array.isArray(details.stations) && details.stations.length > 0) {
+        const readableLevel = { l: 'Low', m: 'Moderate', h: 'High' }
 
-            const readableLevel = {
-                l: 'Low',
-                m: 'Moderate',
-                h: 'High',
-            }[level] || station.CrowdLevel || 'Unknown'
-
-            messages.push(`${name}: ${readableLevel} crowding`)
+        const parts = details.stations.map((station) => {
+            const level = String(station.CrowdLevel || '').toLowerCase()
+            return `${station.Station || 'Station'}: ${readableLevel[level] || station.CrowdLevel || 'Unknown'}`
         })
+
+        messages.push(`Crowding — ${parts.join(', ')}`)
     }
 
-    if (Array.isArray(details.observations)) {
-        details.observations.forEach((observation) => {
-            const rainfall = Number(observation.rainfallMm)
+    if (Array.isArray(details.observations) && details.observations.length > 0) {
+        const readings = details.observations
+            .map((observation) => Number(observation.rainfallMm))
+            .filter(Number.isFinite)
 
-            const rainfallText = Number.isFinite(rainfall)
-                ? `${rainfall} mm recorded`
-                : 'Rainfall amount unavailable'
-
-            const distance = Number(
-                observation.distanceFromWalkingEndpointMeters
-            )
-
-            const distanceText = Number.isFinite(distance)
-                ? `, approximately ${Math.round(distance)} m from a walking endpoint`
-                : ''
+        if (readings.length > 0) {
+            const heaviest = Math.max(...readings)
 
             messages.push(
-                `Nearby rain gauge: ${rainfallText}${distanceText}`
+                heaviest > 0
+                    ? `Rain detected near your route: up to ${heaviest} mm recorded nearby.`
+                    : 'No rainfall detected near your route in the last few minutes.'
             )
-        })
+        } else {
+            messages.push('Nearby rain gauge readings are unavailable.')
+        }
     }
 
     if (Number.isFinite(Number(details.estimatedShelteredWalkingMeters))
@@ -319,63 +308,8 @@ function EvidenceCard({ evidence }) {
     )
 }
 
-function rewriteWarning(warning) {
-    const text = String(warning).trim()
-
-    // Split combined messages into individual sentences.
-    const sentences = text
-        .split(/(?<=[.!?])\s+/)
-        .map(sentence => sentence.trim())
-        .filter(Boolean)
-
-    const normalizedSentences = sentences.map(sentence => {
-        const normalized = sentence.toLowerCase()
-
-        // Normalize accessibility warnings.
-        if (
-            normalized.includes('accessibility') &&
-            (
-                normalized.includes('not verified') ||
-                normalized.includes('unverified')
-            )
-        ) {
-            return 'Accessibility has not been verified.'
-        }
-
-        // Normalize crowd-data warnings.
-        if (
-            normalized.includes('pcd realtime') ||
-            normalized.includes('crowd observations') ||
-            normalized.includes('no recent crowd')
-        ) {
-            return 'Recent crowd information is unavailable for the relevant stations.'
-        }
-
-        return sentence
-    })
-
-    // Remove duplicate sentences while preserving their order.
-    return [...new Map(
-        normalizedSentences.map(sentence => [
-            sentence.toLowerCase(),
-            sentence
-        ])
-    ).values()].join(' ')
-}
-
-function getWarningText(warning) {
-    if (typeof warning === 'string') {
-        return warning.trim()
-    }
-
-    return String(
-        warning?.message ||
-        warning?.description ||
-        JSON.stringify(warning)
-    ).trim()
-}
-
-function RouteConditions({ warnings = [], sources = [] }) {
+function RouteConditions({ sources = [] }) {
+    const [open, setOpen] = useState(false)
     const evidenceItemsRaw = Array.isArray(sources)
         ? sources
         : []
@@ -400,174 +334,108 @@ function RouteConditions({ warnings = [], sources = [] }) {
 
     const evidenceItems = [...evidenceMap.values()]
 
-    const warningItemsRaw = Array.isArray(warnings)
-        ? warnings
-        : warnings
-            ? [warnings]
-            : []
-
-        // Rewrite warnings first, then consolidate duplicate issues.
-    const warningMap = new Map()
-
-    warningItemsRaw.forEach((warning) => {
-        const message = rewriteWarning(getWarningText(warning))
-
-        if (!message) return
-
-        const normalized = message.toLowerCase()
-        let key = normalized
-
-        if (
-            normalized.includes('accessibility') &&
-            (
-                normalized.includes('not verified') ||
-                normalized.includes('unverified')
-            )
-        ) {
-            key = 'accessibility-not-verified'
-        } else if (
-            normalized.includes('busarrival') ||
-            normalized.includes('bus arrival') ||
-            normalized.includes('arrival data')
-        ) {
-            key = 'bus-arrival-unavailable'
-        }
-
-        if (!warningMap.has(key)) {
-            warningMap.set(key, message)
-        }
-    })
-
-    const warningItems = [...warningMap.values()]
-
     return (
-        <section
-            aria-labelledby="route-conditions-heading"
-            className="mt-6 rounded-[24px] border border-[#7A7F7A]/20 bg-[#FAF7F0] p-5 sm:p-6"
-        >
-            <div className="flex items-start gap-3">
-                <div className="rounded-xl bg-amber-100 p-3">
-                    <AlertTriangle
-                        size={22}
-                        className="text-amber-900"
-                    />
-                </div>
-
-                <div>
-                    <h2
-                        id="route-conditions-heading"
-                        className="text-2xl text-[#2A3439]"
-                        style={{
-                            fontFamily: '"DM Serif Display", serif',
-                        }}
-                    >
-                        Route conditions & warnings
-                    </h2>
-
-                    <p className="mt-1 text-sm leading-relaxed text-[#555C60]">
-                        Review reported conditions and data availability
-                        before starting your journey.
-                    </p>
-                </div>
-            </div>
-
-            {/* Route warnings */}
-            <div className="mt-5">
-                <h3 className="flex items-center gap-2 font-semibold text-[#2A3439]">
-                    <AlertTriangle size={18} />
-                    Route warnings
-                </h3>
-
-                {warningItems.length > 0 ? (
-                    <ul className="mt-3 space-y-2">
-                        {warningItems.map((warning) => (
-                            <li
-                                key={warning.toLowerCase()}
-                                className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-relaxed text-amber-950"
-                            >
-                                {warning}
-                            </li>
-                        ))}
-                    </ul>
-                ) : (
-                    <p className="mt-3 flex items-start gap-2 rounded-xl bg-white p-3 text-sm text-[#555C60]">
-                        <Info
-                            size={18}
-                            className="mt-0.5 shrink-0"
+        <section className="mt-6 rounded-[24px] border border-[#7A7F7A]/20 bg-[#FAF7F0] p-5 sm:p-6">
+            <button
+                type="button"
+                onClick={() => setOpen(!open)}
+                aria-expanded={open}
+                aria-controls="route-conditions-content"
+                className="flex w-full items-center justify-between gap-3 text-left"
+            >
+                <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-[#DCE7D2] p-3">
+                        <CheckCircle2
+                            size={22}
+                            className="text-[#2A3439]"
                         />
-
-                        <span>
-                            No route warnings were supplied. This does
-                            not guarantee that the journey is free of
-                            disruptions.
-                        </span>
-                    </p>
-                )}
-            </div>
-
-            {/* Condition information */}
-            <div className="mt-6 border-t border-[#7A7F7A]/20 pt-5">
-                <h3 className="flex items-center gap-2 font-semibold text-[#2A3439]">
-                    <CheckCircle2 size={18} />
-                    Condition data
-                </h3>
-
-                {evidenceItems.length > 0 ? (
-                    <div className="mt-3 grid gap-3">
-                        {evidenceItems.map((evidence, index) => (
-                            <EvidenceCard
-                                key={`${evidence?.source || 'source'}-${index}`}
-                                evidence={evidence}
-                            />
-                        ))}
                     </div>
-                ) : (
-                    <p className="mt-3 rounded-xl bg-white p-3 text-sm text-[#555C60]">
-                        Condition data was not provided for this route.
-                        Current conditions therefore remain unverified.
-                    </p>
-                )}
-            </div>
-
-            {/* Estimate and data limitations */}
-            <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
-                <div className="flex items-start gap-2">
-                    <Clock
-                        size={19}
-                        className="mt-0.5 shrink-0 text-blue-900"
-                    />
 
                     <div>
-                        <h3 className="font-semibold text-blue-950">
-                            Important limitations
-                        </h3>
+                        <h2
+                            className="text-2xl text-[#2A3439]"
+                            style={{
+                                fontFamily: '"DM Serif Display", serif',
+                            }}
+                        >
+                            Route conditions
+                        </h2>
 
-                        <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-blue-950">
-                            <li>
-                                Travel times and route estimates may
-                                differ from actual journey conditions.
-                            </li>
-
-                            <li>
-                                Live information may be delayed,
-                                incomplete, or unavailable.
-                            </li>
-
-                            <li>
-                                Nearby rainfall readings describe
-                                observed conditions, not a route-specific
-                                weather forecast.
-                            </li>
-
-                            <li>
-                                Missing maintenance reports do not
-                                guarantee that lifts or other facilities
-                                are operational.
-                            </li>
-                        </ul>
+                        <p className="mt-1 text-sm leading-relaxed text-[#555C60]">
+                            Review reported conditions and data availability
+                            before starting your journey.
+                        </p>
                     </div>
                 </div>
-            </div>
+
+                <ChevronDown
+                    size={20}
+                    className={`shrink-0 text-[#555C60] transition-transform ${open ? 'rotate-180' : ''}`}
+                />
+            </button>
+
+            {open && (
+                <div id="route-conditions-content">
+                    {/* Condition information */}
+                    <div className="mt-6 border-t border-[#7A7F7A]/20 pt-5">
+                        {evidenceItems.length > 0 ? (
+                            <div className="grid gap-3">
+                                {evidenceItems.map((evidence, index) => (
+                                    <EvidenceCard
+                                        key={`${evidence?.source || 'source'}-${index}`}
+                                        evidence={evidence}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="rounded-xl bg-white p-3 text-sm text-[#555C60]">
+                                Condition data was not provided for this route.
+                                Current conditions therefore remain unverified.
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Estimate and data limitations */}
+                    <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                        <div className="flex items-start gap-2">
+                            <Clock
+                                size={19}
+                                className="mt-0.5 shrink-0 text-blue-900"
+                            />
+
+                            <div>
+                                <h3 className="font-semibold text-blue-950">
+                                    Important limitations
+                                </h3>
+
+                                <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-blue-950">
+                                    <li>
+                                        Travel times and route estimates may
+                                        differ from actual journey conditions.
+                                    </li>
+
+                                    <li>
+                                        Live information may be delayed,
+                                        incomplete, or unavailable.
+                                    </li>
+
+                                    <li>
+                                        Nearby rainfall readings describe
+                                        observed conditions, not a route-specific
+                                        weather forecast.
+                                    </li>
+
+                                    <li>
+                                        Missing maintenance reports do not
+                                        guarantee that lifts or other facilities
+                                        are operational.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </section>
     )
 }

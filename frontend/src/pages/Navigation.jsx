@@ -173,7 +173,39 @@ function Navigation({
   const [location, setLocation] = useState(null)
   const [locationError, setLocationError] = useState('')
   const [following, setFollowing] = useState(true)
+  const [handlePosition, setHandlePosition] = useState(null)
   const panel = useRef(null)
+  const container = useRef(null)
+
+  // On phones the panel is a bottom sheet of varying height, not a full-height column,
+  // so the toggle is tracked against its actual right edge instead of a fixed offset.
+  // On larger screens the sidebar is a full-height column, so the desktop-only classes
+  // below are used instead and this stays null.
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)')
+    function update() {
+      if (desktop.matches || sidebarHidden || !panel.current || !container.current) {
+        setHandlePosition(null)
+        return
+      }
+      const panelRect = panel.current.getBoundingClientRect()
+      const containerRect = container.current.getBoundingClientRect()
+      setHandlePosition({
+        left: panelRect.right - containerRect.left,
+        top: panelRect.top - containerRect.top + panelRect.height / 2,
+      })
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    if (panel.current) observer.observe(panel.current)
+    window.addEventListener('resize', update)
+    desktop.addEventListener('change', update)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+      desktop.removeEventListener('change', update)
+    }
+  }, [sidebarHidden])
 
   // The compass starts from the "Start navigation" tap. Tapping "Follow my location"
   // tries again, e.g. if the phone asked for permission and the user said no at first.
@@ -217,9 +249,9 @@ function Navigation({
   const end = legs.at(-1)?.to || destination
 
   return (
-    <div className={`relative h-dvh w-full overflow-hidden bg-[#FAF7F0] text-[#2A3439] ${sidebarHidden ? '' : 'grid grid-cols-[min(400px,85vw)_minmax(0,1fr)]'}`}>
+    <div ref={container} className={`relative h-dvh w-full overflow-hidden bg-[#FAF7F0] text-[#2A3439] ${sidebarHidden ? '' : 'lg:grid lg:grid-cols-[min(400px,85vw)_minmax(0,1fr)]'}`}>
 
-      <div className="relative h-full min-w-0 col-start-2 row-start-1">
+      <div className="relative h-full min-w-0 lg:col-start-2 lg:row-start-1">
       {/* NAVIGATION MAP */}
       <MapContainer
         center={[1.3521, 103.8198]}
@@ -303,7 +335,10 @@ function Navigation({
         aria-label={sidebarHidden ? 'Show directions' : 'Hide directions'}
         title={sidebarHidden ? 'Show directions' : 'Hide directions'}
         aria-expanded={!sidebarHidden} aria-controls="journey-sidebar"
-        className={`absolute left-0 top-1/2 z-[1100] flex h-16 w-12 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 border-[#7A7F7A]/20 bg-white text-[#3E424B] shadow-md hover:bg-[#FAF7F0] focus-visible:outline-2 focus-visible:outline-offset-2 ${sidebarHidden ? '' : 'left-[min(400px,85vw)]'}`}>
+        style={handlePosition ? { left: handlePosition.left, top: handlePosition.top } : undefined}
+        className={handlePosition
+          ? 'absolute z-[1100] flex h-16 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl border border-[#7A7F7A]/20 bg-white text-[#3E424B] shadow-md hover:bg-[#FAF7F0] focus-visible:outline-2 focus-visible:outline-offset-2'
+          : `absolute left-0 top-1/2 z-[1100] flex h-16 w-12 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 border-[#7A7F7A]/20 bg-white text-[#3E424B] shadow-md hover:bg-[#FAF7F0] focus-visible:outline-2 focus-visible:outline-offset-2 ${sidebarHidden ? '' : 'lg:left-[min(400px,85vw)]'}`}>
         {sidebarHidden ? <ChevronRight size={28} aria-hidden="true" /> : <ChevronLeft size={28} aria-hidden="true" />}
       </button>
 

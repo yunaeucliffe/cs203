@@ -11,11 +11,11 @@ public record RouteContext(Trip trip, SavedPreferences preferences, List<Candida
             String toId, String toName, Double durationSeconds, Double distanceMeters,
             String startTime, String endTime) {}
     public record Candidate(String id, String summary, Integer durationMinutes, Integer walkingMinutes,
-            Double walkingDistanceMeters, Integer transfers, String accessibility,
+            Double walkingDistanceMeters, Integer transfers,
             Double estimatedShelteredWalkingMeters, List<Leg> legs, List<RouteEvidence> evidence) {
         public static Candidate from(RouteOption route) {
             return new Candidate(route.id(), route.summary(), route.durationMinutes(), route.walkingMinutes(),
-                    route.walkingDistanceMeters(), route.transfers(), route.accessibility(),
+                    route.walkingDistanceMeters(), route.transfers(),
                     route.estimatedShelteredWalkingMeters(), route.legs().stream().map(leg ->
                         new Leg(leg.mode(), leg.service(), leg.from().id(), leg.from().name(),
                             leg.to().id(), leg.to().name(), leg.durationSeconds(), leg.distanceMeters(),

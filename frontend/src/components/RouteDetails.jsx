@@ -24,7 +24,6 @@ import {
     Bus,
     Umbrella,
     Navigation,
-    Accessibility,
 } from 'lucide-react'
 
 import 'leaflet/dist/leaflet.css'
@@ -68,7 +67,6 @@ function RouteDetails({
     origin,
     destination,
     engine,
-    warnings = [],
     onBack,
     choiceButtonRef,
     canShare = false,
@@ -82,18 +80,6 @@ function RouteDetails({
 
     const { buses: liveBuses } = useBusArrivals(route, !isDemo)
 
-    const accessibility = route.accessibility
-
-    const accessibilityText =
-        accessibility == null
-            ? 'Unverified'
-            : typeof accessibility === 'string'
-                ? accessibility
-                : typeof accessibility === 'boolean'
-                    ? (accessibility ? 'Accessible' : 'Not accessible')
-                    : accessibility.verified === true
-                        ? (accessibility.summary || accessibility.status || 'Verified')
-                        : 'Unverified'
     const isWalkingOnly = Array.isArray(route.legs) && route.legs.length > 0 && route.legs.every((leg) => getLegMode(leg) === 'WALK')
     return (
         <div>
@@ -259,26 +245,6 @@ function RouteDetails({
 
                     </div>
 
-
-                    {/* ACCESSIBILITY */}
-                    <div className="mt-6 border-t border-[#7A7F7A]/20 pt-5">
-
-                        <div className="flex items-center gap-3">
-                            <Accessibility size={21} />
-
-                            <div>
-                                <p className="font-semibold">
-                                    Accessibility
-                                </p>
-
-                                <p className="text-sm text-[#555C60]">
-                                    {accessibilityText}
-                                </p>
-                            </div>
-                        </div>
-
-                    </div>
-
                     {/* JOURNEY STEPS */}
                     <div className="mt-8 border-t border-[#7A7F7A]/20 pt-6">
 
@@ -382,9 +348,8 @@ function RouteDetails({
 
             </div>
 
-            {/* ROUTE CONDITIONS & WARNINGS */}
+            {/* ROUTE CONDITIONS */}
             <RouteConditions
-                warnings={warnings}
                 sources={route.evidence ?? []}
             />
 

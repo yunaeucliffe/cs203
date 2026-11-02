@@ -280,7 +280,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               origin={result.origin}
               destination={result.destination}
               engine={result.engine}
-              warnings={result.warnings}
               sources={result.sources}
               onBack={() => window.history.back()}
               choiceButtonRef={setChoiceButtonContainer}

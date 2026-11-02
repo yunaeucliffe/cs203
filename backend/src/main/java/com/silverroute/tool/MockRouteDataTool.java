@@ -14,7 +14,7 @@ public class MockRouteDataTool implements RouteDataTool {
                 route("route-2",29,12,1), route("route-3",38,3,1)), List.of("Mock data; not for navigation"));
     }
     private RouteOption route(String id, int duration, int walking, int transfers) {
-        return new RouteOption(id, "Demo itinerary", duration, walking, transfers, "unknown", null, null,
+        return new RouteOption(id, "Demo itinerary", duration, walking, transfers, null, null,
                 null, List.of(), List.of(), List.of(), List.of(), List.of("Mock data; not for navigation"));
     }
 }
