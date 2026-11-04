@@ -188,14 +188,14 @@ public class RouteConditionsService {
                     Map<String, Object> values = selected(bus, "EstimatedArrival", "Load", "Feature", "Type");
                     arrivals.add(values);
                 }
-                if (arrivals.isEmpty())
-                    return unavailable("LTA BusArrival", snapshot,
-                            "No upcoming arrival estimate for service " + service);
-                return available("LTA BusArrival", snapshot, null,
-                        Map.of("busStopCode", code, "service", service, "arrivals", arrivals,
-                                "note", "Vehicle features do not verify accessibility of the whole journey"));
+                if (!arrivals.isEmpty())
+                    return available("LTA BusArrival", snapshot, null,
+                            Map.of("busStopCode", code, "service", service, "arrivals", arrivals,
+                                    "note", "Vehicle features do not verify accessibility of the whole journey"));
             }
-        return unavailable("LTA BusArrival", snapshot, "No arrival data for the matching service " + service);
+        // LTA answered normally but listed no buses for the service (e.g. it has stopped for the night).
+        return available("LTA BusArrival", snapshot, null, Map.of("busStopCode", code, "service", service,
+                "arrivals", List.of(), "note", "No upcoming buses are listed for service " + service + " right now."));
     }
 
     public RouteEvidence refreshBusArrivals(String code, String service) {

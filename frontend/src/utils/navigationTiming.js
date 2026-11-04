@@ -58,11 +58,11 @@ const plannedWait = (legs, index) =>
 
 // Live arrivals for a bus leg from time `from` onwards (when the traveller can be at the stop).
 function liveBus(route, index, now, from) {
-  const { evidence, stale } = busArrivalDetails(route, index, now)
+  const { evidence, stale, noBuses } = busArrivalDetails(route, index, now)
   const arrivals = evidence?.availability === 'available' ? [...new Set((evidence.details.arrivals || [])
     .map(bus => Date.parse(bus.EstimatedArrival)).filter(time => Number.isFinite(time) && time >= from))]
     .sort((a, b) => a - b) : []
-  return { at: arrivals[0], arrivals, stale, retrievedAt: evidence?.retrievedAt }
+  return { at: arrivals[0], arrivals, stale, noBuses, retrievedAt: evidence?.retrievedAt }
 }
 
 // Without a usable position we can't tell where the traveller is, so show the planned journey

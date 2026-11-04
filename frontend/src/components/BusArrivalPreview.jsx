@@ -7,7 +7,8 @@ export function BusArrivalTimes({ bus, now }) {
   const next = bus.at && minutes(bus.at)
   return <>
     <p className={bus.at ? 'text-base font-semibold' : 'text-sm text-[#555C60]'}>
-      {!bus.at ? 'No live bus time yet. Using planned time.'
+      {bus.noBuses ? 'No buses available now'
+        : !bus.at ? 'No live bus time yet. Using planned time.'
         : next === 0 ? 'Arriving now' : `Arrives in ${next} min`}
     </p>
     {bus.arrivals?.length > 1 && <p className="text-sm text-[#555C60]">
