@@ -17,21 +17,26 @@ class RouteConditionsServiceTests {
         assertThat(result.availability()).isEqualTo("available");
         assertThat(result.details()).containsEntry("busStopCode","01234").containsEntry("service","97");
         assertThat(result.retrievedAt()).isEqualTo(clock.instant().toString());
-        assertThat(service.refreshBusArrivals("01234","98").availability()).isEqualTo("unavailable");
+        var noBuses=service.refreshBusArrivals("01234","98");
+        assertThat(noBuses.availability()).isEqualTo("available");
+        assertThat(noBuses.details()).containsEntry("arrivals",List.of());
         verify(lta,times(1)).getBusArrivals("01234");
         when(lta.getBusArrivals("54321")).thenThrow(new IllegalStateException("outage"));
         assertThat(service.refreshBusArrivals("54321","97").availability()).isEqualTo("unavailable");
     }
     @Test void busEstimatesRejectOtherStopsServicesAndPastArrivals() throws Exception {
-        for(String response:List.of(
-                TestRoutes.fixture("bus-arrivals").replace("01234","54321"),
-                TestRoutes.fixture("bus-arrivals").replace("\"97\"","\"98\""),
-                TestRoutes.fixture("bus-arrivals").replace("08:05:00","07:59:59"))) {
+        // Another stop's data is unusable; a missing service or only past buses means no buses are coming.
+        for(var expected:Map.of(
+                TestRoutes.fixture("bus-arrivals").replace("01234","54321"),"unavailable",
+                TestRoutes.fixture("bus-arrivals").replace("\"97\"","\"98\""),"available",
+                TestRoutes.fixture("bus-arrivals").replace("08:05:00","07:59:59"),"available").entrySet()) {
             var isolated=new RouteConditionsService(lta,weather,new EvidenceCache(clock),shelter,clock);
-            when(lta.getBusArrivals("01234")).thenReturn(response);
+            when(lta.getBusArrivals("01234")).thenReturn(expected.getKey());
             var result=isolated.attachConditions(TestRoutes.route(),true,new HashMap<>());
             var bus=result.evidence().stream().filter(e -> e.source().equals("LTA BusArrival")).findFirst().orElseThrow();
-            assertThat(bus.availability()).isEqualTo("unavailable");
+            assertThat(bus.availability()).isEqualTo(expected.getValue());
+            assertThat(bus.details().getOrDefault("arrivals",List.of())).isEqualTo(List.of());
+            assertThat(result.warnings().toString()).doesNotContain("No arrival data","No upcoming arrival");
             assertThat(bus.details()).containsEntry("legIndex",1).containsEntry("busStopCode","01234").containsEntry("service","97");
             assertThat(bus.retrievedAt()).isEqualTo(clock.instant().toString());
             assertThat(result.durationMinutes()).isEqualTo(23);

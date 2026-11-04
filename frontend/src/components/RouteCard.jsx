@@ -5,6 +5,7 @@ import {
     Navigation,
     ArrowRight,
 } from 'lucide-react'
+import { formatRouteSummary } from '../utils/tripSharing'
 
 function RouteCard({ route, index, onClick }) {
     return (
@@ -37,7 +38,7 @@ function RouteCard({ route, index, onClick }) {
 
             {/* ROUTE SUMMARY */}
             <p className="mt-3 text-base text-[#555C60]">
-                {route.summary}
+                {formatRouteSummary(route.summary || '')}
             </p>
             
 

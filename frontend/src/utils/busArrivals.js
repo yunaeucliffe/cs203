@@ -45,6 +45,8 @@ export function busArrivalDetails(route, legIndex, now = Date.now()) {
       .filter(value => Number.isFinite(Date.parse(value)) && Date.parse(value) >= now))]
       .sort((a, b) => Date.parse(a) - Date.parse(b)) : []
   const arrivals = currentArrivals.filter(value => Date.parse(value) >= readyAt)
-  return { evidence, arrivals, stale, expectedAtStop, readyAt,
+  // LTA answered normally but listed no buses for the service (e.g. it has stopped for the night).
+  const noBuses = evidence?.availability === 'available' && !stale && evidence.details?.arrivals?.length === 0
+  return { evidence, arrivals, stale, noBuses, expectedAtStop, readyAt,
     noCatchableArrivals: currentArrivals.length > 0 && arrivals.length === 0 }
 }

@@ -248,6 +248,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
           route={selectedRoute}
           origin={result.origin}
           destination={result.destination}
+          startedAt={activeNavigation?.startedAt}
           heading={heading}
           onStartCompass={startCompass}
           onBack={() => window.history.back()}
@@ -279,11 +280,13 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
         <main className="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8 lg:pt-6">
           {viewingDetails && selectedRoute ? (
             <RouteDetails
+              key={selectedRoute.id}
               route={selectedRoute}
               index={selectedIndex}
               origin={result.origin}
               destination={result.destination}
               engine={result.engine}
+              live={!navigating}
               warnings={result.warnings}
               sources={result.sources}
               onBack={() => window.history.back()}
@@ -533,10 +536,14 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                   }
                   onStartNavigation={() => {
                     if (canStartNavigation) {
-                      setActiveNavigation({
-                        recommendationId: result.recommendationId,
-                        routeId: selectedRoute.id,
-                      })
+                      // Keep the original start time when continuing the same navigation.
+                      setActiveNavigation(current =>
+                        current?.recommendationId === result.recommendationId &&
+                        current?.routeId === selectedRoute.id ? current : {
+                          recommendationId: result.recommendationId,
+                          routeId: selectedRoute.id,
+                          startedAt: Date.now(),
+                        })
                       setNavigating(true)
                       window.history.pushState({ page: 'routes', view: 'navigation' }, '')
                       // Started from the "Start navigation" tap, which phones require for the compass.
