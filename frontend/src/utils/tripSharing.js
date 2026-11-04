@@ -6,6 +6,22 @@ export function estimateArrival(route, startedAt = Date.now()) {
   return new Date(startedAt + route.durationMinutes * 60000).toISOString()
 }
 
+export function matchesJourney(share, journey) {
+  return Boolean(journey && share.origin === journey.origin.trim()
+    && share.destination === journey.destination.trim()
+    && share.routeSummary === journey.summary.trim())
+}
+
+export function freshJourneyLocation(location, now = Date.now()) {
+  return Boolean(location && Number.isFinite(location.latitude) && Number.isFinite(location.longitude)
+    && Number.isFinite(location.timestamp) && now - location.timestamp <= 30000
+    && location.timestamp <= now)
+}
+
+export function isSharingJourney(share, journey, allowed) {
+  return Boolean(share.liveLocation && matchesJourney(share, journey) && allowed[share.id] === journey.id)
+}
+
 const MODE_LABELS = { WALK: 'Walk', BUS: 'Bus', SUBWAY: 'Train', RAIL: 'Train', TRAM: 'Train' }
 
 // "WALK → BUS 10 → SUBWAY EW" becomes "Walk → Bus 10 → Train EW" for family members.

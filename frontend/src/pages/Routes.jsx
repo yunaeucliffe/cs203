@@ -245,6 +245,8 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     <>
       {navigating && selectedRoute && (
         <NavigationPage
+          key={activeNavigation?.id}
+          journeyId={activeNavigation?.id}
           route={selectedRoute}
           origin={result.origin}
           destination={result.destination}
@@ -288,10 +290,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               sources={result.sources}
               onBack={() => window.history.back()}
               choiceButtonRef={setChoiceButtonContainer}
-              canShare={Boolean(
-                choice?.recommendationId === result.recommendationId &&
-                choice?.routeId === selectedRoute.id && !choice.saving
-              )}
             />
           ) : (
             <>
@@ -533,7 +531,9 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                   }
                   onStartNavigation={() => {
                     if (canStartNavigation) {
-                      setActiveNavigation({
+                      setActiveNavigation(current => current?.recommendationId === result.recommendationId &&
+                        current?.routeId === selectedRoute.id ? current : {
+                        id: `${result.recommendationId}:${selectedRoute.id}:${Date.now()}`,
                         recommendationId: result.recommendationId,
                         routeId: selectedRoute.id,
                       })

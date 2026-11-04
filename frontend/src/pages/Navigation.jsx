@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import { TripSharingButton } from '../components/TripSharing'
+import { useJourneySharing } from '../components/useJourneySharing'
 import DirectionMarker from '../components/DirectionMarker'
 
 import {
@@ -242,6 +243,7 @@ function Navigation({
   destination,
   onBack,
   onEnd,
+  journeyId,
   heading = null,
   onStartCompass = () => {},
 }) {
@@ -251,6 +253,7 @@ function Navigation({
   const [locationError, setLocationError] = useState('')
   const [following, setFollowing] = useState(true)
   const panel = useRef(null)
+  useJourneySharing({ id: journeyId, route, origin, destination, location })
 
   // The compass starts from the "Start navigation" tap. Tapping "Follow my location"
   // tries again, e.g. if the phone asked for permission and the user said no at first.
@@ -269,6 +272,7 @@ function Navigation({
       setLocationError('')
     }, error => {
       if (!active) return
+      if (error.code !== 3) setLocation(null)
       setLocationError(error.code === 1
         ? 'Location permission is blocked. Allow location access in your browser to follow your journey.'
         : error.code === 3
@@ -420,7 +424,7 @@ function Navigation({
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            <TripSharingButton route={route} origin={origin} destination={destination} canShare />
+            <TripSharingButton route={route} origin={origin} destination={destination} canShare={Boolean(journeyId)} />
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
