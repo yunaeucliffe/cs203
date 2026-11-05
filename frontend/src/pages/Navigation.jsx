@@ -3,6 +3,9 @@ import L from 'leaflet'
 import { TripSharingButton } from '../components/TripSharing'
 import { useJourneySharing } from '../components/useJourneySharing'
 import DirectionMarker from '../components/DirectionMarker'
+import { useNavigationTiming } from '../components/useNavigationTiming'
+import { BusArrivalTimes } from '../components/BusArrivalPreview'
+import { clockTime } from '../utils/navigationTiming'
 
 import {
   MapContainer,
@@ -86,8 +89,8 @@ function getInstruction(leg) {
 
   if (mode === 'TRAIN') {
     return leg.service
-      ? `Take ${leg.service}${destination ? ` to ${destination}` : ''}`
-      : `Take the train${destination ? ` to ${destination}` : ''}`
+      ? `Take MRT ${leg.service}${destination ? ` to ${destination}` : ''}`
+      : `Take the MRT${destination ? ` to ${destination}` : ''}`
   }
 
   return destination
@@ -244,6 +247,7 @@ function Navigation({
   onBack,
   onEnd,
   journeyId,
+  startedAt,
   heading = null,
   onStartCompass = () => {},
 }) {
@@ -254,6 +258,8 @@ function Navigation({
   const [following, setFollowing] = useState(true)
   const panel = useRef(null)
   useJourneySharing({ id: journeyId, route, origin, destination, location })
+  const [fallbackStart] = useState(Date.now)
+  const timing = useNavigationTiming(route, location, startedAt ?? fallbackStart)
 
   // The compass starts from the "Start navigation" tap. Tapping "Follow my location"
   // tries again, e.g. if the phone asked for permission and the user said no at first.
@@ -278,6 +284,9 @@ function Navigation({
         : error.code === 3
           ? 'Location update timed out. Waiting for a new GPS fix…'
           : 'Your location is unavailable. Waiting for a GPS signal…')
+      // Phones standing still (e.g. at a bus stop) can time out; the 30-second check below
+      // clears an old fix, so only clear it straight away for real failures.
+      if (error.code !== 3) setLocation(null)
     }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 })
     const timer = window.setInterval(() => {
       setLocation(current => current && Date.now() - current.timestamp > 30000 ? null : current)
@@ -442,27 +451,33 @@ function Navigation({
 
           <div>
             <p className="text-sm text-[#555C60]">
-              Estimated duration
+              Time left (estimated)
             </p>
             <p className="mt-1 text-xl font-bold">
-              {route?.durationMinutes != null
-                ? `${route.durationMinutes} min`
+              {timing.minutes != null
+                ? `${timing.minutes} min`
                 : '—'}
             </p>
           </div>
 
           <div>
             <p className="text-sm text-[#555C60]">
-              Total distance
+              Arrive by (estimated)
             </p>
             <p className="mt-1 text-xl font-bold">
-              {formatDistance(route?.distanceMeters)}
+              {Number.isFinite(timing.arrival) ? clockTime(timing.arrival) : '—'}
             </p>
           </div>
 
         </div>
 
-        {locationError && <p role="status" className="px-6 pb-4 text-sm text-amber-900">{locationError}</p>}
+        <div className="px-6 pb-4 text-sm text-[#555C60]" role="status">
+          <p>Last updated {clockTime(timing.updatedAt)}</p>
+          {!timing.located && <p>{locationError || !location
+            ? 'Location unavailable. Showing planned times.'
+            : 'Away from the route. Showing planned times.'}</p>}
+          {timing.outdated && <p>Live updates unavailable. Times may be outdated.</p>}
+        </div>
 
         {/* EXPANDED CONTENT */}
           <div className={`${expanded ? 'block' : 'hidden'} max-h-[38dvh] overflow-y-auto border-t border-[#7A7F7A]/15 px-6 py-5 lg:block lg:max-h-none lg:min-h-0 lg:flex-1`}>
@@ -476,6 +491,9 @@ function Navigation({
 
                 {legs.map((leg, index) => {
                   const mode = getMode(leg)
+                  // Remaining minutes for current and later steps; planned minutes for finished ones.
+                  const stepMinutes = timing.stepMinutes[index] ??
+                    (leg.durationSeconds != null ? Math.ceil(leg.durationSeconds / 60) : null)
 
                   return (
                     <div
@@ -499,14 +517,16 @@ function Navigation({
                         </p>
 
                         <p className="mt-1 text-sm text-[#555C60]">
-                          {leg.durationSeconds != null
-                            ? `${Math.ceil(leg.durationSeconds / 60)} min`
-                            : 'Duration unavailable'}
+                          {stepMinutes != null ? `${stepMinutes} min` : 'Duration unavailable'}
 
                           {' · '}
 
                           {formatDistance(leg.distanceMeters)}
                         </p>
+
+                        {timing.buses[index] && <div className="mt-1">
+                          <BusArrivalTimes bus={timing.buses[index]} now={timing.now} />
+                        </div>}
 
                       </div>
 

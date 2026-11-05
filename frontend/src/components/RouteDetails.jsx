@@ -1,6 +1,9 @@
 import { useEffect } from 'react'
 import L from 'leaflet'
-import BusArrivals from './BusArrivals'
+import BusArrivalPreview from './BusArrivalPreview'
+import { useBusArrivals } from './useBusArrivals'
+import { navigationTiming } from '../utils/navigationTiming'
+import { formatRouteSummary } from '../utils/tripSharing'
 import RouteConditions from './RouteConditions'
 
 import {
@@ -110,8 +113,8 @@ function getInstruction(leg) {
 
     if (mode === 'TRAIN') {
         return service
-            ? `Take ${service}${to ? ` to ${to}` : ''}`
-            : `Take the train${to ? ` to ${to}` : ''}`
+            ? `Take MRT ${service}${to ? ` to ${to}` : ''}`
+            : `Take the MRT${to ? ` to ${to}` : ''}`
     }
 
     return from && to
@@ -124,7 +127,7 @@ function getModeLabel(leg) {
 
     if (mode === 'WALK') return 'Walking'
     if (mode === 'BUS') return 'Bus'
-    if (mode === 'TRAIN') return 'Train'
+    if (mode === 'TRAIN') return 'MRT'
 
     return 'Transport'
 }
@@ -192,6 +195,7 @@ function RouteDetails({
     warnings = [],
     onBack,
     choiceButtonRef,
+    live = true,
 }) {
     const paths = route.routePaths || []
 
@@ -199,6 +203,12 @@ function RouteDetails({
     const end = route.legs?.at(-1)?.to || destination
 
     const isDemo = engine?.startsWith('mock')
+    const showLiveTimes = live && !isDemo
+    const { route: currentRoute, now, failed } = useBusArrivals(route, showLiveTimes)
+    // Live preview assumes the journey starts now; otherwise show the planned times.
+    const timing = showLiveTimes
+        ? navigationTiming(currentRoute, { index: 0, fraction: 0 }, now, now)
+        : { minutes: route.durationMinutes, buses: {}, stepTimes: {} }
 
     const accessibility = route.accessibility
 
@@ -273,9 +283,8 @@ function RouteDetails({
 
                 {/* ROUTE SUMMARY */}
                 <p className="mt-2 text-[#555C60]">
-                    {route.summary}
+                    {formatRouteSummary(route.summary || '')}
                 </p>
-                <BusArrivals key={route.id} route={route} live={!isDemo} />
 
 
                 {/* DEMO NOTICE */}
@@ -312,9 +321,9 @@ function RouteDetails({
                                 Duration
                             </p>
                             <p className="font-semibold">
-                                {route.durationMinutes == null
+                                {timing.minutes == null
                                     ? 'Unavailable'
-                                    : `${route.durationMinutes} min`}
+                                    : `${timing.minutes} min`}
                             </p>
                         </div>
 
@@ -446,8 +455,10 @@ function RouteDetails({
                                 {route.legs.map((leg, legIndex) => {
 
                                     const mode = getMode(leg)
-                                    const startTime = formatTime(leg.startTime)
-                                    const endTime = formatTime(leg.endTime)
+                                    const bus = timing.buses[legIndex]
+                                    const times = timing.stepTimes[legIndex]
+                                    const startTime = formatTime(times?.departure ?? leg.startTime)
+                                    const endTime = formatTime(times?.arrival ?? leg.endTime)
 
                                     return (
                                         <div
@@ -498,6 +509,8 @@ function RouteDetails({
 
 
                                                 {/* INTERMEDIATE STOPS */}
+                                                {bus && <BusArrivalPreview bus={bus} now={now} failed={failed.includes(legIndex)} />}
+
                                                 {mode !== 'WALK' &&
                                                     Array.isArray(leg.intermediateStops) &&
                                                     leg.intermediateStops.length > 0 && (
@@ -534,9 +547,9 @@ function RouteDetails({
                                                 {/* DEPARTURE / ARRIVAL */}
                                                 {(startTime || endTime) && (
                                                     <p className="mt-2 text-sm text-[#555C60]">
-                                                        {startTime && `Depart ${startTime}`}
-                                                        {startTime && endTime && ' · '}
-                                                        {endTime && `Arrive ${endTime}`}
+                                                        {startTime}
+                                                        {startTime && endTime && ' → '}
+                                                        {endTime}
                                                     </p>
                                                 )}
 

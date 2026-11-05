@@ -22,9 +22,9 @@ export function isSharingJourney(share, journey, allowed) {
   return Boolean(share.liveLocation && matchesJourney(share, journey) && allowed[share.id] === journey.id)
 }
 
-const MODE_LABELS = { WALK: 'Walk', BUS: 'Bus', SUBWAY: 'Train', RAIL: 'Train', TRAM: 'Train' }
+const MODE_LABELS = { WALK: 'Walk', BUS: 'Bus', SUBWAY: 'MRT', RAIL: 'Train', TRAM: 'Train' }
 
-// "WALK → BUS 10 → SUBWAY EW" becomes "Walk → Bus 10 → Train EW" for family members.
+// "WALK → BUS 10 → SUBWAY EW" becomes "Walk → Bus 10 → MRT EW" for travellers and family members.
 export function formatRouteSummary(summary) {
   return summary.split(' → ').map(part => {
     const [mode, ...rest] = part.split(' ')
