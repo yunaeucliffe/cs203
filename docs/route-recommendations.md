@@ -111,7 +111,7 @@ This abbreviated example is illustrative, not a real recommendation. Successful 
 | 503 | Profile missing, OneMap failure, or no usable candidate routes |
 | 502 | OpenAI unconfigured, unavailable, refused, incomplete, or returned invalid selections |
 
-When OneMap finds no route (HTTP 404, e.g. after midnight when buses and trains have stopped and the trip is too far to walk), the 503 message says no public transport routes are available and what to try next; searches between 12:00 am and 5:30 am Singapore time also say services may have stopped for the night. Other OneMap failures return "Routes are temporarily unavailable. Please try again in a few minutes." and the original exception is logged on the server.
+When OneMap finds no route (HTTP 404, e.g. after midnight when buses and MRT trains have stopped and the trip is too far to walk), the 503 message says no public transport routes are available and what to try next; searches between 12:00 am and 5:30 am Singapore time also say services may have stopped for the night. Other OneMap failures return "Routes are temporarily unavailable. Please try again in a few minutes." and the original exception is logged on the server.
 
 Application errors contain `status`, `message`, `requestId`, and `timestamp`. Spring Security rejection bodies may differ; the frontend should handle non-JSON errors too. Provider diagnostics and credentials are not echoed to the browser.
 

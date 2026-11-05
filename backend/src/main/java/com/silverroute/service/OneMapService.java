@@ -244,7 +244,7 @@ public class OneMapService {
     public static String noRouteMessage(OffsetDateTime departureTime) {
         LocalTime time = singaporeDeparture(departureTime).toLocalTime();
         if (time.isBefore(LocalTime.of(5, 30))) {
-            return "No public transport routes are available right now. Buses and trains may have stopped for the night. "
+            return "No public transport routes are available right now. Buses and MRT trains may have stopped for the night. "
                     + "Try again after 5:30 am, or choose a starting point closer to your destination.";
         }
         return "No public transport routes are available for this trip right now. "

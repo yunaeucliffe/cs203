@@ -87,7 +87,7 @@ public class RouteConditionsService {
                     java.util.stream.Stream.concat(fromCodes.stream(), toCodes.stream())
                             .filter(code -> usedLine.equals(stationLine(code))).forEach(stations::add);
                 } else
-                    warnings.add("The train line for a route leg could not be matched.");
+                    warnings.add("The MRT line for a route leg could not be matched.");
             }
         }
         boolean rail = route.legs().stream().anyMatch(l -> isRail(l.mode()));
@@ -188,14 +188,14 @@ public class RouteConditionsService {
                     Map<String, Object> values = selected(bus, "EstimatedArrival", "Load", "Feature", "Type");
                     arrivals.add(values);
                 }
-                if (arrivals.isEmpty())
-                    return unavailable("LTA BusArrival", snapshot,
-                            "No upcoming arrival estimate for service " + service);
-                return available("LTA BusArrival", snapshot, null,
-                        Map.of("busStopCode", code, "service", service, "arrivals", arrivals,
-                                "note", "Vehicle features do not verify accessibility of the whole journey"));
+                if (!arrivals.isEmpty())
+                    return available("LTA BusArrival", snapshot, null,
+                            Map.of("busStopCode", code, "service", service, "arrivals", arrivals,
+                                    "note", "Vehicle features do not verify accessibility of the whole journey"));
             }
-        return unavailable("LTA BusArrival", snapshot, "No arrival data for the matching service " + service);
+        // LTA answered normally but listed no buses for the service (e.g. it has stopped for the night).
+        return available("LTA BusArrival", snapshot, null, Map.of("busStopCode", code, "service", service,
+                "arrivals", List.of(), "note", "No upcoming buses are listed for service " + service + " right now."));
     }
 
     public RouteEvidence refreshBusArrivals(String code, String service) {
@@ -234,7 +234,7 @@ public class RouteConditionsService {
                     "MRT service status unknown: the alert provider could not be reached or returned invalid data");
         if (!value.isObject() || !value.path("Status").isValueNode())
             return unavailable("LTA TrainServiceAlerts", snapshot,
-                    "MRT service status unknown: invalid train alert response");
+                    "MRT service status unknown: invalid MRT alert response");
         String status = value.path("Status").asText();
         if (!Set.of("1", "2").contains(status))
             return unavailable("LTA TrainServiceAlerts", snapshot,
@@ -243,7 +243,7 @@ public class RouteConditionsService {
         List<String> notices = new ArrayList<>();
         boolean unknown = legs.stream().anyMatch(leg -> leg.line() == null);
         if (unknown)
-            notices.add("MRT service status unknown for a route leg: its train line could not be matched.");
+            notices.add("MRT service status unknown for a route leg: its MRT line could not be matched.");
         JsonNode segments = value.path("AffectedSegments");
         if (!segments.isArray() && status.equals("2"))
             return unavailable("LTA TrainServiceAlerts", snapshot,

@@ -359,6 +359,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
           route={selectedRoute}
           origin={result?.origin ?? activeNavigation?.origin ?? initialJourney?.origin}
           destination={result?.destination ?? activeNavigation?.destination ?? initialJourney?.destination}
+          startedAt={activeNavigation?.startedAt}
           heading={heading}
           onStartCompass={startCompass}
           onBack={() => {
@@ -398,11 +399,13 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
         <main className="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8 lg:pt-6">
           {viewingDetails && selectedRoute ? (
             <RouteDetails
+              key={selectedRoute.id}
               route={selectedRoute}
               index={selectedIndex}
               origin={result.origin}
               destination={result.destination}
               engine={result.engine}
+              live={!navigating}
               warnings={result.warnings}
               sources={result.sources}
               onBack={() => window.history.back()}
@@ -677,6 +680,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
                       selectedIndex,
                       origin: result.origin,
                       destination: result.destination,
+                      startedAt: Date.now(),
                     }
 
                     try {

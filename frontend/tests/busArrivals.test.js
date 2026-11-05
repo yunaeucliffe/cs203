@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { navigationTiming } from '../src/utils/navigationTiming.js'
 import { busArrivalDetails, retainBusArrivalEvidence } from '../src/utils/busArrivals.js'
 
 const now = Date.parse('2026-09-28T00:00:00Z')
@@ -9,6 +10,24 @@ const route = () => ({ legs: [{ mode: 'BUS', service: '97', startTime: new Date(
       { EstimatedArrival: '2026-09-28T08:05:00+08:00' },
       { EstimatedArrival: 'invalid' }, { EstimatedArrival: '2026-09-27T08:05:00+08:00' },
     ] } }] })
+
+test('normal no-arrival responses replace old times without marking navigation outdated', () => {
+  const data = route()
+  data.legs[0].durationSeconds = 600
+  const empty = { ...data.evidence[0], details: { ...data.evidence[0].details, arrivals: [] } }
+  assert.equal(retainBusArrivalEvidence(data, 0, empty, data.evidence), empty)
+  assert.equal(retainBusArrivalEvidence(data, 0, null, [empty]), empty)
+  const updated = { ...data, evidence: [empty] }
+  assert.equal(busArrivalDetails(updated, 0, now).noBuses, true)
+  assert.equal(busArrivalDetails(data, 0, now).noBuses, false)
+  const timing = navigationTiming(updated, null, now, now)
+  assert.equal(timing.buses[0].noBuses, true)
+  assert.equal(timing.outdated, false)
+  // Like live times, it expires instead of claiming no buses forever.
+  const later = navigationTiming(updated, null, now + 60000, now)
+  assert.equal(later.buses[0].noBuses, false)
+  assert.equal(later.outdated, true)
+})
 
 test('failed refresh preserves original evidence until its existing freshness deadline', () => {
   const data = route()
