@@ -21,7 +21,7 @@ function Home() {
     const [destination, setDestination] = useState('')
     const [destinationPlace, setDestinationPlace] = useState(null)
     const [currentPage, setCurrentPage] = useState('home')
-    const [resumeJourneyOnOpen, setResumeJourneyOnOpen] = useState(false)
+    const [routesOpenMode, setRoutesOpenMode] = useState('restoreSearch')
     const [isAuthenticated, setIsAuthenticated] = useState(false)
     const [userName, setUserName] = useState('there')
     const [savedPlaces, setSavedPlaces] = useState([])
@@ -99,10 +99,9 @@ function Home() {
     }, [])
 
     const handleSearch = () => {
-        if (destination.trim() === '') {
-            return
-        }
+        if (destination.trim() === '') return
 
+        setRoutesOpenMode('newSearch')
         goTo('routes')
     }
 
@@ -122,8 +121,18 @@ function Home() {
 
     const selectSavedPlace = (place) => {
         setDestination(place.address)
-        setDestinationPlace(Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
-            ? { name: place.address, address: place.address, latitude: place.latitude, longitude: place.longitude } : null)
+        setDestinationPlace(
+            Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
+                ? {
+                    name: place.address,
+                    address: place.address,
+                    latitude: place.latitude,
+                    longitude: place.longitude,
+                }
+                : null
+        )
+
+        setRoutesOpenMode('newSearch')
         goTo('routes')
     }
 
@@ -180,7 +189,10 @@ function Home() {
             <Profile
                 onBack={() => goTo('home')}
                 onHome={() => goTo('home')}
-                onRoutes={() => goTo('routes')}
+                onRoutes={() => {
+                    setRoutesOpenMode('restoreSearch')
+                    goTo('routes')
+                }}
                 onSavedPlaces={openSavedPlaces}
                 onSignIn={() => goTo('signIn')}
                 isAuthenticated={isAuthenticated}
@@ -203,6 +215,7 @@ function Home() {
                 }}
 
                 onRoutes={() => {
+                    setRoutesOpenMode('restoreSearch')
                     goTo('routes')
                     setAddSavedPlace(false)
                 }}
@@ -232,13 +245,14 @@ function Home() {
                 onProfile={() => goTo('profile')}
                 onSavedPlaces={openSavedPlaces}
                 isAuthenticated={isAuthenticated}
-                initialDestination={destination}
-                initialDestinationPlace={destinationPlace}
-                initialJourney={activeJourney}
-                resumeJourneyOnOpen={resumeJourneyOnOpen}
+                routesOpenMode={routesOpenMode}
+                initialDestination={routesOpenMode === 'newSearch' ? destination : ''}
+                initialDestinationPlace={routesOpenMode === 'newSearch' ? destinationPlace : null}
+                initialJourney={routesOpenMode === 'resumeJourney' ? activeJourney : null}
+                resumeJourneyOnOpen={routesOpenMode === 'resumeJourney'}
                 onJourneyEnd={() => {
                     setActiveJourney(null)
-                    setResumeJourneyOnOpen(false)
+                    setRoutesOpenMode('restoreSearch')
                 }}
             />
         )
@@ -258,7 +272,10 @@ function Home() {
                 <Navbar
                     activePage="home"
                     onHome={() => goTo('home')}
-                    onRoutes={() => goTo('routes')}
+                    onRoutes={() => {
+                        setRoutesOpenMode('restoreSearch')
+                        goTo('routes')
+                    }}
                     onSignIn={() => goTo('signIn')}
                     onProfile={() => goTo('profile')}
                     onSavedPlaces={openSavedPlaces}
@@ -293,8 +310,8 @@ function Home() {
                             </div>
 
                             <button
-                                onClick={() => {
-                                    setResumeJourneyOnOpen(true)
+                               onClick={() => {
+                                    setRoutesOpenMode('resumeJourney')
                                     goTo('routes')
                                 }}
                                 className="shrink-0 rounded-xl bg-[#2A3439] px-5 py-3 font-medium text-white transition hover:opacity-90"

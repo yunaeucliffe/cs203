@@ -15,10 +15,7 @@ import {
 
 import Navbar from '../components/Navbar'
 import LocationAutocomplete from '../components/LocationAutocomplete'
-
-function hasCoordinates(location) {
-  return Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude)
-}
+import { hasCoordinates } from '../utils/geo'
 
 function loadRouteSearchState() {
   try {
@@ -28,7 +25,7 @@ function loadRouteSearchState() {
   }
 }
 
-function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAuthenticated, initialDestination = '', initialDestinationPlace = null, initialJourney = null, resumeJourneyOnOpen = false }) {
+function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAuthenticated, initialDestination = '', initialDestinationPlace = null, initialJourney = null, resumeJourneyOnOpen = false, routesOpenMode = 'restoreSearch', }) {
   const [savedSearch] = useState(loadRouteSearchState)
   const [destination, setDestination] = useState(
     initialDestination || savedSearch?.destination?.name || ''
@@ -45,7 +42,9 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
   )
 
   const [destinationPlace, setDestinationPlace] = useState(
-    initialDestinationPlace || savedSearch?.destination || null
+    routesOpenMode === 'newSearch'
+      ? initialDestinationPlace
+      : savedSearch?.destination || null
   )
 
   const [deviceLocation, setDeviceLocation] = useState(
@@ -55,7 +54,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
   )
 
   const [hasSearched, setHasSearched] = useState(
-    Boolean(savedSearch?.hasSearched)
+    routesOpenMode !== 'newSearch' && Boolean(savedSearch?.hasSearched)
   )
 
   const [selectedIndex, setSelectedIndex] = useState(
@@ -128,7 +127,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
     }
 
     // Otherwise, restore the previous route search.
-    if (savedSearch?.routes?.length) {
+      if (routesOpenMode === 'restoreSearch' && savedSearch?.routes?.length) {
       return {
         recommendationId: savedSearch.recommendationId,
         origin: savedSearch.origin,
@@ -177,7 +176,10 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
     }
   }, [result])
 
-  const selectedRoute = result?.routes?.[selectedIndex] ?? (initialJourney?.route || activeNavigation?.route || null)
+  const selectedRoute =
+    result?.routes?.[selectedIndex] ??
+    (routesOpenMode === 'resumeJourney' ? initialJourney?.route : null)
+
   const canStartNavigation = Boolean(
     selectedRoute && result?.recommendationId &&
     choice?.recommendationId === result.recommendationId &&
@@ -189,6 +191,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
     pending.current = null
     setLoading(false)
     setResult(null)
+    setHasSearched(false)
     setViewingDetails(false)
     setNavigating(false)
     setError('')
@@ -311,8 +314,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
       }
       setHasSearched(true)
       setSelectedIndex(0)
-      console.log('First route:', routes[0])
-      console.log('First route evidence:', routes[0]?.evidence)
+      // Persist route search results so users can return to them later.
       const searchState = {
         recommendationId: recommendations.recommendationId,
         origin,
@@ -324,8 +326,11 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
         hasSearched: true,
       }
 
-      localStorage.setItem('routeSearchState', JSON.stringify(searchState))
-
+      try {
+        localStorage.setItem('routeSearchState', JSON.stringify(searchState))
+      } catch (error) {
+        console.error('Unable to save route search:', error)
+      }
       setResult({
         ...recommendations,
         origin,
@@ -692,6 +697,14 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
 
                     setActiveNavigation(journey)
                     setNavigating(true)
+
+                    window.history.pushState(
+                      { page: 'routes', view: 'navigation' },
+                      ''
+                    )
+
+                    // Start the compass when beginning a new journey.
+                    startCompass()
                   }}
                   renderButton={(button) =>
                     choiceButtonContainer

@@ -1,11 +1,8 @@
 import { useEffect } from 'react'
 import { Circle, CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet'
+import { hasCoordinates } from '../utils/geo'
 import 'leaflet/dist/leaflet.css'
 import DirectionMarker from './DirectionMarker'
-
-function hasCoordinates(place) {
-  return Number.isFinite(place?.latitude) && Number.isFinite(place?.longitude)
-}
 
 function MapViewport({ origin, destination }) {
   const map = useMap()

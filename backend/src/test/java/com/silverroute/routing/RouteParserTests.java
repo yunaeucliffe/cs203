@@ -9,12 +9,11 @@ import static org.assertj.core.api.Assertions.*;
 import com.silverroute.service.OneMapService;
 
 class RouteParserTests {
-    @Test void retainsOrderedLegsAndUnknownAccessibility() throws Exception {
+    @Test void retainsOrderedLegs() throws Exception {
         var route=TestRoutes.route();
         assertThat(route.durationMinutes()).isEqualTo(23);
         assertThat(route.walkingMinutes()).isEqualTo(3);
         assertThat(route.walkingDistanceMeters()).isEqualTo(22);
-        assertThat(route.accessibility()).isEqualTo("unknown");
         assertThat(route.legs()).extracting(RouteLeg::mode).containsExactly("WALK","BUS","WALK");
         assertThat(route.legs().get(1).from().id()).isEqualTo("1:01234");
         assertThat(route.routePaths().getFirst().getFirst()).containsExactly(1.3,103.8);

@@ -62,7 +62,6 @@ class RouteConditionsServiceTests {
         var json=new ObjectMapper().writeValueAsString(result.evidence());
         assertThat(json).contains("SEA","2.4","S1").doesNotContain("S2","\"service\":\"99\"");
         assertThat(result.estimatedShelteredWalkingMeters()).isBetween(10.0,12.0);
-        assertThat(result.accessibility()).isEqualTo("unknown");
     }
     @Test void partialOutagesPreserveRouteAndNeverTurnIntoZeroRainOrShelter() throws Exception {
         when(lta.getBusArrivals(anyString())).thenThrow(new IllegalStateException("secret diagnostics"));
@@ -90,7 +89,7 @@ class RouteConditionsServiceTests {
         var source=TestRoutes.route();
         var leg=new RouteLeg("SUBWAY","EWL",new RouteLeg.Stop("2:EW24/NS1",null,"Jurong East MRT",1.3,103.8),
                 new RouteLeg.Stop("2:EW25",null,"Chinese Garden",1.31,103.81),1200.0,1000.0,null,null,List.of());
-        var rail=new RouteOption("rail","MRT",20,0,0,"unknown",0.0,1000.0,null,List.of(leg),List.of(),List.of(),List.of(),List.of());
+        var rail=new RouteOption("rail","MRT",20,0,0,0.0,1000.0,null,List.of(leg),List.of(),List.of(),List.of(),List.of());
         when(lta.getFacilitiesMaintenance()).thenReturn(TestRoutes.fixture("facilities"));
         when(lta.getTrainServiceAlerts()).thenReturn(TestRoutes.fixture("train-alerts"));
         when(lta.getStationCrowdDensity("EWL")).thenReturn(TestRoutes.fixture("crowding"));
@@ -112,7 +111,7 @@ class RouteConditionsServiceTests {
     private RouteOption rail(String line,String from,String to) {
         var leg=new RouteLeg("MRT",line,new RouteLeg.Stop(from,null,from,null,null),
                 new RouteLeg.Stop(to,null,to,null,null),1200.0,1000.0,null,null,List.of());
-        return new RouteOption("rail","MRT",20,0,0,"unknown",0.0,1000.0,null,List.of(leg),List.of(),List.of(),List.of(),List.of());
+        return new RouteOption("rail","MRT",20,0,0,0.0,1000.0,null,List.of(leg),List.of(),List.of(),List.of(),List.of());
     }
     private RouteEvidence train(RouteOption route,String json) {
         when(lta.getTrainServiceAlerts()).thenReturn(json);
@@ -145,7 +144,7 @@ class RouteConditionsServiceTests {
     @Test void missingLineOnOneLegDoesNotHideKnownDisruption() {
         var known=rail("EWL","EW24","EW25");
         var missing=rail(null,"Unknown A","Unknown B");
-        var combined=new RouteOption("rail","MRT",40,0,1,"unknown",0.0,2000.0,null,
+        var combined=new RouteOption("rail","MRT",40,0,1,0.0,2000.0,null,
                 List.of(known.legs().getFirst(),missing.legs().getFirst()),List.of(),List.of(),List.of(),List.of());
         assertThat(train(combined,alert("EWL","EW24,EW25")).details())
                 .containsEntry("routeStatus","disrupted").containsEntry("matchingIncomplete",true);
@@ -184,7 +183,7 @@ class RouteConditionsServiceTests {
         var first=new RouteLeg.Stop("EW3",null,"EW3",null,null);
         var later=new RouteLeg.Stop("CG1",null,"CG1",null,null);
         var leg=new RouteLeg("MRT","EWL",from,to,1200.0,1000.0,null,null,List.of(),List.of(first,later));
-        var route=new RouteOption("rail","MRT",20,0,0,"unknown",0.0,1000.0,null,
+        var route=new RouteOption("rail","MRT",20,0,0,0.0,1000.0,null,
                 List.of(leg),List.of(),List.of(),List.of(),List.of());
         assertThat(train(route,alert("EWL","CG1")).details()).containsEntry("routeStatus","disrupted");
     }
