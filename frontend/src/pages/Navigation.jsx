@@ -278,7 +278,6 @@ function Navigation({
       setLocationError('')
     }, error => {
       if (!active) return
-      if (error.code !== 3) setLocation(null)
       setLocationError(error.code === 1
         ? 'Location permission is blocked. Allow location access in your browser to follow your journey.'
         : error.code === 3
