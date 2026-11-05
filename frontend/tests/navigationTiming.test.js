@@ -63,9 +63,24 @@ test('skips an unreachable bus and recalculates arrival from actual walking prog
 })
 
 test('on-board travellers use the remaining ride without waiting for another bus', () => {
-  const result = navigationTiming(route(), { index: 1, fraction: 0.5 }, now, now)
+  const data = route()
+  const halfway = locateOnRoute(data, { latitude: 1.305, longitude: 103.81, accuracy: 10 })
+  const result = navigationTiming(data, halfway, now, now)
   assert.equal(result.minutes, 5)
   assert.deepEqual(result.buses, {})
+})
+
+test('GPS drift at the bus stop does not count as boarding', () => {
+  // Bus leg first, so nothing earlier absorbs the drift. 1 m north is about 0.000009 degrees.
+  const data = route()
+  data.legs.shift()
+  data.evidence[0].details.legIndex = 0
+  for (const metres of [2.2, 20, 90]) {
+    const drifted = locateOnRoute(data, { latitude: 1.3 + metres * 0.000009, longitude: 103.81, accuracy: 90 })
+    const result = navigationTiming(data, drifted, now, now)
+    assert.equal(result.buses[0].at, now + 3 * 60000, `${metres} m: still waiting for the bus`)
+    assert.equal(result.minutes, 13)
+  }
 })
 
 test('expired evidence remains usable as a last known estimate and is marked outdated', () => {
