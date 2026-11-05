@@ -75,6 +75,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
   const [choice, setChoice] = useState(null)
   const [choiceButtonContainer, setChoiceButtonContainer] = useState(null)
   const { heading, start: startCompass, stop: stopCompass } = useCompassHeading()
+  const resumeHistoryInitialized = useRef(false)
 
   // Opening route details or navigation adds a browser history entry.
   // The phone's Back button can then navigate within SilverRoute.
@@ -88,6 +89,20 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
+
+  useEffect(() => {
+    if (
+      resumeHistoryInitialized.current ||
+      !resumeJourneyOnOpen ||
+      !initialJourney?.route
+    ) return
+
+    resumeHistoryInitialized.current = true
+
+    window.history.replaceState({ page: 'routes' }, '')
+    window.history.pushState({ page: 'routes', view: 'details' }, '')
+    window.history.pushState({ page: 'routes', view: 'navigation' }, '')
+  }, [resumeJourneyOnOpen, initialJourney?.route])
 
   const openDetails = (index) => {
     setSelectedIndex(index)
