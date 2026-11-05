@@ -12,6 +12,7 @@ import {
 import MrtBadge from './MrtBadge'
 import BusBadge from './BusBadge'
 import BusLiveStatus from './BusLiveStatus'
+import BusArrivalPreview from '../BusArrivalPreview'
 
 const STOP_DOT_COLOR = {
     origin: '#2F6FED',
@@ -48,7 +49,7 @@ function TimelineStop({ time, name, kind = 'transfer' }) {
 
 // Vertical timeline shared by the Route Details page and the active
 // Navigation sidebar, so both show journey steps the same way.
-function JourneyTimeline({ legs, liveBuses = [], live = true, emptyMessage = 'Detailed journey instructions are not available.' }) {
+function JourneyTimeline({ legs, liveBuses = [], timing, now, failed = [], live = true, emptyMessage = 'Detailed journey instructions are not available.' }) {
     if (!legs?.length) {
         return (
             <p className="mt-4 text-sm text-[#7A7F7A]">
@@ -62,7 +63,7 @@ function JourneyTimeline({ legs, liveBuses = [], live = true, emptyMessage = 'De
 
             {/* ORIGIN */}
             <TimelineStop
-                time={formatTime(legs[0].startTime)}
+                time={formatTime(timing?.stepTimes?.[0]?.departure ?? legs[0].startTime)}
                 name={legs[0].from?.name}
                 kind="origin"
             />
@@ -70,6 +71,8 @@ function JourneyTimeline({ legs, liveBuses = [], live = true, emptyMessage = 'De
             {legs.map((leg, legIndex) => {
 
                 const mode = getLegMode(leg)
+                const duration = timing?.stepMinutes?.[legIndex] != null
+                    ? timing.stepMinutes[legIndex] * 60 : leg.durationSeconds
                 const isLast = legIndex === legs.length - 1
                 const stopCount = (leg.intermediateStops?.length ?? 0) + 1
                 const lineColor =
@@ -115,7 +118,7 @@ function JourneyTimeline({ legs, liveBuses = [], live = true, emptyMessage = 'De
                                         <>
                                             <p className="font-semibold">Walk</p>
                                             <p className="mt-1 text-sm text-[#7A7F7A]">
-                                                About {formatDuration(leg.durationSeconds)}
+                                                About {formatDuration(duration)}
                                                 {leg.distanceMeters != null && `, ${formatDistance(leg.distanceMeters)}`}
                                             </p>
                                         </>
@@ -129,7 +132,10 @@ function JourneyTimeline({ legs, liveBuses = [], live = true, emptyMessage = 'De
                                                     <BusBadge number={leg.service} size="sm" />
                                                 )}
                                             </div>
-                                            {mode === 'BUS' && live && (
+                                            {mode === 'BUS' && live && timing?.buses?.[legIndex] && (
+                                                <BusArrivalPreview bus={timing.buses[legIndex]} now={now} failed={failed.includes(legIndex)} />
+                                            )}
+                                            {mode === 'BUS' && live && !timing && (
                                                 <BusLiveStatus
                                                     bus={liveBuses.find((candidate) => candidate.index === legIndex)}
                                                     live={live}
@@ -138,7 +144,7 @@ function JourneyTimeline({ legs, liveBuses = [], live = true, emptyMessage = 'De
                                             {Array.isArray(leg.intermediateStops) && leg.intermediateStops.length > 0 ? (
                                                 <details className="mt-1">
                                                     <summary className="cursor-pointer text-base font-medium text-[#555C60]">
-                                                        {formatDuration(leg.durationSeconds)} ({stopCount} stop{stopCount === 1 ? '' : 's'})
+                                                        {formatDuration(duration)} ({stopCount} stop{stopCount === 1 ? '' : 's'})
                                                         {leg.distanceMeters != null && ` · ${formatDistance(leg.distanceMeters)}`}
                                                     </summary>
                                                     <ol className="mt-2 list-decimal space-y-1 pl-5 text-base text-[#555C60]">
@@ -153,7 +159,7 @@ function JourneyTimeline({ legs, liveBuses = [], live = true, emptyMessage = 'De
                                                 </details>
                                             ) : (
                                                 <p className="mt-1 text-base font-medium text-[#555C60]">
-                                                    {formatDuration(leg.durationSeconds)} ({stopCount} stop{stopCount === 1 ? '' : 's'})
+                                                    {formatDuration(duration)} ({stopCount} stop{stopCount === 1 ? '' : 's'})
                                                     {leg.distanceMeters != null && ` · ${formatDistance(leg.distanceMeters)}`}
                                                 </p>
                                             )}
@@ -168,7 +174,7 @@ function JourneyTimeline({ legs, liveBuses = [], live = true, emptyMessage = 'De
 
                         {/* STOP */}
                         <TimelineStop
-                            time={formatTime(leg.endTime)}
+                            time={formatTime(timing?.stepTimes?.[legIndex]?.arrival ?? leg.endTime)}
                             name={leg.to?.name}
                             kind={isLast ? 'destination' : 'transfer'}
                         />

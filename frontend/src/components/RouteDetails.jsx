@@ -1,6 +1,7 @@
 import { TripSharingButton } from './TripSharing'
 import { useEffect } from 'react'
-import useBusArrivals from '../hooks/useBusArrivals'
+import { useBusArrivals } from './useBusArrivals'
+import { navigationTiming } from '../utils/navigationTiming'
 import RouteModeChain from './transit/RouteModeChain'
 import JourneyTimeline from './transit/JourneyTimeline'
 import { formatDistance, getLegMode } from '../utils/transit'
@@ -70,6 +71,7 @@ function RouteDetails({
     onBack,
     choiceButtonRef,
     canShare = false,
+    live = true,
 }) {
     const paths = route.routePaths || []
 
@@ -77,8 +79,13 @@ function RouteDetails({
     const end = route.legs?.at(-1)?.to || destination
 
     const isDemo = engine?.startsWith('mock')
+    const showLiveTimes = live && !isDemo
+    const { route: currentRoute, now, failed } = useBusArrivals(route, showLiveTimes)
+    // Live preview assumes the journey starts now; otherwise show the planned times.
+    const timing = showLiveTimes
+        ? navigationTiming(currentRoute, { index: 0, fraction: 0 }, now, now)
+        : { minutes: route.durationMinutes, buses: {}, stepTimes: {} }
 
-    const { buses: liveBuses } = useBusArrivals(route, !isDemo)
 
     const isWalkingOnly = Array.isArray(route.legs) && route.legs.length > 0 && route.legs.every((leg) => getLegMode(leg) === 'WALK')
     return (
@@ -180,9 +187,9 @@ function RouteDetails({
                                 Duration
                             </p>
                             <p className="font-semibold">
-                                {route.durationMinutes == null
+                                {timing.minutes == null
                                     ? 'Unavailable'
-                                    : `${route.durationMinutes} min`}
+                                    : `${timing.minutes} min`}
                             </p>
                         </div>
 
@@ -269,8 +276,10 @@ function RouteDetails({
 
                         <JourneyTimeline
                             legs={route.legs}
-                            liveBuses={liveBuses}
-                            live={!isDemo}
+                            timing={timing}
+                            now={now}
+                            failed={failed}
+                            live={showLiveTimes}
                         />
 
                     </div>

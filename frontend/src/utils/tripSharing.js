@@ -6,9 +6,9 @@ export function estimateArrival(route, startedAt = Date.now()) {
   return new Date(startedAt + route.durationMinutes * 60000).toISOString()
 }
 
-const MODE_LABELS = { WALK: 'Walk', BUS: 'Bus', SUBWAY: 'Train', RAIL: 'Train', TRAM: 'Train' }
+const MODE_LABELS = { WALK: 'Walk', BUS: 'Bus', SUBWAY: 'MRT', RAIL: 'Train', TRAM: 'Train' }
 
-// "WALK → BUS 10 → SUBWAY EW" becomes "Walk → Bus 10 → Train EW" for family members.
+// "WALK → BUS 10 → SUBWAY EW" becomes "Walk → Bus 10 → MRT EW" for travellers and family members.
 export function formatRouteSummary(summary) {
   return summary.split(' → ').map(part => {
     const [mode, ...rest] = part.split(' ')

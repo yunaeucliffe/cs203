@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { TripSharingButton } from '../components/TripSharing'
 import JourneyTimeline from '../components/transit/JourneyTimeline'
-import useBusArrivals from '../hooks/useBusArrivals'
 import { hasCoordinates } from '../utils/geo'
 import { createDestinationIcon } from '../utils/mapIcons'
 import DirectionMarker from '../components/DirectionMarker'
+import { useNavigationTiming } from '../components/useNavigationTiming'
+import { clockTime } from '../utils/navigationTiming'
 
 import {
   MapContainer,
@@ -27,18 +28,6 @@ import {
 } from 'lucide-react'
 
 import 'leaflet/dist/leaflet.css'
-
-function formatDistance(meters) {
-  if (meters == null || !Number.isFinite(Number(meters))) {
-    return '—'
-  }
-
-  const distance = Number(meters)
-
-  return distance >= 1000
-    ? `${(distance / 1000).toFixed(1)} km`
-    : `${Math.round(distance)} m`
-}
 
 function FitNavigationRoute({ paths, start, end }) {
   const map = useMap()
@@ -166,6 +155,7 @@ function Navigation({
   destination,
   onBack,
   onEnd,
+  startedAt,
   heading = null,
   onStartCompass = () => {},
 }) {
@@ -206,6 +196,8 @@ function Navigation({
       desktop.removeEventListener('change', update)
     }
   }, [sidebarHidden])
+  const [fallbackStart] = useState(Date.now)
+  const timing = useNavigationTiming(route, location, startedAt ?? fallbackStart)
 
   // The compass starts from the "Start navigation" tap. Tapping "Follow my location"
   // tries again, e.g. if the phone asked for permission and the user said no at first.
@@ -229,6 +221,9 @@ function Navigation({
         : error.code === 3
           ? 'Location update timed out. Waiting for a new GPS fix…'
           : 'Your location is unavailable. Waiting for a GPS signal…')
+      // Phones standing still (e.g. at a bus stop) can time out; the 30-second check below
+      // clears an old fix, so only clear it straight away for real failures.
+      if (error.code !== 3) setLocation(null)
     }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 })
     const timer = window.setInterval(() => {
       setLocation(current => current && Date.now() - current.timestamp > 30000 ? null : current)
@@ -243,7 +238,6 @@ function Navigation({
   const paths = route?.routePaths || []
   const legs = route?.legs || []
 
-  const { buses: liveBuses } = useBusArrivals(route || { legs: [] }, Boolean(route))
 
   const start = legs[0]?.from || origin
   const end = legs.at(-1)?.to || destination
@@ -379,27 +373,33 @@ function Navigation({
 
           <div>
             <p className="text-sm text-[#555C60]">
-              Estimated duration
+              Time left (estimated)
             </p>
             <p className="mt-1 text-xl font-bold">
-              {route?.durationMinutes != null
-                ? `${route.durationMinutes} min`
+              {timing.minutes != null
+                ? `${timing.minutes} min`
                 : '—'}
             </p>
           </div>
 
           <div>
             <p className="text-sm text-[#555C60]">
-              Total distance
+              Arrive by (estimated)
             </p>
             <p className="mt-1 text-xl font-bold">
-              {formatDistance(route?.distanceMeters)}
+              {Number.isFinite(timing.arrival) ? clockTime(timing.arrival) : '—'}
             </p>
           </div>
 
         </div>
 
-        {locationError && <p role="status" className="px-6 pb-4 text-sm text-amber-900">{locationError}</p>}
+        <div className="px-6 pb-4 text-sm text-[#555C60]" role="status">
+          <p>Last updated {clockTime(timing.updatedAt)}</p>
+          {!timing.located && <p>{locationError || !location
+            ? 'Location unavailable. Showing planned times.'
+            : 'Away from the route. Showing planned times.'}</p>}
+          {timing.outdated && <p>Live updates unavailable. Times may be outdated.</p>}
+        </div>
 
         {/* JOURNEY STEPS */}
           <div className="min-h-0 flex-1 overflow-y-auto border-t border-[#7A7F7A]/15 px-6 py-5">
@@ -410,7 +410,8 @@ function Navigation({
 
             <JourneyTimeline
               legs={legs}
-              liveBuses={liveBuses}
+              timing={timing}
+              now={timing.now}
               live={Boolean(route)}
               emptyMessage="Detailed journey steps are unavailable."
             />
