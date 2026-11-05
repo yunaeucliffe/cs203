@@ -8,7 +8,7 @@ import com.silverroute.routing.SavedPreferences;
 
 class RouteExplanationGeneratorTests {
     private RouteOption route(Double walking, Double shelter, Integer duration, Integer transfers) {
-        return new RouteOption("id", "Trip", duration, null, transfers, "unknown", walking, null, shelter,
+        return new RouteOption("id", "Trip", duration, null, transfers, walking, null, shelter,
                 List.of(), List.of(), List.of(), List.of(), List.of());
     }
     private final SavedPreferences preferences = new SavedPreferences("Slow", 80, 20);

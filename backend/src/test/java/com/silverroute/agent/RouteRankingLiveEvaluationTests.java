@@ -29,7 +29,7 @@ class RouteRankingLiveEvaluationTests {
         for(var scenario:List.of(lowWalking,preferShelter,missingEvidence)) {
             var result=gateway.rank(scenario);
             var routes=scenario.candidates().stream().map(c -> new RouteOption(c.id(),c.summary(),
-                    c.durationMinutes(),c.walkingMinutes(),c.transfers(),c.accessibility(),c.walkingDistanceMeters(),
+                    c.durationMinutes(),c.walkingMinutes(),c.transfers(),c.walkingDistanceMeters(),
                     null,c.estimatedShelteredWalkingMeters(),List.of(),List.of(),c.evidence(),List.of(),List.of())).toList();
             var resolved=RouteRecommendationAgent.validateAndBuild(new AggregatedTrip(scenario,routes,List.of("synthetic")),result,gateway.engine());
             var displayed = new ArrayList<RouteOption>();
@@ -49,6 +49,6 @@ class RouteRankingLiveEvaluationTests {
         // Review factual grounding and uncertainty in the report; JSON compliance does not prove prose correctness.
     }
     private RouteContext.Candidate candidate(String id,int duration,int walking,Double distance,Double sheltered) {
-        return new RouteContext.Candidate(id,"Synthetic public transport route",duration,walking,distance,0,"unknown",sheltered,List.of(),List.of());
+        return new RouteContext.Candidate(id,"Synthetic public transport route",duration,walking,distance,0,sheltered,List.of(),List.of());
     }
 }
