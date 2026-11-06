@@ -12,10 +12,6 @@ public class WeatherService {
         restClient = com.silverroute.routing.ProviderHttp.client("https://api-open.data.gov.sg/v2/real-time/api", 10);
     }
 
-    public String getAirTemperature() {
-        return restClient.get().uri("/air-temperature").retrieve().body(String.class);
-    }
-
     public String getRainfall() {
 
         return restClient.get()

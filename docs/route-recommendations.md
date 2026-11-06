@@ -22,7 +22,7 @@ Normal startup uses OneMap and OpenAI. There is no automatic fallback to fake ro
 
 ## Frontend handoff
 
-The Routes page calls this endpoint and displays ranked choices, per-route weather notes, conditions and map geometry. Its API helper sends authenticated requests and a CSRF token. Equivalent request:
+The Routes page calls this endpoint and displays ranked choices, per-route reasons, warnings and map geometry. Its API helper sends authenticated requests and a CSRF token. Equivalent request:
 
 ```js
 import { API_URL, getCsrfToken } from './api'
@@ -153,9 +153,3 @@ The opt-in `RouteRankingLiveEvaluationTests` makes paid OpenAI requests and is d
 3. Unknown accessibility/shelter: explanations must not claim verified access or guaranteed shelter.
 
 Review AI ranking and warnings against the supplied evidence, including stale data and uncertainty; the report also includes the resolved response with deterministic reasons. Repeat across representative Singapore trips and compare model changes against this baseline; passing structural tests alone is not evidence of ranking quality.
-
-## Weather comfort and route notes
-
-Each route response includes an optional nullable `weatherNote`, generated from the same route-matched weather summary supplied to ranking. Route details show it beneath the overview metrics; older responses without the field render normally. It reports available nearby temperature and rainfall observations and estimated unsheltered walking (or unknown exposure). No valid weather observations means no note. Observations are not a route-wide forecast and shelter is estimated. The note and factual `reasons` do not claim why the model chose its ranking; the full reasons list is not displayed in route details.
-
-Heat uses the highest valid nearby temperature, with a default threshold of 33°C (inclusive), configurable through `WEATHER_HEAT_THRESHOLD_CELSIUS`. Heat alone favors less walking while balancing journey time, transfers, saved preferences and service conditions; it does not automatically override preferences or justify a substantially longer journey. Confirmed rain retains stronger priority for less estimated unsheltered walking, including when heat is also present, and may outweigh a substantially longer journey. Missing weather remains unknown; saved preference scores are never changed. The model output schema remains route IDs and warnings only.

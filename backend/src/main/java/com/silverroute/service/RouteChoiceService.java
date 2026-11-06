@@ -22,13 +22,10 @@ public class RouteChoiceService {
     public RouteChoiceService(UserRepository users, UserPreferenceRepository preferences, RouteChoiceSnapshotRepository snapshots, PreferenceLearningGateway learning) {
         this.users=users; this.preferences=preferences; this.snapshots=snapshots; this.learning=learning;
     }
-    public record Metrics(String id, Double walking, Double sheltered, Integer walkingMinutes, Integer durationMinutes, Integer transfers, boolean walkingOnly) {
-        public Metrics(String id, Double walking, Double sheltered, Integer walkingMinutes, Integer durationMinutes, Integer transfers) {
-            this(id, walking, sheltered, walkingMinutes, durationMinutes, transfers, false);
-        }
+    public record Metrics(String id, Double walking, Double sheltered, Integer walkingMinutes, Integer durationMinutes, Integer transfers) {
         static Metrics from(RouteOption route) {
             return new Metrics(route.id(),route.walkingDistanceMeters(),route.estimatedShelteredWalkingMeters(),
-                    route.walkingMinutes(),route.durationMinutes(),route.transfers(),route.isWalkingOnly());
+                    route.walkingMinutes(),route.durationMinutes(),route.transfers());
         }
         PreferenceLearningContext.RouteMetrics forModel() {
             Double distance=walking!=null && Double.isFinite(walking) && walking>=0 ? walking : null;
@@ -73,7 +70,7 @@ public class RouteChoiceService {
         var routes=read(snapshot.getCandidates(),Metrics[].class);
         var selected=Arrays.stream(routes).filter(route -> route.id().equals(routeId)).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,"Route was not offered"));
-        boolean eligible=!selected.walkingOnly() && preference.isAutomaticLearning() && preference.getPreferenceRevision()==snapshot.getPreferenceRevision();
+        boolean eligible=preference.isAutomaticLearning() && preference.getPreferenceRevision()==snapshot.getPreferenceRevision();
         boolean updated=false;
         String message="Route chosen. Automatic preferences were not changed.";
         if (eligible && !selected.id().equals(routes[0].id())) {

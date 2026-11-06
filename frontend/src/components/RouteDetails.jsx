@@ -67,7 +67,6 @@ function RouteDetails({
     origin,
     destination,
     engine,
-    warnings = [],
     onBack,
     choiceButtonRef,
     live = true,
@@ -119,7 +118,7 @@ function RouteDetails({
 
                         {index === 0 && (
                             <span className="rounded-full bg-[#DCE7D2] px-3 py-1 text-sm font-semibold">
-                                {isWalkingOnly ? 'Walking option' : 'Recommended for you'}
+                                Recommended for you
                             </span>
                         )}
 
@@ -147,24 +146,9 @@ function RouteDetails({
 
                 {/* ROUTE SUMMARY */}
                 <div className="mt-3">
-                    {isWalkingOnly && <p className="mb-2 text-lg font-semibold">Walk all the way</p>}
                     <RouteModeChain legs={route.legs} size="md" />
-                    {isWalkingOnly && route.reasons?.length > 0 && (
-                        <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#555C60]">
-                            {route.reasons.map((reason, i) => <li key={i}>{reason}</li>)}
-                        </ul>
-                    )}
                 </div>
 
-
-                {(warnings.length > 0 || route.warnings?.length > 0) && (
-                    <details className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                        <summary className="cursor-pointer font-semibold">Route notices</summary>
-                        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-                            {[...new Set([...warnings, ...(route.warnings || [])])].map((warning, i) => <li key={i}>{warning}</li>)}
-                        </ul>
-                    </details>
-                )}
 
                 {/* DEMO NOTICE */}
                 {isDemo && (
@@ -265,12 +249,6 @@ function RouteDetails({
 
                     </div>
 
-                    {route.weatherNote && (
-                        <p className="mt-5 rounded-xl bg-[#F0F4EC] p-3 text-sm leading-relaxed text-[#3E424B]">
-                            {route.weatherNote}
-                        </p>
-                    )}
-
                     {/* JOURNEY STEPS */}
                     <div className="mt-8 border-t border-[#7A7F7A]/20 pt-6">
 
@@ -283,12 +261,12 @@ function RouteDetails({
                                 className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
                             >
                                 <p className="font-semibold">
-                                    Walking-only journey
+                                    No public transport legs found
                                 </p>
 
                                 <p className="mt-1">
-                                    This route takes you all the way on foot. No bus or train
-                                    transfers are needed.
+                                    This itinerary contains walking only. Public transport
+                                    availability may be limited at your selected departure time.
                                 </p>
                             </div>
                         )}

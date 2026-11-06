@@ -4,7 +4,6 @@ import {
     ChevronDown,
     Clock,
     CloudRain,
-    Thermometer,
     Train,
     Users,
     Accessibility,
@@ -34,7 +33,6 @@ function getSourceLabel(source) {
         'LTA TrainServiceAlerts': 'Train service alerts',
         'LTA PCDRealTime': 'Station crowding',
         'NEA Rainfall': 'Rainfall observations',
-        'NEA Air Temperature': 'Temperature observations',
         'LTA CoveredLinkWay': 'Covered walkway estimate',
     }
 
@@ -48,7 +46,6 @@ function getSourceLabel(source) {
 }
 
 function getConditionIcon(source) {
-    if (source === 'NEA Air Temperature') return Thermometer
     if (source?.includes('Rainfall')) return CloudRain
     if (source?.includes('TrainServiceAlerts')) return Train
     if (source?.includes('PCDRealTime')) return Users
@@ -118,10 +115,6 @@ function makeReasonUserFriendly(reason, source) {
         source === 'NEA Rainfall'
     ) {
         return 'Recent rainfall information is unavailable for this route.'
-    }
-
-    if (source === 'NEA Air Temperature') {
-        return 'Recent temperature information is unavailable for this route.'
     }
 
     if (normalized.includes('bus arrival')) {
@@ -204,20 +197,7 @@ function getEvidenceMessages(evidence) {
         messages.push(`Crowding — ${parts.join(', ')}`)
     }
 
-    if (Array.isArray(details.observations) && details.observations.some(
-        (observation) => Object.hasOwn(observation, 'temperatureCelsius')
-    )) {
-        const temperatures = details.observations
-            .map((observation) => observation.temperatureCelsius)
-            .filter((value) => typeof value === 'number' && Number.isFinite(value))
-        if (temperatures.length > 0) {
-            const low = Math.min(...temperatures)
-            const high = Math.max(...temperatures)
-            messages.push(`Nearby air temperature: ${low === high ? `${low}°C` : `${low}–${high}°C`}.`)
-        } else {
-            messages.push('Nearby temperature readings are unavailable.')
-        }
-    } else if (Array.isArray(details.observations) && details.observations.length > 0) {
+    if (Array.isArray(details.observations) && details.observations.length > 0) {
         const readings = details.observations
             .map((observation) => Number(observation.rainfallMm))
             .filter(Number.isFinite)

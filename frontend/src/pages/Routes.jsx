@@ -504,15 +504,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                       Your recommended routes
                     </h2>
 
-                {result.warnings?.length > 0 && (
-                  <details className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4"
-                    open={result.routes.every(route => route.legs?.length > 0 && route.legs.every(leg => leg.mode === 'WALK'))}>
-                    <summary className="cursor-pointer font-semibold">Route notices</summary>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-                      {[...new Set(result.warnings)].map((warning, index) => <li key={index}>{warning}</li>)}
-                    </ul>
-                  </details>
-                )}
                 <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                   {result.routes.map((route, index) => (
                     <RouteCard

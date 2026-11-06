@@ -240,20 +240,6 @@ public class OneMapService {
         }
     }
 
-    public String getWalkingRoute(double originLat, double originLon, double destinationLat, double destinationLon) {
-        try {
-            return restClient.get().uri(builder -> builder.path("/api/public/routingsvc/route")
-                    .queryParam("start", originLat + "," + originLon)
-                    .queryParam("end", destinationLat + "," + destinationLon)
-                    .queryParam("routeType", "walk").build())
-                    .header("Authorization", getToken()).retrieve().body(String.class);
-        } catch (HttpClientErrorException exception) {
-            if (exception.getResponseBodyAsString().contains("outside Singapore"))
-                throw new InvalidAddressException("Your starting point or destination is outside Singapore. Choose places in Singapore and try again.");
-            throw exception;
-        }
-    }
-
     // Explains why no route was found and what the user can do next.
     public static String noRouteMessage(OffsetDateTime departureTime) {
         LocalTime time = singaporeDeparture(departureTime).toLocalTime();

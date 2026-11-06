@@ -6,20 +6,12 @@ import java.util.ArrayList;
 import java.util.List;
 import com.silverroute.api.RouteOption;
 import com.silverroute.routing.SavedPreferences;
-import com.silverroute.routing.WeatherSummary;
 
 /** Factual comparisons, independent of the model's reasons for ranking. */
 public final class RouteExplanationGenerator {
     private RouteExplanationGenerator() {}
 
     public static List<String> explain(List<RouteOption> ranked, int index, SavedPreferences preferences) {
-        var route = ranked.get(index);
-        return explain(ranked, index, preferences, WeatherSummary.from(route.evidence(),
-                route.walkingDistanceMeters(), route.estimatedShelteredWalkingMeters(), WeatherSummary.DEFAULT_HEAT_THRESHOLD));
-    }
-
-    public static List<String> explain(List<RouteOption> ranked, int index, SavedPreferences preferences,
-            WeatherSummary weather) {
         RouteOption route = ranked.get(index);
         int otherIndex = index == 0 ? 1 : 0;
         RouteOption other = ranked.size() > 1 ? ranked.get(otherIndex) : null;
@@ -49,40 +41,7 @@ public final class RouteExplanationGenerator {
                 other == null ? null : whole(other.durationMinutes()), "min", other != null, label));
         reasons.add(metric("Transfers", whole(route.transfers()),
                 other == null ? null : whole(other.transfers()), "", other != null, label));
-        if (weather != null && (weather.maxTemperatureCelsius() != null || weather.maxRainfallMm() != null)) {
-            StringBuilder observed = new StringBuilder();
-            if (weather.maxTemperatureCelsius() != null)
-                observed.append("Nearby temperature: ").append(decimal(weather.maxTemperatureCelsius())).append("°C. ");
-            if (weather.maxRainfallMm() != null)
-                observed.append("Nearby rainfall recorded: ").append(decimal(weather.maxRainfallMm())).append(" mm. ");
-            observed.append(valid(route.walkingDistanceMeters())
-                    ? "This route has " + whole(route.walkingDistanceMeters()) + " m of walking. "
-                    : "Walking distance is unavailable. ");
-            observed.append(weather.estimatedUnshelteredWalkingMeters() == null
-                    ? "Unsheltered walking cannot be estimated. "
-                    : "Estimated unsheltered walking: " + whole(weather.estimatedUnshelteredWalkingMeters()) + " m. ");
-            observed.append("Nearby observations are not a route-wide forecast; shelter is an estimate.");
-            reasons.add(observed.toString());
-        }
         return List.copyOf(reasons);
-    }
-
-    public static String weatherNote(WeatherSummary weather) {
-        if (weather == null || (weather.maxTemperatureCelsius() == null && weather.maxRainfallMm() == null))
-            return null;
-        List<String> facts = new ArrayList<>();
-        if (weather.maxTemperatureCelsius() != null)
-            facts.add("Nearby temperature: " + decimal(weather.maxTemperatureCelsius()) + "°C");
-        if (weather.maxRainfallMm() != null)
-            facts.add("Nearby rainfall: " + decimal(weather.maxRainfallMm()) + " mm");
-        facts.add(weather.estimatedUnshelteredWalkingMeters() == null
-                ? "Unsheltered walking is unknown"
-                : "Estimated unsheltered walking: " + whole(weather.estimatedUnshelteredWalkingMeters()) + " m");
-        return String.join(" · ", facts) + ". Nearby observations are not a route-wide forecast; shelter is estimated.";
-    }
-
-    private static String decimal(Double value) {
-        return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
     }
 
     private static String metric(String name, BigDecimal value, BigDecimal other, String unit,

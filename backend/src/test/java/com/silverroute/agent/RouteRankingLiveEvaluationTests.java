@@ -48,36 +48,6 @@ class RouteRankingLiveEvaluationTests {
         assertThat(((RankingResult)report.get(2).get("result")).rankings()).hasSize(1);
         // Review factual grounding and uncertainty in the report; JSON compliance does not prove prose correctness.
     }
-    @Test void evaluateWeatherComfortScenarios() throws Exception {
-        String key = System.getenv("OPENAI_API_KEY"), model = System.getenv("OPENAI_MODEL");
-        assertThat(key).isNotBlank();
-        assertThat(model).isNotBlank();
-        var gateway = new OpenAiModelGateway(key, model);
-        var report = new ArrayList<Map<String, Object>>();
-        for (var conditions : List.of(new double[]{28, 2}, new double[]{31, 0}, new double[]{31, 2})) {
-            var evidence = List.of(
-                    new RouteEvidence("NEA Air Temperature", "2026-09-28T00:00:00Z", "2026-09-28T00:00:00Z",
-                            "available", Map.of("observations", List.of(Map.of("temperatureCelsius", conditions[0])))),
-                    new RouteEvidence("NEA Rainfall", "2026-09-28T00:00:00Z", "2026-09-28T00:00:00Z",
-                            "available", Map.of("observations", List.of(Map.of("rainfallMm", conditions[1])))));
-            var rainy = conditions[1] > 0;
-            var comfortable = new RouteContext.Candidate("comfort", "Longer journey", 55, 4,
-                    rainy ? 400.0 : 100.0, 0, rainy ? 390.0 : 0.0, List.of(), evidence);
-            var fast = new RouteContext.Candidate("fast", "Shorter journey", 25, 12,
-                    rainy ? 200.0 : 900.0, 0, 0.0, List.of(), evidence);
-            var context = new RouteContext(TestRoutes.trip().context().trip(), new SavedPreferences("Normal", 0, 0),
-                    List.of(comfortable, fast), List.of("Synthetic evaluation routes; shelter is estimated"));
-            var ranking = gateway.rank(context);
-            report.add(Map.of("context", context, "result", ranking, "model", model));
-        }
-        Files.createDirectories(Path.of("target"));
-        new ObjectMapper().writerWithDefaultPrettyPrinter()
-                .writeValue(Path.of("target/weather-ranking-evaluation.json").toFile(), report);
-        for (var evaluation : report)
-            assertThat(((RankingResult)evaluation.get("result")).rankings().getFirst().routeId())
-                    .as("Weather comfort should outweigh the 30-minute journey advantage").isEqualTo("comfort");
-    }
-
     private RouteContext.Candidate candidate(String id,int duration,int walking,Double distance,Double sheltered) {
         return new RouteContext.Candidate(id,"Synthetic public transport route",duration,walking,distance,0,sheltered,List.of(),List.of());
     }

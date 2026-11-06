@@ -1,6 +1,5 @@
 import AdditionalPreferences from '../components/AdditionalPreferences'
 import { priorityCategory } from '../utils/priorityCategories'
-import { walkingPreferenceError } from '../utils/walkingPreferences'
 import PrioritySettings from '../components/PrioritySettings'
 import {useEffect, useState} from 'react'
 import InfoRow from '../components/InfoRow'
@@ -37,8 +36,6 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
     minimizeWalkingPriority: 50,
     shelterPriority: 20,
     automaticLearning: true,
-    walkingOnlyEnabled: false,
-    walkingOnlyMaxDistanceMeters: 500,
   })
 
   useEffect(() => {
@@ -77,8 +74,6 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
       minimizeWalkingPriority: user.minimizeWalkingPriority,
       shelterPriority: user.shelterPriority,
       automaticLearning: user.automaticLearning,
-      walkingOnlyEnabled: user.walkingOnlyEnabled ?? false,
-      walkingOnlyMaxDistanceMeters: user.walkingOnlyMaxDistanceMeters ?? 500,
     })
 
     setActionError('')
@@ -88,8 +83,6 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
   const handleSavePreferences = async (event) => {
     event.preventDefault()
     setActionError('')
-    const validationError = walkingPreferenceError(formValues)
-    if (validationError) { setActionError(validationError); return }
     setIsSaving(true)
 
     try {
@@ -293,11 +286,7 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
           </div>
         )}
 
-        {!isEditing && <AdditionalPreferences
-          walkingOnlyEnabled={user.walkingOnlyEnabled}
-          walkingOnlyMaxDistanceMeters={user.walkingOnlyMaxDistanceMeters}
-          automaticLearning={user.automaticLearning}
-        />}
+        {!isEditing && <AdditionalPreferences automaticLearning={user.automaticLearning} />}
 
         {/* EDITING PREFERENCES */}
         {isEditing && (

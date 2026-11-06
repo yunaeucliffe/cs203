@@ -114,10 +114,6 @@ public class RouteConditionsService {
         if (live && route.legs().stream().anyMatch(l -> "WALK".equals(l.mode()))) {
             var rainfall = fetch(requestCache, "rainfall", LIVE, weather::getRainfall);
             evidence.add(rainfall(rainfall, route));
-            var temperature = fetch(requestCache, "air-temperature", LIVE, weather::getAirTemperature);
-            evidence.add(nearbyWeather(temperature, route, "NEA Air Temperature", "Temperature",
-                    "temperatureCelsius", "temperature station",
-                    "Nearby stations report observed air temperature, not a forecast or feels-like temperature"));
         }
         var estimate = shelter.estimate(route);
         evidence.add(estimate.evidence());
@@ -367,16 +363,10 @@ public class RouteConditionsService {
     }
 
     private RouteEvidence rainfall(EvidenceCache.Snapshot snapshot, RouteOption route) {
-        return nearbyWeather(snapshot, route, "NEA Rainfall", "Rainfall", "rainfallMm", "rain gauge",
-                "Nearby rain gauges indicate observed conditions, not a route-specific forecast");
-    }
-
-    private RouteEvidence nearbyWeather(EvidenceCache.Snapshot snapshot, RouteOption route, String source,
-            String label, String valueKey, String stationType, String note) {
         JsonNode data = snapshot.data().path("data"), readings = data.path("readings"),
                 stations = data.path("stations");
         if (!snapshot.available() || !stations.isArray() || !readings.isArray() || readings.isEmpty())
-            return unavailable(source, snapshot, label + " observations are unavailable");
+            return unavailable("NEA Rainfall", snapshot, "Rainfall observations are unavailable");
         JsonNode latest = null;
         Instant observed = null;
         for (JsonNode reading : readings) {
@@ -388,12 +378,12 @@ public class RouteConditionsService {
             }
         }
         if (observed == null || observed.isBefore(clock.instant().minusSeconds(900)) || !latest.path("data").isArray())
-            return unavailable(source, snapshot, label + " observations are stale or invalid");
+            return unavailable("NEA Rainfall", snapshot, "Rainfall observations are stale or invalid");
         Map<String, Double> values = new HashMap<>();
         for (JsonNode reading : latest.path("data")) {
             Double value = number(reading, "value");
             String id = text(reading, "stationId");
-            if (id != null && value != null && Double.isFinite(value))
+            if (id != null && value != null)
                 values.put(id, value);
         }
         Map<String, Map<String, Object>> matched = new LinkedHashMap<>();
@@ -417,15 +407,15 @@ public class RouteConditionsService {
                     }
                     if (nearest != null) {
                         String id = text(nearest, "id");
-                        matched.put(id, Map.of("stationId", id, valueKey, values.get(id),
+                        matched.put(id, Map.of("stationId", id, "rainfallMm", values.get(id),
                                 "distanceFromWalkingEndpointMeters", Math.round(best)));
                     }
                 }
         if (matched.isEmpty())
-            return unavailable(source, snapshot, "No recent " + stationType + " within 5 km of walking endpoints");
-        return available(source, snapshot, observed.toString(),
+            return unavailable("NEA Rainfall", snapshot, "No recent rain gauge within 5 km of walking endpoints");
+        return available("NEA Rainfall", snapshot, observed.toString(),
                 Map.of("observations", List.copyOf(matched.values()),
-                        "note", note));
+                        "note", "Nearby rain gauges indicate observed conditions, not a route-specific forecast"));
     }
 
     private static boolean isRail(String mode) {

@@ -72,27 +72,6 @@ class RouteDataAggregatorServiceTests {
         verify(tool).execute(new TripRequest("A","B",OffsetDateTime.parse("2026-09-28T09:00:00+08:00")));
         verify(conditions).attachConditions(eq(route),eq(false),anyMap());
     }
-    @Test void configuredHeatThresholdFlowsThroughRankingAndExplanations() throws Exception {
-        var tool = mock(RouteDataTool.class);
-        var conditions = mock(RouteConditionsService.class);
-        var clock = Clock.fixed(Instant.parse("2026-09-28T00:00:00Z"), ZoneOffset.UTC);
-        var raw = TestRoutes.route();
-        var observation = new RouteEvidence("NEA Air Temperature", clock.instant().toString(),
-                clock.instant().toString(), "available", Map.of("observations", List.of(Map.of("temperatureCelsius", 31.0))));
-        var enriched = raw.attachConditions(10.0, List.of(observation), List.of());
-        when(tool.execute(any())).thenReturn(new ToolExecutionResult("OneMap", List.of(raw), List.of()));
-        when(conditions.attachConditions(eq(raw), eq(true), anyMap())).thenReturn(enriched);
-        var preferences = new SavedPreferences("Normal", 20, 40);
-        var trip = new RouteDataAggregatorService(tool, conditions, clock, 32).aggregate(
-                new TripRequest("A", "B", OffsetDateTime.parse("2026-09-28T00:00:00Z")), preferences);
-        assertThat(trip.context().preferences()).isEqualTo(preferences);
-        assertThat(trip.context().candidates().getFirst().weather().hot()).isFalse();
-        var ranking = new com.silverroute.agent.RankingResult(List.of(
-                new com.silverroute.agent.RankingResult.Selection(raw.id(), List.of())));
-        var answer = com.silverroute.agent.RouteRecommendationAgent.validateAndBuild(trip, ranking, "test");
-        assertThat(answer.reasons().getLast()).contains("Nearby temperature: 31°C").doesNotContain("Hot-weather ranking");
-    }
-
     @Test void noCandidatesFailsWithoutConditions() throws Exception {
         var tool=mock(RouteDataTool.class); var conditions=mock(RouteConditionsService.class);
         when(tool.execute(any())).thenReturn(new ToolExecutionResult("OneMap",List.of(),List.of()));

@@ -27,10 +27,6 @@ class PreferenceLearningTests {
     @Test void requestValidationRejectsOutOfRangeScoresAndInvalidSpeed() {
         try(var factory=jakarta.validation.Validation.buildDefaultValidatorFactory()) {
             var validator=factory.getValidator();
-            for (int limit : new int[]{99,5001})
-                assertThat(validator.validate(new com.silverroute.dto.UpdatePreferencesRequest("Normal",50,20,true,true,limit))).hasSize(1);
-            for (int limit : new int[]{100,500,5000})
-                assertThat(validator.validate(new com.silverroute.dto.UpdatePreferencesRequest("Normal",50,20,true,true,limit))).isEmpty();
             assertThat(validator.validate(new com.silverroute.dto.UpdatePreferencesRequest("Normal",null,null,null))).hasSize(3);
             assertThat(validator.validate(new com.silverroute.dto.UpdatePreferencesRequest("Normal",0,100,true))).isEmpty();
             assertThat(validator.validate(new com.silverroute.dto.UpdatePreferencesRequest("Other",-1,101,true))).hasSize(3);

@@ -21,20 +21,18 @@ test('refreshes arrivals independently of route recommendations with cancellatio
   assert.deepEqual(await fetchBusArrivals('01234', '97', signal), evidence)
 })
 
-test('posts authenticated coordinates and CSRF; preserves ranking, weather notes, reasons and warnings', async () => {
+test('posts authenticated coordinates and CSRF; preserves ranking, reasons and warnings', async () => {
   const calls = []
   globalThis.fetch = async (url, options) => {
     calls.push({ url, options })
     if (url.endsWith('/csrf')) return ok({ token: 'session-token' })
-    return ok({ recommendedRoute: { id: 'best', reasons: ['Less walking'], weatherNote: 'Nearby rainfall: 2 mm'  },
+    return ok({ recommendedRoute: { id: 'best', reasons: ['Less walking'] },
       alternatives: [{ id: 'next' }], warnings: ['Rain unavailable'], engine: 'openai:test' })
   }
   const signal = new AbortController().signal
   const result = await searchRoutes(origin, destination, signal)
   assert.deepEqual(result.routes.map(route => route.id), ['best', 'next'])
   assert.deepEqual(result.routes[0].reasons, ['Less walking'])
-  assert.equal(result.routes[0].weatherNote, 'Nearby rainfall: 2 mm')
-  assert.equal(result.routes[1].weatherNote, undefined)
   assert.deepEqual(result.warnings, ['Rain unavailable'])
   assert.equal(calls[1].url, 'http://localhost:8081/api/route-recommendations')
   assert.equal(calls[1].options.credentials, 'include')

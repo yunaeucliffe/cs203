@@ -9,7 +9,6 @@ import RouteModeChain from './transit/RouteModeChain'
 import { formatTime, getLegMode, formatDistance } from '../utils/transit'
 
 function RouteCard({ route, index, onClick }) {
-    const walkingOnly = route.legs?.length > 0 && route.legs.every(leg => getLegMode(leg) === 'WALK')
     const firstTransitLeg = route.legs?.find((leg) => getLegMode(leg) !== 'WALK')
     const departureTime = formatTime(firstTransitLeg?.startTime)
     const departureFrom = firstTransitLeg?.from?.name
@@ -27,7 +26,7 @@ function RouteCard({ route, index, onClick }) {
                 </p>
                 {index === 0 && (
                     <span className="rounded-full bg-[#3E424B] px-3 py-1 text-sm font-semibold text-white">
-                        {walkingOnly ? 'Walking option' : 'Recommended for you'}
+                        Recommended for you
                     </span>
                 )}
             </div>
@@ -44,7 +43,6 @@ function RouteCard({ route, index, onClick }) {
 
             {/* ROUTE SUMMARY */}
             <div className="mt-3">
-                {walkingOnly && <p className="mb-2 text-lg font-semibold">Walk all the way</p>}
                 <RouteModeChain legs={route.legs} size="md" />
             </div>
 

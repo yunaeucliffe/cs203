@@ -35,26 +35,6 @@ class ProfileServiceTests {
         profileService = new ProfileService(userRepository, preferenceRepository);
     }
 
-    @Test void walkingPreferencesPersistAndOlderUpdatesPreserveThem() {
-        var user = new User("Mary Tan", "marytan", "mary@example.com", "unused");
-        ReflectionTestUtils.setField(user, "id", 1L);
-        var preference = new UserPreference(1L, "Normal", 50, 20);
-        assertThat(preference.isWalkingOnlyEnabled()).isFalse();
-        assertThat(preference.getWalkingOnlyMaxDistanceMeters()).isEqualTo(500);
-        when(userRepository.findByEmail("mary@example.com")).thenReturn(Optional.of(user));
-        when(preferenceRepository.lockByUserId(1L)).thenReturn(Optional.of(preference));
-        var updated = profileService.updatePreferences("mary@example.com",
-                new UpdatePreferencesRequest("Normal",50,20,true,true,1200)).orElseThrow();
-        assertThat(updated.walkingOnlyEnabled()).isTrue();
-        assertThat(updated.walkingOnlyMaxDistanceMeters()).isEqualTo(1200);
-        var legacy = profileService.updatePreferences("mary@example.com",
-                new UpdatePreferencesRequest("Slow",60,30,true)).orElseThrow();
-        assertThat(legacy.walkingOnlyEnabled()).isTrue();
-        assertThat(legacy.walkingOnlyMaxDistanceMeters()).isEqualTo(1200);
-        preference.updateWalkingOnly(false, null);
-        assertThat(preference.getWalkingOnlyMaxDistanceMeters()).isEqualTo(1200);
-    }
-
     @Test
     void getProfileCombinesUserAndPreferences() {
         User user = new User("Mary Tan", "marytan", "mary@example.com", "unused");

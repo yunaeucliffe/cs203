@@ -13,13 +13,6 @@ import org.springframework.test.context.ActiveProfiles;
 class BackendApplicationTests {
     @LocalServerPort private int port;
     @Test void contextLoads() {}
-    @org.springframework.beans.factory.annotation.Autowired
-    private tools.jackson.databind.json.JsonMapper json;
-    @Test void fractionalWalkingLimitsAreNotSilentlyTruncated() {
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> json.readValue(
-                "{\"walkingSpeed\":\"Normal\",\"minimizeWalkingPriority\":50,\"shelterPriority\":20,\"automaticLearning\":true,\"walkingOnlyEnabled\":true,\"walkingOnlyMaxDistanceMeters\":500.5}",
-                com.silverroute.dto.UpdatePreferencesRequest.class)).isInstanceOf(Exception.class);
-    }
     @Test void recommendationEndpointRequiresCsrf() throws Exception {
         var request=HttpRequest.newBuilder().uri(URI.create("http://localhost:"+port+"/api/route-recommendations"))
                 .header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString("{}" )).build();
