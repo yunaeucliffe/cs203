@@ -1,12 +1,13 @@
 import { createPortal } from 'react-dom'
 import RouteChoice from '../components/RouteChoice'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { searchRoutes } from '../api/routes'
 import RouteCard from '../components/RouteCard'
 import RouteDetails from '../components/RouteDetails'
 import RouteSearchMap from '../components/RouteSearchMap'
 import NavigationPage from './Navigation'
 import { useCompassHeading } from '../components/useCompassHeading'
+import { TripSharingContext } from '../components/TripSharingContext'
 
 import {
   Navigation,
@@ -76,6 +77,11 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
   const [choiceButtonContainer, setChoiceButtonContainer] = useState(null)
   const { heading, start: startCompass, stop: stopCompass } = useCompassHeading()
   const resumeHistoryInitialized = useRef(false)
+
+  const { setJourney, endJourney } = useContext(TripSharingContext)
+
+  // Stop sharing the journey's location when leaving Routes.
+  useEffect(() => () => setJourney(null), [setJourney])
 
   // Opening route details or navigation adds a browser history entry.
   // The phone's Back button can then navigate within SilverRoute.
@@ -376,6 +382,8 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
     <>
       {navigating && selectedRoute && (
         <NavigationPage
+          key={activeNavigation?.id}
+          journeyId={activeNavigation?.id}
           route={selectedRoute}
           origin={result?.origin ?? activeNavigation?.origin ?? initialJourney?.origin}
           destination={result?.destination ?? activeNavigation?.destination ?? initialJourney?.destination}
@@ -387,6 +395,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
             window.history.back()
           }}
           onEnd={() => {
+            endJourney()
             localStorage.removeItem('activeJourney')
             setActiveNavigation(null)
             stopCompass()
@@ -430,10 +439,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
               sources={result.sources}
               onBack={() => window.history.back()}
               choiceButtonRef={setChoiceButtonContainer}
-              canShare={Boolean(
-                choice?.recommendationId === result.recommendationId &&
-                choice?.routeId === selectedRoute.id && !choice.saving
-              )}
             />
           ) : (
             <>
@@ -674,25 +679,27 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
                     activeNavigation?.routeId === selectedRoute.id
                   }
                   onStartNavigation={() => {
-                    // Resume an existing journey without asking the user to choose again.
+                    // Continue an existing journey without resetting its start time.
                     if (
                       activeNavigation?.recommendationId === result.recommendationId &&
                       activeNavigation?.routeId === selectedRoute.id
                     ) {
                       setNavigating(true)
+
                       window.history.pushState(
                         { page: 'routes', view: 'navigation' },
                         ''
                       )
-                      // Started from the navigation tap, which phones may require for the compass.
+
                       startCompass()
                       return
                     }
 
-                    // Start a new journey only when the route choice is valid.
+                    // New journeys require a valid route choice.
                     if (!canStartNavigation) return
 
                     const journey = {
+                      id: `${result.recommendationId}:${selectedRoute.id}:${Date.now()}`,
                       recommendationId: result.recommendationId,
                       routeId: selectedRoute.id,
                       route: selectedRoute,
@@ -703,6 +710,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
                       startedAt: Date.now(),
                     }
 
+                    // Save the journey so it can be resumed from Home.
                     try {
                       localStorage.setItem('activeJourney', JSON.stringify(journey))
                       window.dispatchEvent(new Event('activeJourneyUpdated'))
@@ -718,7 +726,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
                       ''
                     )
 
-                    // Start the compass when beginning a new journey.
                     startCompass()
                   }}
                   renderButton={(button) =>
