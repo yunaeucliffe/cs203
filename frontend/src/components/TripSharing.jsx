@@ -171,7 +171,14 @@ export function TripSharingProvider({ children }) {
     setAllowed(previous => { const next = { ...previous }; delete next[id]; return next })
     setNotice(arrived ? "You've arrived. Trip sharing has ended." : 'Trip sharing has ended.')
   }
-  return <TripSharingContext.Provider value={{ shares: active, allowed, status, end, journey, setJourney,
+  // Ending navigation ends its shares, so family see that sharing stopped rather than a frozen location.
+  function endJourney() {
+    for (const share of active.filter(share => matchesJourney(share, journey))) {
+      end(share.id, false).catch(() => setNotice('Trip sharing could not be stopped. Stop it from the sharing menu.'))
+    }
+    setJourney(null)
+  }
+  return <TripSharingContext.Provider value={{ shares: active, allowed, status, end, journey, setJourney, endJourney,
     enable: id => setAllowed(previous => ({ ...previous, [id]: journey?.id })),
     add: (share, consent) => {
       version.current++
