@@ -55,10 +55,6 @@ public final class RouteExplanationGenerator {
                 observed.append("Nearby temperature: ").append(decimal(weather.maxTemperatureCelsius())).append("°C. ");
             if (weather.maxRainfallMm() != null)
                 observed.append("Nearby rainfall recorded: ").append(decimal(weather.maxRainfallMm())).append(" mm. ");
-            if (Boolean.TRUE.equals(weather.raining()))
-                observed.append("Rain-weather ranking prioritizes less estimated unsheltered walking, then less total walking. ");
-            else if (Boolean.TRUE.equals(weather.hot()))
-                observed.append("Hot-weather ranking prioritizes less total walking, then less estimated unsheltered walking. ");
             observed.append(valid(route.walkingDistanceMeters())
                     ? "This route has " + whole(route.walkingDistanceMeters()) + " m of walking. "
                     : "Walking distance is unavailable. ");
@@ -69,6 +65,20 @@ public final class RouteExplanationGenerator {
             reasons.add(observed.toString());
         }
         return List.copyOf(reasons);
+    }
+
+    public static String weatherNote(WeatherSummary weather) {
+        if (weather == null || (weather.maxTemperatureCelsius() == null && weather.maxRainfallMm() == null))
+            return null;
+        List<String> facts = new ArrayList<>();
+        if (weather.maxTemperatureCelsius() != null)
+            facts.add("Nearby temperature: " + decimal(weather.maxTemperatureCelsius()) + "°C");
+        if (weather.maxRainfallMm() != null)
+            facts.add("Nearby rainfall: " + decimal(weather.maxRainfallMm()) + " mm");
+        facts.add(weather.estimatedUnshelteredWalkingMeters() == null
+                ? "Unsheltered walking is unknown"
+                : "Estimated unsheltered walking: " + whole(weather.estimatedUnshelteredWalkingMeters()) + " m");
+        return String.join(" · ", facts) + ". Nearby observations are not a route-wide forecast; shelter is estimated.";
     }
 
     private static String decimal(Double value) {

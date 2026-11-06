@@ -265,6 +265,12 @@ function RouteDetails({
 
                     </div>
 
+                    {route.weatherNote && (
+                        <p className="mt-5 rounded-xl bg-[#F0F4EC] p-3 text-sm leading-relaxed text-[#3E424B]">
+                            {route.weatherNote}
+                        </p>
+                    )}
+
                     {/* JOURNEY STEPS */}
                     <div className="mt-8 border-t border-[#7A7F7A]/20 pt-6">
 

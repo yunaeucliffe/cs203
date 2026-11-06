@@ -21,7 +21,7 @@ public class RouteDataAggregatorService {
     private final double heatThreshold;
     @org.springframework.beans.factory.annotation.Autowired
     public RouteDataAggregatorService(RouteDataTool routes,RouteConditionsService conditions,
-            @org.springframework.beans.factory.annotation.Value("${routing.weather.heat-threshold-celsius:30}") double heatThreshold) {
+            @org.springframework.beans.factory.annotation.Value("${routing.weather.heat-threshold-celsius:33}") double heatThreshold) {
         this(routes,conditions,Clock.systemUTC(),heatThreshold);
     }
     public RouteDataAggregatorService(RouteDataTool routes,RouteConditionsService conditions) {
