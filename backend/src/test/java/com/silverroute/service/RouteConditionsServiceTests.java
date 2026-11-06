@@ -79,6 +79,53 @@ class RouteConditionsServiceTests {
         verifyNoInteractions(lta,weather);
         assertThat(result.evidence()).extracting(RouteEvidence::source).containsExactly("LTA CoveredLinkWay");
     }
+    @Test void temperatureMatchesNearbyStationsAndCachesAcrossRequests() throws Exception {
+        when(weather.getAirTemperature()).thenReturn(TestRoutes.fixture("air-temperature"));
+        var result = service.attachConditions(TestRoutes.route(), true, new HashMap<>());
+        service.attachConditions(TestRoutes.route(), true, new HashMap<>());
+        verify(weather, times(1)).getAirTemperature();
+        var temperature = result.evidence().stream()
+                .filter(e -> e.source().equals("NEA Air Temperature")).findFirst().orElseThrow();
+        assertThat(temperature.availability()).isEqualTo("available");
+        assertThat(temperature.observedAt()).isEqualTo(clock.instant().toString());
+        assertThat(temperature.retrievedAt()).isEqualTo(clock.instant().toString());
+        assertThat(new ObjectMapper().writeValueAsString(temperature.details()))
+                .contains("temperatureCelsius", "31.2", "S1").doesNotContain("S2", "rainfallMm");
+        assertThat(RouteContext.Candidate.from(result).evidence())
+                .anyMatch(e -> e.source().equals("NEA Air Temperature"));
+    }
+
+    @Test void temperatureRejectsStaleFutureMissingAndDistantReadings() throws Exception {
+        String valid = TestRoutes.fixture("air-temperature");
+        for (String invalid : List.of(
+                valid.replace("2026-09-28T08:00:00+08:00", "2026-09-28T07:44:00+08:00"),
+                valid.replace("2026-09-28T08:00:00+08:00", "2026-09-28T08:02:00+08:00"),
+                valid.replace("31.2", "null"),
+                valid.replace("1.3,", "1.6,"),
+                "{}", "not json")) {
+            var isolated = new RouteConditionsService(lta, weather, new EvidenceCache(clock), shelter, clock);
+            when(weather.getAirTemperature()).thenReturn(invalid);
+            var result = isolated.attachConditions(TestRoutes.route(), true, new HashMap<>());
+            assertThat(result.evidence()).filteredOn(e -> e.source().equals("NEA Air Temperature"))
+                    .singleElement().satisfies(e -> {
+                        assertThat(e.availability()).isEqualTo("unavailable");
+                        assertThat(e.details()).doesNotContainKey("observations");
+                    });
+        }
+    }
+
+    @Test void temperatureOutagePreservesRainfallAndRoute() throws Exception {
+        when(weather.getAirTemperature()).thenThrow(new IllegalStateException("secret diagnostics"));
+        when(weather.getRainfall()).thenReturn(TestRoutes.fixture("rainfall"));
+        var result = service.attachConditions(TestRoutes.route(), true, new HashMap<>());
+        assertThat(result.durationMinutes()).isEqualTo(23);
+        assertThat(result.evidence()).filteredOn(e -> e.source().equals("NEA Rainfall"))
+                .singleElement().satisfies(e -> assertThat(e.availability()).isEqualTo("available"));
+        assertThat(result.evidence()).filteredOn(e -> e.source().equals("NEA Air Temperature"))
+                .singleElement().satisfies(e -> assertThat(e.availability()).isEqualTo("unavailable"));
+        assertThat(result.warnings().toString()).doesNotContain("secret diagnostics");
+    }
+
     @Test void staleRainIsUnknown() throws Exception {
         String stale=TestRoutes.fixture("rainfall").replace("2026-09-28T08:00:00+08:00","2026-09-27T08:00:00+08:00");
         when(weather.getRainfall()).thenReturn(stale);

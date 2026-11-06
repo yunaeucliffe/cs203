@@ -58,9 +58,11 @@ public class RouteRecommendationAgent {
         List<RouteOption> ranked = new ArrayList<>();
         var ordered = result.rankings().stream().map(selection -> candidates.get(selection.routeId())).toList();
         for (var selection : result.rankings()) {
-            var reasons = RouteExplanationGenerator.explain(ordered, ranked.size(), trip.context().preferences());
+            var weather = trip.context().candidates().stream().filter(c -> c.id().equals(selection.routeId()))
+                    .findFirst().map(RouteContext.Candidate::weather).orElse(null);
+            var reasons = RouteExplanationGenerator.explain(ordered, ranked.size(), trip.context().preferences(), weather);
             var routeWarnings = resolveReferences(selection.warnings(), selection.routeId(), labels, candidates.keySet());
-            ranked.add(candidates.get(selection.routeId()).explain(reasons, routeWarnings));
+            ranked.add(candidates.get(selection.routeId()).explain(reasons, routeWarnings, RouteExplanationGenerator.weatherNote(weather)));
         }
         Set<String> warnings = new LinkedHashSet<>(trip.context().dataWarnings());
         ranked.forEach(route -> warnings.addAll(route.warnings()));
