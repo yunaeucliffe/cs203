@@ -32,7 +32,7 @@ export function locateOnRoute(route, location, minimumLeg = 0) {
     for (const segment of segments) {
       // Prefer the earlier leg at shared stops and overlapping paths.
       if (!best || segment.distance + 10 < best.distance) {
-        best = { index, fraction: segment.along / total, distance: segment.distance }
+        best = { index, fraction: segment.along / total, along: segment.along, distance: segment.distance }
       }
     }
   }
@@ -51,6 +51,9 @@ export function confirmProgress(state, matched, fixAt) {
   }
   return { progress: matched || progress, pendingLeg: null, fixAt }
 }
+
+// locateOnRoute accepts fixes up to 100 m off, so anything less along a bus route may be drift.
+const BOARDING_METRES = 100
 
 // Planned wait between the previous leg ending and this one starting (0 if unknown).
 const plannedWait = (legs, index) =>
@@ -97,9 +100,11 @@ export function navigationTiming(route, progress, now, startedAt) {
   const stepTimes = {}
   for (let index = first; index < legs.length; index++) {
     const leg = legs[index]
-    const fraction = index === first ? progress.fraction : 0
-    // A partly completed bus leg means the traveller is already on board.
-    if (leg.mode === 'BUS' && fraction <= 0.001) {
+    // GPS drift at a stop can look like progress along the bus route; until the traveller is
+    // clearly past the stop, they are still waiting for the bus.
+    const waiting = leg.mode === 'BUS' && !(index === first && progress.along > BOARDING_METRES)
+    const fraction = index === first && !waiting ? progress.fraction : 0
+    if (waiting) {
       const bus = liveBus(route, index, now, arrival)
       // Only expired data is outdated. No catchable bus listed yet is normal: LTA lists
       // only the next few buses, so fall back to the planned wait.

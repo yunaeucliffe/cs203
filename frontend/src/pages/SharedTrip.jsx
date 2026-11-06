@@ -34,14 +34,21 @@ export default function SharedTrip({ token }) {
         const response = await fetch(`${API_URL}/api/shared-trips/${encodeURIComponent(token)}`, {
           cache: 'no-store', signal: AbortSignal.timeout(10000),
         })
-        if (response.status === 410) throw new Error('They have arrived. Trip sharing has ended.')
-        if (!response.ok) throw new Error(response.status === 404
-          ? 'This sharing link is invalid, expired, or has been stopped.' : 'Unable to check sharing. Please try again.')
+        if (!response.ok) {
+          const error = new Error(response.status === 410 ? 'They have arrived. Trip sharing has ended.'
+            : response.status === 404 ? 'This sharing link is invalid, expired, or has been stopped.'
+              : 'Unable to check sharing. Please try again.')
+          error.status = response.status
+          throw error
+        }
         const data = await response.json()
         if (!cancelled) { setTrip(data); setMessage('') }
       } catch (error) {
         const offline = error.name === 'TypeError' || error.name === 'TimeoutError'
-        if (!cancelled) { setTrip(null); setMessage(offline ? 'Unable to check sharing. Check your connection.' : error.message) }
+        if (!cancelled) {
+          if (error.status === 404 || error.status === 410) setTrip(null)
+          setMessage(offline ? 'Unable to check sharing. Check your connection.' : error.message)
+        }
       } finally { busy = false }
     }
     refresh()
@@ -52,7 +59,7 @@ export default function SharedTrip({ token }) {
   }, [token])
   const active = trip && new Date(trip.expiresAt).getTime() > now
   const hasLocation = active && Number.isFinite(trip.latitude) && Number.isFinite(trip.longitude)
-  const outdated = hasLocation && now - new Date(trip.locationUpdatedAt).getTime() > 60000
+  const outdated = hasLocation && (Boolean(message) || now - new Date(trip.locationUpdatedAt).getTime() > 60000)
   // No first location within 60 seconds of opening (e.g. no GPS signal indoors).
   const noLocationYet = active && trip.liveLocation && !hasLocation && now - openedAt > 60000
   const arrivalPassed = active && new Date(trip.estimatedArrival).getTime() <= now
@@ -81,8 +88,9 @@ export default function SharedTrip({ token }) {
             </span>}
           </div>
           {!trip.liveLocation ? <p className="mt-2 text-[#555C60]">Live location is not shared for this trip.</p> : <>
+            {message && <p role="status" className="mt-2 text-amber-900">Updates unavailable. Showing the last known location.</p>}
             <p role="status" className="mt-2 text-[#555C60]">{hasLocation
-              ? `${outdated ? 'Updates have stopped. ' : ''}Last updated ${updatedAgo(trip.locationUpdatedAt, now)}.`
+              ? `${outdated && !message ? 'Updates have stopped. ' : ''}Last updated ${updatedAgo(trip.locationUpdatedAt, now)}.`
               : noLocationYet
                 ? 'No location has been received yet. Their phone may have no GPS signal (for example indoors) or location may be turned off.'
                 : 'Waiting for the first location update.'}</p>

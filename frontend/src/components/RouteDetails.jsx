@@ -1,4 +1,3 @@
-import { TripSharingButton } from './TripSharing'
 import { useEffect } from 'react'
 import { useBusArrivals } from './useBusArrivals'
 import { navigationTiming } from '../utils/navigationTiming'
@@ -71,7 +70,6 @@ function RouteDetails({
     warnings = [],
     onBack,
     choiceButtonRef,
-    canShare = false,
     live = true,
 }) {
     const paths = route.routePaths || []
@@ -136,7 +134,6 @@ function RouteDetails({
 
                     <div className="flex flex-wrap items-center gap-3">
                         <div ref={choiceButtonRef} />
-                        <TripSharingButton key={route.id} canShare={canShare} route={route} origin={origin} destination={destination} />
                     </div>
 
                 </div>
