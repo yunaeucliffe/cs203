@@ -1,12 +1,13 @@
 import { createPortal } from 'react-dom'
 import RouteChoice from '../components/RouteChoice'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { searchRoutes } from '../api/routes'
 import RouteCard from '../components/RouteCard'
 import RouteDetails from '../components/RouteDetails'
 import RouteSearchMap from '../components/RouteSearchMap'
 import NavigationPage from './Navigation'
 import { useCompassHeading } from '../components/useCompassHeading'
+import { TripSharingContext } from '../components/TripSharingContext'
 
 import {
   Navigation,
@@ -40,6 +41,9 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const [choice, setChoice] = useState(null)
   const [choiceButtonContainer, setChoiceButtonContainer] = useState(null)
   const { heading, start: startCompass, stop: stopCompass } = useCompassHeading()
+  const { setJourney, endJourney } = useContext(TripSharingContext)
+  // Leaving the routes page abandons the navigation, so stop uploading its location.
+  useEffect(() => () => setJourney(null), [setJourney])
 
   // Opening route details or navigation adds a browser history entry (see openDetails and
   // onStartNavigation), so the phone's Back button steps back within SilverRoute.
@@ -241,6 +245,8 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     <>
       {navigating && selectedRoute && (
         <NavigationPage
+          key={activeNavigation?.id}
+          journeyId={activeNavigation?.id}
           route={selectedRoute}
           origin={result.origin}
           destination={result.destination}
@@ -249,6 +255,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
           onStartCompass={startCompass}
           onBack={() => window.history.back()}
           onEnd={() => {
+            endJourney()
             setActiveNavigation(null)
             stopCompass()
             // Skip back past the navigation and route details entries to the results.
@@ -287,10 +294,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               sources={result.sources}
               onBack={() => window.history.back()}
               choiceButtonRef={setChoiceButtonContainer}
-              canShare={Boolean(
-                choice?.recommendationId === result.recommendationId &&
-                choice?.routeId === selectedRoute.id && !choice.saving
-              )}
             />
           ) : (
             <>
@@ -536,6 +539,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                       setActiveNavigation(current =>
                         current?.recommendationId === result.recommendationId &&
                         current?.routeId === selectedRoute.id ? current : {
+                          id: `${result.recommendationId}:${selectedRoute.id}:${Date.now()}`,
                           recommendationId: result.recommendationId,
                           routeId: selectedRoute.id,
                           startedAt: Date.now(),

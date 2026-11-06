@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Check, Copy, MapPin, Share2, X } from 'lucide-react'
 import { TripSharingContext } from './TripSharingContext'
 import { shareRequest, shareUrl, requestLocation } from '../api/tripShares'
-import { estimateArrival } from '../utils/tripSharing'
+import { estimateArrival, matchesJourney, freshJourneyLocation, isSharingJourney } from '../utils/tripSharing'
 
 // Full width on phones, natural width side by side on larger screens.
 const button = 'flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl px-5 py-2 text-center text-base font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3E424B] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
@@ -29,44 +29,41 @@ function useButtonMessage() {
   return [label, show]
 }
 
-// Keeps updates running when the route details are no longer on screen.
-// Status messages are shown in the sharing card via onStatus.
-function LocationUpdates({ share, allowed, onStatus }) {
+// Upload navigation's GPS fix every 20 seconds. Some phones stop reporting while you
+// stand still, so ask for a position directly when navigation's fix is too old.
+function LocationUpdates({ share, allowed, journey, onStatus }) {
+  const latest = useRef(null)
+  useEffect(() => { latest.current = journey?.location }, [journey?.location])
   useEffect(() => {
-    if (!share.liveLocation || !allowed || !navigator.geolocation) return
-    let cancelled = false
+    if (!share.liveLocation || !allowed) return
+    let stopped = false
     let uploading = false
-    // Send a fresh position every 20 seconds, even when the user is standing still,
-    // so the recipient only sees "outdated" when updates have really stopped.
-    function sendLocation() {
+    async function sendLocation() {
       if (uploading) return
       uploading = true
-      navigator.geolocation.getCurrentPosition(async position => {
-        try {
-          if (cancelled) return
-          await shareRequest(`/${share.id}/location`, 'PUT', {
-            latitude: position.coords.latitude, longitude: position.coords.longitude,
-          })
-          if (!cancelled) onStatus(share.id, 'Live location is updating. Keep SilverRoute open.', true)
-        } catch (error) {
-          if (!cancelled) onStatus(share.id, error.message, false)
-        } finally { uploading = false }
-      }, () => {
-        uploading = false
-        if (!cancelled) onStatus(share.id, 'Location updates stopped. Trip details are still shared. Check location permission.', false)
-      }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 })
+      try {
+        const location = freshJourneyLocation(latest.current) ? latest.current : (await requestLocation()).coords
+        if (stopped) return
+        await shareRequest(`/${share.id}/location`, 'PUT', {
+          latitude: location.latitude, longitude: location.longitude,
+        })
+        if (!stopped) onStatus(share.id, 'Sharing your current journey location.', true)
+      } catch (error) {
+        // Location errors have a code; request errors already have a readable message.
+        if (!stopped) onStatus(share.id, error.code ? 'Location unavailable. Waiting for a new location.' : error.message, false)
+      } finally { uploading = false }
     }
     sendLocation()
     const timer = setInterval(sendLocation, 20000)
-    return () => { cancelled = true; clearInterval(timer) }
+    return () => { stopped = true; clearInterval(timer) }
   }, [share.id, share.liveLocation, allowed, onStatus])
   return null
 }
 
 // Green "Sharing live location" pill; amber when live location is paused or the last update failed.
 function SharingStatus({ share }) {
-  const { allowed, status } = useContext(TripSharingContext)
-  const paused = share.liveLocation && !allowed.includes(share.id)
+  const { allowed, status, journey } = useContext(TripSharingContext)
+  const paused = share.liveLocation && !isSharingJourney(share, journey, allowed)
   const failing = status[share.id]?.ok === false
   const warn = paused || failing
   return <span className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${warn ? 'bg-amber-100 text-amber-900' : 'bg-[#DCE7D2]'}`}>
@@ -90,10 +87,11 @@ export function SharingIndicator() {
 }
 
 function ActiveShare({ share }) {
-  const { allowed, enable, end, status } = useContext(TripSharingContext)
+  const { allowed, enable, end, status, journey } = useContext(TripSharingContext)
   const [label, show] = useButtonMessage()
   const [ending, setEnding] = useState(null)
-  const paused = share.liveLocation && !allowed.includes(share.id)
+  const paused = share.liveLocation && !isSharingJourney(share, journey, allowed)
+  const onThisJourney = matchesJourney(share, journey)
   async function stop(name) {
     setEnding(name)
     try { await end(share.id, name === 'arrived') }
@@ -114,8 +112,8 @@ function ActiveShare({ share }) {
   return <div className="space-y-4" aria-label="Active trip sharing">
     <p className="text-lg font-semibold">{share.origin} → {share.destination}</p>
     {paused && <div className="flex flex-col gap-3 rounded-xl bg-amber-50 p-4 text-amber-900 sm:flex-row sm:items-center sm:justify-between">
-      <p>Turn live location back on so your family can see where you are.</p>
-      <button type="button" className={buttons.secondary} aria-live="polite" onClick={resume}>
+      <p>{onThisJourney ? 'Resume sharing your current journey location.' : 'Location sharing is paused. Open this journey in Navigation to resume.'}</p>
+      <button type="button" disabled={!onThisJourney} className={buttons.secondary} aria-live="polite" onClick={resume}>
         <MapPin size={18} />{label('resume', 'Resume live location')}
       </button>
     </div>}
@@ -150,7 +148,8 @@ function ActiveShare({ share }) {
 
 export function TripSharingProvider({ children }) {
   const [shares, setShares] = useState([])
-  const [allowed, setAllowed] = useState([])
+  const [allowed, setAllowed] = useState({})
+  const [journey, setJourney] = useState(null)
   const [status, setStatus] = useState({})
   const [notice, setNotice] = useState('')
   const [now, setNow] = useState(() => Date.now())
@@ -177,19 +176,27 @@ export function TripSharingProvider({ children }) {
     await shareRequest(`/${id}${arrived ? '?arrived=true' : ''}`, 'DELETE')
     version.current++
     setShares(previous => previous.filter(item => item.id !== id))
-    setAllowed(previous => previous.filter(item => item !== id))
+    setAllowed(previous => { const next = { ...previous }; delete next[id]; return next })
     setNotice(arrived ? "You've arrived. Trip sharing has ended." : 'Trip sharing has ended.')
   }
-  return <TripSharingContext.Provider value={{ shares: active, allowed, status, end,
-    enable: id => setAllowed(previous => [...previous, id]),
+  // Ending navigation ends its shares, so family see that sharing stopped rather than a frozen location.
+  function endJourney() {
+    for (const share of active.filter(share => matchesJourney(share, journey))) {
+      end(share.id, false).catch(() => setNotice('Trip sharing could not be stopped. Stop it from the sharing menu.'))
+    }
+    setJourney(null)
+  }
+  return <TripSharingContext.Provider value={{ shares: active, allowed, status, end, journey, setJourney, endJourney,
+    enable: id => setAllowed(previous => ({ ...previous, [id]: journey?.id })),
     add: (share, consent) => {
       version.current++
       setNotice('')
       setShares(previous => [...previous.filter(item => item.id !== share.id), share])
-      if (consent) setAllowed(previous => [...previous, share.id])
+      if (consent) setAllowed(previous => ({ ...previous, [share.id]: journey?.id }))
     },
   }}>
-    {active.map(share => <LocationUpdates key={share.id} share={share} allowed={allowed.includes(share.id)} onStatus={reportStatus} />)}
+    {active.map(share => <LocationUpdates key={share.id} share={share} journey={journey}
+      allowed={isSharingJourney(share, journey, allowed)} onStatus={reportStatus} />)}
     {/* One message, fixed on screen so it's seen wherever sharing was ended from. */}
     {notice && <div role="status" className="fixed inset-x-4 bottom-4 z-[1100] mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-[#7A7F7A]/20 bg-white p-4 shadow-lg">
       <span className="flex items-center gap-2 font-semibold"><Check size={18} className="shrink-0 text-green-700" />{notice}</span>
@@ -225,7 +232,7 @@ export function TripSharingButton({ route, origin, destination, canShare = false
 }
 
 export default function TripSharing({ route, origin, destination }) {
-  const { add, shares } = useContext(TripSharingContext)
+  const { add, shares, journey } = useContext(TripSharingContext)
   const [label, show] = useButtonMessage()
   const [live, setLive] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -235,20 +242,17 @@ export default function TripSharing({ route, origin, destination }) {
   const summary = (route.summary || '').trim()
   async function create() {
     setBusy(true)
-    // If location permission is denied, a details-only link is still created
-    // and the sharing card shows "Sharing trip details".
-    const consent = live && await requestLocation().then(() => true, () => false)
+    // Navigation already asks for GPS permission; the checkbox consents to sharing it.
     try {
       const share = await shareRequest('', 'POST', {
         origin: originName, destination: destinationName,
-        routeSummary: summary, estimatedArrival: estimateArrival(route), liveLocation: consent,
+        routeSummary: summary, estimatedArrival: estimateArrival(route), liveLocation: live,
       })
-      add(share, consent)
+      add(share, live)
     } catch (error) { show('create', error.message) }
     finally { setBusy(false) }
   }
-  const shared = shares.filter(share => share.origin === originName
-    && share.destination === destinationName && share.routeSummary === summary)
+  const shared = shares.filter(share => matchesJourney(share, journey))
   if (shared.length > 0) return <section className={`${card} space-y-6`} aria-label="Trip sharing">
     {shared.map(share => <div key={share.id} className="space-y-4"><SharingStatus share={share} /><ActiveShare share={share} /></div>)}
   </section>
@@ -258,7 +262,7 @@ export default function TripSharing({ route, origin, destination }) {
       <input className="mt-0.5 h-5 w-5 shrink-0 accent-[#3E424B]" type="checkbox" checked={live} onChange={event => setLive(event.target.checked)} />
       <span>
         <span className="block font-semibold">Include my live location</span>
-        <span className="block text-sm text-[#555C60]">Keep SilverRoute open so your location keeps updating.</span>
+        <span className="block text-sm text-[#555C60]">Your location updates while Navigation is open.</span>
       </span>
     </label>
     <button type="button" className={`${buttons.primary} mt-4`} aria-live="polite" disabled={busy || !(route.durationMinutes > 0)} onClick={create}>

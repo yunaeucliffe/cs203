@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { TripSharingButton } from '../components/TripSharing'
+import { useJourneySharing } from '../components/useJourneySharing'
 import JourneyTimeline from '../components/transit/JourneyTimeline'
 import { hasCoordinates } from '../utils/geo'
 import { createDestinationIcon } from '../utils/mapIcons'
@@ -155,6 +156,7 @@ function Navigation({
   destination,
   onBack,
   onEnd,
+  journeyId,
   startedAt,
   heading = null,
   onStartCompass = () => {},
@@ -165,6 +167,7 @@ function Navigation({
   const [following, setFollowing] = useState(true)
   const [handlePosition, setHandlePosition] = useState(null)
   const panel = useRef(null)
+  useJourneySharing({ id: journeyId, route, origin, destination, location })
   const container = useRef(null)
 
   // On phones the panel is a bottom sheet of varying height, not a full-height column,
@@ -363,7 +366,7 @@ function Navigation({
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            <TripSharingButton route={route} origin={origin} destination={destination} canShare />
+            <TripSharingButton route={route} origin={origin} destination={destination} canShare={Boolean(journeyId)} />
           </div>
 
         </div>
