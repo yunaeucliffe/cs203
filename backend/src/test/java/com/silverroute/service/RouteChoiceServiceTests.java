@@ -45,6 +45,18 @@ class RouteChoiceServiceTests {
         assertThat(receipt.preferencesUpdated()).isFalse();
         assertThat(receipt.message()).contains("AI left").doesNotContain("unavailable");
     }
+    @Test void walkingChoiceSkipsLearningAcrossUndoAndReselection() {
+        ReflectionTestUtils.setField(snapshot,"candidates",
+                "[{\"id\":\"best\",\"walking\":500},{\"id\":\"walk\",\"walking\":400,\"walkingOnly\":true}]");
+        var receipt = service.choose("a@example.com", snapshot.getId(), "walk", 0);
+        assertThat(receipt.preferencesUpdated()).isFalse();
+        assertThat(preference.getMinimizeWalkingPriority()).isEqualTo(50);
+        assertThat(snapshot.getLearningOrder()).isNull();
+        service.undo("a@example.com", snapshot.getId(), 1);
+        service.choose("a@example.com", snapshot.getId(), "walk", 2);
+        verifyNoInteractions(learning);
+    }
+
     @Test void providerFailureStillSavesRouteAndRetriesDoNotChargeAgain() {
         when(learning.assess(any())).thenThrow(new IllegalStateException("secret diagnostics"));
         var receipt=service.choose("a@example.com",snapshot.getId(),"alt",0);

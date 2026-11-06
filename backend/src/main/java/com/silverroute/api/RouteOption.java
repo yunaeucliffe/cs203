@@ -22,6 +22,11 @@ public record RouteOption(String id, String summary, Integer durationMinutes, In
         reasons = List.copyOf(reasons);
         warnings = List.copyOf(warnings);
     }
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean isWalkingOnly() {
+        return !legs.isEmpty() && legs.stream().allMatch(leg -> "WALK".equals(leg.mode()));
+    }
+
     public RouteOption attachConditions(Double shelter, List<RouteEvidence> evidence, List<String> warnings) {
         return new RouteOption(id, summary, durationMinutes, walkingMinutes, transfers,
                 walkingDistanceMeters, distanceMeters, shelter, legs, routePaths, evidence, reasons, warnings, weatherNote);
