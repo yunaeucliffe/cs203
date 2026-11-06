@@ -75,7 +75,9 @@ public class RouteRecommendationAgent {
         }
         if (walking != null) {
             var reasons = new ArrayList<String>();
-            reasons.add("Walk all the way. Within your " + trip.context().preferences().walkingOnlyMaxDistanceMeters() + " m walking limit.");
+            reasons.add(trip.context().preferences().walkingOnlyEnabled()
+                    ? "Walk all the way. Within your " + trip.context().preferences().walkingOnlyMaxDistanceMeters() + " m walking limit."
+                    : "Walk all the way. No public transport route is available for this trip.");
             reasons.addAll(RouteExplanationGenerator.explain(ordered, ranked.size(), trip.context().preferences()));
             ranked.add(walking.explain(reasons, List.of()));
         }

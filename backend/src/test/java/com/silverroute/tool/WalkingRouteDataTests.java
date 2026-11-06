@@ -56,6 +56,32 @@ class WalkingRouteDataTests {
         assertThat(tool.execute(request,preferences(500)).routes()).filteredOn(RouteOption::isWalkingOnly).hasSize(1);
         assertThat(tool.execute(request).routes()).noneMatch(RouteOption::isWalkingOnly);
     }
+    @Test void disabledWalkingFallsBackToShortestNormalSearchResultWithoutApplyingLimit() throws Exception {
+        transit();
+        var shorter = parse(TestRoutes.fixture("walking"));
+        var longer = parse(TestRoutes.fixture("walking").replace("400", "600"));
+        when(service.parseRoutes("pt")).thenReturn(List.of(longer, shorter, shorter));
+        var result = tool.execute(request, new SavedPreferences("Normal",50,20,false,100));
+        assertThat(result.routes()).containsExactly(shorter);
+        assertThat(result.warnings().toString()).contains("Public transport is unavailable");
+        verify(service,never()).getWalkingRoute(anyDouble(),anyDouble(),anyDouble(),anyDouble());
+    }
+    @Test void shortestEligibleWalkingRouteWinsAcrossBothSourcesWithStableTies() throws Exception {
+        transit();
+        var existing = parse(TestRoutes.fixture("walking"));
+        when(service.parseRoutes("pt")).thenReturn(List.of(TestRoutes.route(), existing));
+        for (int distance : List.of(450, 400, 300, 600)) {
+            when(service.getWalkingRoute(anyDouble(),anyDouble(),anyDouble(),anyDouble()))
+                    .thenReturn(TestRoutes.fixture("walking").replace("400", Integer.toString(distance)));
+            var walks = tool.execute(request,preferences(500)).routes().stream().filter(RouteOption::isWalkingOnly).toList();
+            assertThat(walks).hasSize(1);
+            if (distance == 300) assertThat(walks.getFirst().walkingDistanceMeters()).isEqualTo(300);
+            else assertThat(walks.getFirst()).isSameAs(existing);
+        }
+        when(service.getWalkingRoute(anyDouble(),anyDouble(),anyDouble(),anyDouble())).thenReturn("{}");
+        assertThat(tool.execute(request,preferences(500)).routes()).filteredOn(RouteOption::isWalkingOnly)
+                .containsExactly(existing);
+    }
     RouteOption parse(String json) throws Exception {
         return new WalkingRouteParser().parse(json,new LocationResult("A",1.3195,103.84214),
                 new LocationResult("B",1.3195,103.84218),request.departureTime());

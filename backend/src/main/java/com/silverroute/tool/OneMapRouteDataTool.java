@@ -57,14 +57,16 @@ public class OneMapRouteDataTool implements RouteDataTool {
                 var candidate = new com.silverroute.routing.WalkingRouteParser().parse(
                         oneMapService.getWalkingRoute(origin.latitude(), origin.longitude(), destination.latitude(), destination.longitude()),
                         origin, destination, request.departureTime());
-                if (eligible(candidate, preferences)) walking = candidate;
+                if (eligible(candidate, preferences)
+                        && (walking == null || candidate.walkingDistanceMeters() < walking.walkingDistanceMeters()))
+                    walking = candidate;
             } catch (com.silverroute.exception.InvalidAddressException exception) {
                 throw exception;
             } catch (Exception exception) {
                 if (walking == null) warnings.add("The walking-only route could not be retrieved; public transport options are shown when available.");
             }
         }
-        if (walking != null) routes.add(walking);
+        if (walking != null && (preferences.walkingOnlyEnabled() || routes.isEmpty())) routes.add(walking);
         if (routes.isEmpty()) {
             if (transitFailure != null) throw transitFailure;
             throw new com.silverroute.exception.RouteDataUnavailableException("No routes are available within your current travel settings. Try different locations or a larger walking limit.");
@@ -75,9 +77,9 @@ public class OneMapRouteDataTool implements RouteDataTool {
     }
 
     private boolean eligible(RouteOption route, com.silverroute.routing.SavedPreferences preferences) {
-        return preferences.walkingOnlyEnabled() && route.isWalkingOnly() && route.walkingDistanceMeters() != null
+        return route.isWalkingOnly() && route.walkingDistanceMeters() != null
                 && Double.isFinite(route.walkingDistanceMeters()) && route.walkingDistanceMeters() >= 0
-                && route.walkingDistanceMeters() <= preferences.walkingOnlyMaxDistanceMeters()
+                && (!preferences.walkingOnlyEnabled() || route.walkingDistanceMeters() <= preferences.walkingOnlyMaxDistanceMeters())
                 && route.durationMinutes() != null && route.durationMinutes() >= 0
                 && route.legs().stream().allMatch(leg -> leg.path().size() >= 2);
     }

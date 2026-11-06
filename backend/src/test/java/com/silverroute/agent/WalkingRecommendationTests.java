@@ -46,6 +46,16 @@ class WalkingRecommendationTests {
         assertThat(answer.alternatives()).isEmpty();
         assertThat(answer.warnings().toString()).contains("No usable public transport");
     }
+    @Test void disabledWalkingFallbackDoesNotClaimToMeetSavedLimit() throws Exception {
+        var base = trip(false);
+        var context = new RouteContext(base.context().trip(), new SavedPreferences("Normal",50,20,false,100),
+                base.context().candidates(), base.context().dataWarnings(), 2);
+        var fallback = new AggregatedTrip(context, base.routes(), base.sources());
+        var answer = RouteRecommendationAgent.validateAndBuild(fallback, new RankingResult(List.of()), "test");
+        assertThat(answer.recommendedRoute().isWalkingOnly()).isTrue();
+        assertThat(answer.reasons().toString()).contains("Walk all the way", "No public transport route")
+                .doesNotContain("Within your", "walking limit");
+    }
     @Test void modelReceivesOnlyTransitWithTwoSlotLimitAndIsSkippedForWalkingOnly() throws Exception {
         var gateway=mock(ModelGateway.class);
         var aggregator=mock(RouteDataAggregatorService.class);
