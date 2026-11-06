@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import L from 'leaflet'
 import { TripSharingButton } from '../components/TripSharing'
 import { useJourneySharing } from '../components/useJourneySharing'
+import JourneyTimeline from '../components/transit/JourneyTimeline'
+import { hasCoordinates } from '../utils/geo'
+import { createDestinationIcon } from '../utils/mapIcons'
 import DirectionMarker from '../components/DirectionMarker'
 import { useNavigationTiming } from '../components/useNavigationTiming'
-import { BusArrivalTimes } from '../components/BusArrivalPreview'
 import { clockTime } from '../utils/navigationTiming'
 
 import {
@@ -22,89 +23,12 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
-  ChevronUp,
   Plus,
   Minus,
-  Footprints,
-  Bus,
-  Train,
-  MapPin,
   X,
 } from 'lucide-react'
 
 import 'leaflet/dist/leaflet.css'
-
-function hasCoordinates(location) {
-  return (
-    Number.isFinite(location?.latitude) &&
-    Number.isFinite(location?.longitude)
-  )
-}
-
-function formatDistance(meters) {
-  if (meters == null || !Number.isFinite(Number(meters))) {
-    return '—'
-  }
-
-  const distance = Number(meters)
-
-  return distance >= 1000
-    ? `${(distance / 1000).toFixed(1)} km`
-    : `${Math.round(distance)} m`
-}
-
-function getMode(leg) {
-  const mode = String(leg?.mode || '').toUpperCase()
-
-  if (mode.includes('WALK')) return 'WALK'
-  if (mode.includes('BUS')) return 'BUS'
-
-  if (
-    ['TRAIN', 'MRT', 'LRT', 'RAIL', 'SUBWAY'].some(
-      type => mode.includes(type)
-    )
-  ) {
-    return 'TRAIN'
-  }
-
-  return 'OTHER'
-}
-
-function getInstruction(leg) {
-  const mode = getMode(leg)
-  const destination = leg.to?.name
-
-  if (mode === 'WALK') {
-    return destination
-      ? `Walk to ${destination}`
-      : 'Walk to the next stop'
-  }
-
-  if (mode === 'BUS') {
-    return leg.service
-      ? `Take Bus ${leg.service}${destination ? ` to ${destination}` : ''}`
-      : `Take the bus${destination ? ` to ${destination}` : ''}`
-  }
-
-  if (mode === 'TRAIN') {
-    return leg.service
-      ? `Take MRT ${leg.service}${destination ? ` to ${destination}` : ''}`
-      : `Take the MRT${destination ? ` to ${destination}` : ''}`
-  }
-
-  return destination
-    ? `Continue to ${destination}`
-    : 'Continue your journey'
-}
-
-function ModeIcon({ mode, size = 22 }) {
-  if (mode === 'WALK') return <Footprints size={size} />
-  if (mode === 'BUS') return <Bus size={size} />
-  if (mode === 'TRAIN') return <Train size={size} />
-
-  return <MapPin size={size} />
-}
 
 function FitNavigationRoute({ paths, start, end }) {
   const map = useMap()
@@ -224,21 +148,7 @@ function MapControls({ start, end, paths, location, following, onFollowingChange
   </div>
 }
 
-const destinationIcon = L.divIcon({
-  className: '',
-  html: `
-    <div style="
-      width: 30px;
-      height: 30px;
-      background: #e53935;
-      border: 3px solid white;
-      border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    "></div>
-  `,
-  iconSize: [30, 30],
-  iconAnchor: [15, 15],
-})
+const destinationIcon = createDestinationIcon({ size: 30, shadow: true })
 
 function Navigation({
   route,
@@ -252,12 +162,43 @@ function Navigation({
   onStartCompass = () => {},
 }) {
   const [sidebarHidden, setSidebarHidden] = useState(false)
-  const [expanded, setExpanded] = useState(false)
   const [location, setLocation] = useState(null)
   const [locationError, setLocationError] = useState('')
   const [following, setFollowing] = useState(true)
+  const [handlePosition, setHandlePosition] = useState(null)
   const panel = useRef(null)
   useJourneySharing({ id: journeyId, route, origin, destination, location })
+  const container = useRef(null)
+
+  // On phones the panel is a bottom sheet of varying height, not a full-height column,
+  // so the toggle is tracked against its actual right edge instead of a fixed offset.
+  // On larger screens the sidebar is a full-height column, so the desktop-only classes
+  // below are used instead and this stays null.
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)')
+    function update() {
+      if (desktop.matches || sidebarHidden || !panel.current || !container.current) {
+        setHandlePosition(null)
+        return
+      }
+      const panelRect = panel.current.getBoundingClientRect()
+      const containerRect = container.current.getBoundingClientRect()
+      setHandlePosition({
+        left: panelRect.right - containerRect.left,
+        top: panelRect.top - containerRect.top + panelRect.height / 2,
+      })
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    if (panel.current) observer.observe(panel.current)
+    window.addEventListener('resize', update)
+    desktop.addEventListener('change', update)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+      desktop.removeEventListener('change', update)
+    }
+  }, [sidebarHidden])
   const [fallbackStart] = useState(Date.now)
   const timing = useNavigationTiming(route, location, startedAt ?? fallbackStart)
 
@@ -300,11 +241,12 @@ function Navigation({
   const paths = route?.routePaths || []
   const legs = route?.legs || []
 
+
   const start = legs[0]?.from || origin
   const end = legs.at(-1)?.to || destination
 
   return (
-    <div className={`relative h-dvh w-full overflow-hidden bg-[#FAF7F0] text-[#2A3439] ${sidebarHidden ? '' : 'lg:grid lg:grid-cols-[400px_minmax(0,1fr)] xl:grid-cols-[440px_minmax(0,1fr)]'}`}>
+    <div ref={container} className={`relative h-dvh w-full overflow-hidden bg-[#FAF7F0] text-[#2A3439] ${sidebarHidden ? '' : 'lg:grid lg:grid-cols-[min(400px,85vw)_minmax(0,1fr)]'}`}>
 
       <div className="relative h-full min-w-0 lg:col-start-2 lg:row-start-1">
       {/* NAVIGATION MAP */}
@@ -390,30 +332,22 @@ function Navigation({
         aria-label={sidebarHidden ? 'Show directions' : 'Hide directions'}
         title={sidebarHidden ? 'Show directions' : 'Hide directions'}
         aria-expanded={!sidebarHidden} aria-controls="journey-sidebar"
-        className={`absolute left-0 top-1/2 z-[1100] flex h-16 w-12 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 border-[#7A7F7A]/20 bg-white text-[#3E424B] shadow-md hover:bg-[#FAF7F0] focus-visible:outline-2 focus-visible:outline-offset-2 ${sidebarHidden ? '' : 'lg:left-[400px] xl:left-[440px]'}`}>
+        style={handlePosition ? { left: handlePosition.left, top: handlePosition.top } : undefined}
+        className={handlePosition
+          ? 'absolute z-[1100] flex h-16 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl border border-[#7A7F7A]/20 bg-white text-[#3E424B] shadow-md hover:bg-[#FAF7F0] focus-visible:outline-2 focus-visible:outline-offset-2'
+          : `absolute left-0 top-1/2 z-[1100] flex h-16 w-12 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 border-[#7A7F7A]/20 bg-white text-[#3E424B] shadow-md hover:bg-[#FAF7F0] focus-visible:outline-2 focus-visible:outline-offset-2 ${sidebarHidden ? '' : 'lg:left-[min(400px,85vw)]'}`}>
         {sidebarHidden ? <ChevronRight size={28} aria-hidden="true" /> : <ChevronLeft size={28} aria-hidden="true" />}
       </button>
 
       {/* JOURNEY SIDEBAR; COLLAPSIBLE PANEL ON MOBILE */}
       {!sidebarHidden && <section ref={panel} id="journey-sidebar" aria-label="Journey directions" className="absolute bottom-4 left-1/2 z-[1000] max-h-[85dvh] w-[calc(100%-32px)] max-w-2xl -translate-x-1/2 overflow-y-auto rounded-[28px] border border-white/70 bg-[#FAF7F0]/95 shadow-2xl backdrop-blur-md lg:static lg:col-start-1 lg:row-start-1 lg:flex lg:max-h-none lg:w-full lg:max-w-none lg:translate-x-0 lg:flex-col lg:rounded-none lg:border-0 lg:border-r lg:border-[#7A7F7A]/20 lg:bg-[#FAF7F0] lg:pt-6 lg:shadow-none lg:backdrop-blur-none">
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-6 py-3 lg:pb-5 lg:pt-0">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-6 pb-5">
           <button type="button" onClick={onBack} className="flex min-h-12 items-center gap-2 rounded-xl px-3 font-semibold hover:bg-white">
             <ArrowLeft size={20} aria-hidden="true" /> Back
           </button>
 
         </div>
-
-        {/* COLLAPSE HANDLE */}
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          aria-expanded={expanded}
-          aria-label={expanded ? 'Collapse journey details' : 'Expand journey details'}
-          className="flex w-full items-center justify-center py-3 lg:hidden"
-        >
-          <div className="h-1.5 w-12 rounded-full bg-[#7A7F7A]/40" />
-        </button>
 
         {/* DESTINATION HEADER */}
         <div className="flex items-start justify-between gap-4 px-6 pb-4">
@@ -433,14 +367,6 @@ function Navigation({
 
           <div className="flex shrink-0 items-center gap-3">
             <TripSharingButton route={route} origin={origin} destination={destination} canShare={Boolean(journeyId)} />
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            aria-label={expanded ? 'Collapse panel' : 'Expand panel'}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white lg:hidden"
-          >
-            {expanded ? <ChevronDown size={21} /> : <ChevronUp size={21} />}
-          </button>
           </div>
 
         </div>
@@ -478,67 +404,20 @@ function Navigation({
           {timing.outdated && <p>Live updates unavailable. Times may be outdated.</p>}
         </div>
 
-        {/* EXPANDED CONTENT */}
-          <div className={`${expanded ? 'block' : 'hidden'} max-h-[38dvh] overflow-y-auto border-t border-[#7A7F7A]/15 px-6 py-5 lg:block lg:max-h-none lg:min-h-0 lg:flex-1`}>
+        {/* JOURNEY STEPS */}
+          <div className="min-h-0 flex-1 overflow-y-auto border-t border-[#7A7F7A]/15 px-6 py-5">
 
             <h2 className="mb-4 text-lg font-semibold">
               Your journey
             </h2>
 
-            {legs.length > 0 ? (
-              <div className="space-y-5">
-
-                {legs.map((leg, index) => {
-                  const mode = getMode(leg)
-                  // Remaining minutes for current and later steps; planned minutes for finished ones.
-                  const stepMinutes = timing.stepMinutes[index] ??
-                    (leg.durationSeconds != null ? Math.ceil(leg.durationSeconds / 60) : null)
-
-                  return (
-                    <div
-                      key={index}
-                      className="flex items-start gap-4"
-                    >
-                      {/* STEP ICON */}
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#DCE7D2]">
-                        <ModeIcon mode={mode} />
-                      </div>
-
-                      {/* STEP DETAILS */}
-                      <div className="min-w-0 flex-1">
-
-                        <p className="text-sm font-semibold text-[#555C60]">
-                          Step {index + 1}
-                        </p>
-
-                        <p className="mt-1 text-base font-semibold">
-                          {getInstruction(leg)}
-                        </p>
-
-                        <p className="mt-1 text-sm text-[#555C60]">
-                          {stepMinutes != null ? `${stepMinutes} min` : 'Duration unavailable'}
-
-                          {' · '}
-
-                          {formatDistance(leg.distanceMeters)}
-                        </p>
-
-                        {timing.buses[index] && <div className="mt-1">
-                          <BusArrivalTimes bus={timing.buses[index]} now={timing.now} />
-                        </div>}
-
-                      </div>
-
-                    </div>
-                  )
-                })}
-
-              </div>
-            ) : (
-              <p className="text-sm text-[#555C60]">
-                Detailed journey steps are unavailable.
-              </p>
-            )}
+            <JourneyTimeline
+              legs={legs}
+              timing={timing}
+              now={timing.now}
+              live={Boolean(route)}
+              emptyMessage="Detailed journey steps are unavailable."
+            />
 
           </div>
 

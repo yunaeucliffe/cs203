@@ -16,10 +16,7 @@ import {
 
 import Navbar from '../components/Navbar'
 import LocationAutocomplete from '../components/LocationAutocomplete'
-
-function hasCoordinates(location) {
-  return Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude)
-}
+import { hasCoordinates } from '../utils/geo'
 
 function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = '', initialDestinationPlace = null }) {
   const [destination, setDestination] = useState(initialDestination)
@@ -104,6 +101,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     pending.current = null
     setLoading(false)
     setResult(null)
+    setHasSearched(false)
     setViewingDetails(false)
     setNavigating(false)
     setError('')
@@ -217,8 +215,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
       }
       setHasSearched(true)
       setSelectedIndex(0)
-      console.log('First route:', routes[0])
-      console.log('First route evidence:', routes[0]?.evidence)
       setResult({
           ...recommendations,
           origin,

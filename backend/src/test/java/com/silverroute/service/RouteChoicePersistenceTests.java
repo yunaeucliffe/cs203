@@ -36,7 +36,7 @@ class RouteChoicePersistenceTests {
         return new AgentRecommendation(route("best",500,100),List.of(route("alt",700,350)),List.of("Reason"),List.of(),List.of(),"test");
     }
     private RouteOption route(String id,double walking,double shelter) {
-        return new RouteOption(id,id,20,5,0,"unknown",walking,2000.0,shelter,List.of(),List.of(),List.of(),List.of(),List.of());
+        return new RouteOption(id,id,20,5,0,walking,2000.0,shelter,List.of(),List.of(),List.of(),List.of(),List.of());
     }
     private UUID offer() { return choices.remember(email,routes(),choices.revision(email)); }
     @Test void persistedLearningRoundTripsAndManualOverrideInvalidatesOldOffers() {

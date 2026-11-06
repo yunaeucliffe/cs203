@@ -17,7 +17,7 @@ class ShelterEstimatorTests {
         var estimator=new ShelterEstimator(covered,new EvidenceCache(),10);
         assertThat(estimator.estimate(TestRoutes.route()).meters()).isBetween(10.0,12.0);
         var route=TestRoutes.route();
-        var invalid=new com.silverroute.api.RouteOption(route.id(),route.summary(),23,3,0,"unknown",22.0,null,null,
+        var invalid=new com.silverroute.api.RouteOption(route.id(),route.summary(),23,3,0,22.0,null,null,
                 List.of(new RouteLeg("WALK",null,route.legs().getFirst().from(),route.legs().getFirst().to(),60.0,22.0,null,null,List.of())),
                 List.of(),List.of(),List.of(),List.of());
         assertThat(estimator.estimate(invalid).meters()).isNull();

@@ -16,7 +16,7 @@ public final class RouteParser {
         for (JsonNode itinerary : itineraries) {
             if (!itinerary.path("legs").isArray() || itinerary.path("legs").isEmpty()) continue;
             List<RouteLeg> legs = new ArrayList<>();
-            List<String> warnings = new ArrayList<>(List.of("Accessibility has not been verified."));
+            List<String> warnings = new ArrayList<>();
             for (JsonNode leg : itinerary.path("legs")) {
                 List<List<Double>> path;
                 try { path = decodePolyline(text(leg.path("legGeometry"), "points")); }
@@ -42,7 +42,7 @@ public final class RouteParser {
             String summary = String.join(" → ", legs.stream().map(l ->
                     (l.mode() == null ? "UNKNOWN" : l.mode()) + (l.service() == null ? "" : " " + l.service())).toList());
             routes.add(new RouteOption("onemap-route-" + (routes.size()+1), summary, duration, walking, transfers,
-                    "unknown", walkDistance, sumDistance(legs), null, legs,
+                    walkDistance, sumDistance(legs), null, legs,
                     legs.stream().map(RouteLeg::path).filter(p -> !p.isEmpty()).toList(), List.of(), List.of(), warnings));
         }
         return List.copyOf(routes);

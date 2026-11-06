@@ -117,15 +117,23 @@ function ActiveShare({ share }) {
         <MapPin size={18} />{label('resume', 'Resume live location')}
       </button>
     </div>}
-    <div className="grid gap-3 sm:grid-cols-2" aria-live="polite">
-      <button type="button" className={buttons.primary} onClick={() => send('share')}><Share2 size={18} />{label('share', 'Share link')}</button>
-      <button type="button" className={buttons.secondary} onClick={() => send('copy')}><Copy size={18} />{label('copy', 'Copy link')}</button>
-      <button type="button" className={buttons.success} disabled={!!ending} onClick={() => stop('arrived')}>
-        <Check size={18} />{ending === 'arrived' ? 'Ending sharing...' : label('arrived', "I've arrived")}
-      </button>
-      <button type="button" className={buttons.danger} disabled={!!ending} onClick={() => stop('stopped')}>
-        <X size={18} />{ending === 'stopped' ? 'Stopping...' : label('stopped', 'Stop sharing')}
-      </button>
+    <div className="space-y-2" aria-live="polite">
+      <p className="text-sm font-semibold text-[#555C60]">Send link</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button type="button" className={buttons.primary} onClick={() => send('share')}><Share2 size={18} />{label('share', 'Share link')}</button>
+        <button type="button" className={buttons.secondary} onClick={() => send('copy')}><Copy size={18} />{label('copy', 'Copy link')}</button>
+      </div>
+    </div>
+    <div className="space-y-2 border-t border-[#7A7F7A]/20 pt-4" aria-live="polite">
+      <p className="text-sm font-semibold text-[#555C60]">Done traveling?</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button type="button" className={buttons.success} disabled={!!ending} onClick={() => stop('arrived')}>
+          <Check size={18} />{ending === 'arrived' ? 'Ending sharing...' : label('arrived', "I've arrived")}
+        </button>
+        <button type="button" className={buttons.danger} disabled={!!ending} onClick={() => stop('stopped')}>
+          <X size={18} />{ending === 'stopped' ? 'Stopping...' : label('stopped', 'Stop sharing')}
+        </button>
+      </div>
     </div>
     <p role="status" className="text-sm text-[#555C60] empty:hidden">{status[share.id]?.text || ''}</p>
     <details className="text-sm text-[#555C60]">
