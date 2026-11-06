@@ -1,3 +1,4 @@
+import { walkingPreferenceError } from '../utils/walkingPreferences'
 import PrioritySettings from '../components/PrioritySettings'
 import {useEffect, useState} from 'react'
 import InfoRow from '../components/InfoRow'
@@ -32,6 +33,8 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
     minimizeWalkingPriority: 50,
     shelterPriority: 20,
     automaticLearning: true,
+    walkingOnlyEnabled: false,
+    walkingOnlyMaxDistanceMeters: 500,
   })
 
   useEffect(() => {
@@ -70,6 +73,8 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
       minimizeWalkingPriority: user.minimizeWalkingPriority,
       shelterPriority: user.shelterPriority,
       automaticLearning: user.automaticLearning,
+      walkingOnlyEnabled: user.walkingOnlyEnabled ?? false,
+      walkingOnlyMaxDistanceMeters: user.walkingOnlyMaxDistanceMeters ?? 500,
     })
 
     setActionError('')
@@ -79,6 +84,8 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
   const handleSavePreferences = async (event) => {
     event.preventDefault()
     setActionError('')
+    const validationError = walkingPreferenceError(formValues)
+    if (validationError) { setActionError(validationError); return }
     setIsSaving(true)
 
     try {
@@ -281,6 +288,7 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
         {!isEditing && <div className="mt-5 rounded-xl bg-white/60 p-5">
           <p>Priority for less walking: {user.minimizeWalkingPriority} / 100</p>
           <p>Priority for shelter: {user.shelterPriority} / 100</p>
+          <p>Walking-only alternatives: {user.walkingOnlyEnabled ? `Up to ${user.walkingOnlyMaxDistanceMeters} m` : 'Off'}</p>
           <p>Automatic learning: {user.automaticLearning ? 'On' : 'Off'}</p>
           <p className="mt-2 text-sm">Manual settings override earlier learning.</p>
         </div>}

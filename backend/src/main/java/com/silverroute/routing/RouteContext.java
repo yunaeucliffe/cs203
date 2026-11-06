@@ -5,7 +5,10 @@ import com.silverroute.api.RouteOption;
 
 /** Explicit allowlist for model input: no account identity, secrets, or geometry. */
 public record RouteContext(Trip trip, SavedPreferences preferences, List<Candidate> candidates,
-        List<String> dataWarnings) {
+        List<String> dataWarnings, int selectionLimit) {
+    public RouteContext(Trip trip, SavedPreferences preferences, List<Candidate> candidates, List<String> dataWarnings) {
+        this(trip, preferences, candidates, dataWarnings, 3);
+    }
     public record Trip(String origin, String destination, String departureTime) {}
     public record Leg(String mode, String service, String fromId, String fromName,
             String toId, String toName, Double durationSeconds, Double distanceMeters,

@@ -29,7 +29,7 @@ public class RouteDataAggregatorService {
         var localTime=OneMapService.singaporeDeparture(request.departureTime());
         var localRequest=new TripRequest(request.origin(),request.destination(),localTime,request.originCoordinates(),request.destinationCoordinates());
         ToolExecutionResult result;
-        try { result=routes.execute(localRequest); }
+        try { result=preferences.walkingOnlyEnabled() ? routes.execute(localRequest,preferences) : routes.execute(localRequest); }
         catch(RouteDataUnavailableException | InvalidAddressException | AddressNotFoundException | AddressConfirmationRequiredException exception) { throw exception; }
         catch(Exception exception) {
             // Keep the real cause in the server log; users get a plain message instead.
@@ -53,7 +53,8 @@ public class RouteDataAggregatorService {
             route.evidence().stream().filter(e -> "available".equals(e.availability())).map(RouteEvidence::source).forEach(sources::add);
         }
         var context=new RouteContext(new RouteContext.Trip(request.origin(),request.destination(),localTime.toString()),
-                preferences,routesWithConditions.stream().map(RouteContext.Candidate::from).toList(),List.copyOf(new LinkedHashSet<>(warnings)));
+                preferences,routesWithConditions.stream().map(RouteContext.Candidate::from).toList(),List.copyOf(new LinkedHashSet<>(warnings)),
+                routesWithConditions.stream().anyMatch(RouteOption::isWalkingOnly) ? 2 : 3);
         return new AggregatedTrip(context,List.copyOf(routesWithConditions),List.copyOf(sources));
     }
 }

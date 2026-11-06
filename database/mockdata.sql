@@ -24,19 +24,25 @@ INSERT INTO user_preferences (
     user_id,
     walking_speed,
     minimize_walking_priority,
-    shelter_priority
+    shelter_priority,
+    walking_only_enabled,
+    walking_only_max_distance_meters
 )
 SELECT
     id,
     'Slow',
     80,
-    80
+    80,
+    FALSE,
+    500
 FROM users
 WHERE username = 'marytan'
 ON CONFLICT (user_id) DO UPDATE SET
     walking_speed = EXCLUDED.walking_speed,
     minimize_walking_priority = EXCLUDED.minimize_walking_priority,
-    shelter_priority = EXCLUDED.shelter_priority;
+    shelter_priority = EXCLUDED.shelter_priority,
+    walking_only_enabled = EXCLUDED.walking_only_enabled,
+    walking_only_max_distance_meters = EXCLUDED.walking_only_max_distance_meters;
 
 -- MOCK SAVED PLACE: HOME
 
