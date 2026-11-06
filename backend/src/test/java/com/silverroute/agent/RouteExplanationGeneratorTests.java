@@ -13,6 +13,20 @@ class RouteExplanationGeneratorTests {
     }
     private final SavedPreferences preferences = new SavedPreferences("Slow", 80, 20);
 
+    @Test void weatherExplanationUsesConfiguredPolicyAndFactualExposure() {
+        var route = route(300.0, 250.0, 40, 0);
+        var hot = new com.silverroute.routing.WeatherSummary(31.0, 0.0, true, false, 30, 50.0);
+        var reasons = RouteExplanationGenerator.explain(List.of(route), 0, preferences, hot);
+        assertThat(reasons.getLast()).contains("Nearby temperature: 31°C", "Hot-weather ranking",
+                "300 m of walking", "Estimated unsheltered walking: 50 m", "not a route-wide forecast");
+        var belowCustomThreshold = new com.silverroute.routing.WeatherSummary(31.0, null, false, null, 32, null);
+        assertThat(RouteExplanationGenerator.explain(List.of(route), 0, preferences, belowCustomThreshold).getLast())
+                .contains("Unsheltered walking cannot be estimated").doesNotContain("Hot-weather ranking", "rainfall recorded");
+        var both = new com.silverroute.routing.WeatherSummary(31.0, 2.0, true, true, 30, 50.0);
+        assertThat(RouteExplanationGenerator.explain(List.of(route), 0, preferences, both).getLast())
+                .contains("Nearby rainfall recorded: 2 mm", "Rain-weather ranking");
+    }
+
     @Test void exactComparisonsAreRepeatableAndIncludeDisadvantages() {
         var routes = List.of(route(248.71, 124.355, 6, 0), route(290.88, 290.88, 5, 0));
         var reasons = RouteExplanationGenerator.explain(routes, 0, preferences);

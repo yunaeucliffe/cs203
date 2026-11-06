@@ -14,6 +14,11 @@ public class WeatherController {
         this.weatherService = weatherService;
     }
 
+    @GetMapping("/air-temperature")
+    public String getAirTemperature() {
+        return weatherService.getAirTemperature();
+    }
+
     @GetMapping("/rainfall")
     public String getRainfall() {
         return weatherService.getRainfall();
