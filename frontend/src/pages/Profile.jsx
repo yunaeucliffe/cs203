@@ -1,3 +1,5 @@
+import AdditionalPreferences from '../components/AdditionalPreferences'
+import { priorityCategory } from '../utils/priorityCategories'
 import PrioritySettings from '../components/PrioritySettings'
 import {useEffect, useState} from 'react'
 import InfoRow from '../components/InfoRow'
@@ -11,6 +13,8 @@ import {
   Mail,
   AtSign,
   Gauge,
+  Footprints,
+  Umbrella,
   LogOut,
   Trash2,
 } from 'lucide-react'
@@ -267,23 +271,22 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
         </div>
 
         {!isEditing && (
-          <div className="grid gap-4">
+          <div className="grid gap-4 sm:grid-cols-3">
 
             <PreferenceCard
               icon={<Gauge size={25} />}
               label="Walking speed"
               value={user.walkingSpeed}
             />
+            <PreferenceCard icon={<Footprints size={25} />} label="Priority for less walking"
+              value={priorityCategory(user.minimizeWalkingPriority)} />
+            <PreferenceCard icon={<Umbrella size={25} />} label="Priority for shelter"
+              value={priorityCategory(user.shelterPriority)} />
 
           </div>
         )}
 
-        {!isEditing && <div className="mt-5 rounded-xl bg-white/60 p-5">
-          <p>Priority for less walking: {user.minimizeWalkingPriority} / 100</p>
-          <p>Priority for shelter: {user.shelterPriority} / 100</p>
-          <p>Automatic learning: {user.automaticLearning ? 'On' : 'Off'}</p>
-          <p className="mt-2 text-sm">Manual settings override earlier learning.</p>
-        </div>}
+        {!isEditing && <AdditionalPreferences automaticLearning={user.automaticLearning} />}
 
         {/* EDITING PREFERENCES */}
         {isEditing && (

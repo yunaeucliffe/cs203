@@ -25,7 +25,7 @@ export function PreferenceSelector({
   onChange,
 }) {
   return (
-    <div>
+    <div role="group" aria-label={title}>
       <p className="font-semibold">
         {title}
       </p>
@@ -39,6 +39,7 @@ export function PreferenceSelector({
           <button
             key={option}
             type="button"
+            aria-pressed={value === option}
             onClick={() => onChange(option)}
             className={`min-w-[120px] rounded-full border px-6 py-3 font-medium transition ${
               value === option
