@@ -13,6 +13,12 @@ class WeatherSummaryTests {
         return WeatherSummary.from(List.of(reading("NEA Air Temperature", "temperatureCelsius", temperature, "available"),
                 reading("NEA Rainfall", "rainfallMm", rain, "available")), 300.0, 200.0, threshold);
     }
+    @Test void defaultHeatThresholdIs33DegreesInclusive() {
+        assertThat(WeatherSummary.DEFAULT_HEAT_THRESHOLD).isEqualTo(33);
+        assertThat(summary(32.9, 0, WeatherSummary.DEFAULT_HEAT_THRESHOLD).hot()).isFalse();
+        assertThat(summary(33, 0, WeatherSummary.DEFAULT_HEAT_THRESHOLD).hot()).isTrue();
+        assertThat(summary(33.1, 0, WeatherSummary.DEFAULT_HEAT_THRESHOLD).hot()).isTrue();
+    }
     @Test void thresholdAndRainBoundaries() {
         assertThat(summary(29.9, 0, 30).hot()).isFalse();
         assertThat(summary(30, 0, 30).hot()).isTrue();

@@ -6,7 +6,7 @@ import java.util.Map;
 /** Derived only from route-matched, validated observations. Null triggers mean unknown. */
 public record WeatherSummary(Double maxTemperatureCelsius, Double maxRainfallMm,
         Boolean hot, Boolean raining, double heatThresholdCelsius, Double estimatedUnshelteredWalkingMeters) {
-    public static final double DEFAULT_HEAT_THRESHOLD = 30;
+    public static final double DEFAULT_HEAT_THRESHOLD = 33;
 
     public static WeatherSummary from(List<RouteEvidence> evidence, Double walking, Double sheltered, double threshold) {
         if (!Double.isFinite(threshold)) throw new IllegalArgumentException("Heat threshold must be finite");

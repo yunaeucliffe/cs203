@@ -13,18 +13,38 @@ class RouteExplanationGeneratorTests {
     }
     private final SavedPreferences preferences = new SavedPreferences("Slow", 80, 20);
 
-    @Test void weatherExplanationUsesConfiguredPolicyAndFactualExposure() {
+    @Test void weatherExplanationReportsFactsWithoutClaimingRankingCausality() {
         var route = route(300.0, 250.0, 40, 0);
         var hot = new com.silverroute.routing.WeatherSummary(31.0, 0.0, true, false, 30, 50.0);
         var reasons = RouteExplanationGenerator.explain(List.of(route), 0, preferences, hot);
-        assertThat(reasons.getLast()).contains("Nearby temperature: 31°C", "Hot-weather ranking",
-                "300 m of walking", "Estimated unsheltered walking: 50 m", "not a route-wide forecast");
+        assertThat(reasons.getLast()).contains("Nearby temperature: 31°C",
+                "300 m of walking", "Estimated unsheltered walking: 50 m", "not a route-wide forecast").doesNotContain("ranking", "prioritizes");
         var belowCustomThreshold = new com.silverroute.routing.WeatherSummary(31.0, null, false, null, 32, null);
         assertThat(RouteExplanationGenerator.explain(List.of(route), 0, preferences, belowCustomThreshold).getLast())
                 .contains("Unsheltered walking cannot be estimated").doesNotContain("Hot-weather ranking", "rainfall recorded");
         var both = new com.silverroute.routing.WeatherSummary(31.0, 2.0, true, true, 30, 50.0);
         assertThat(RouteExplanationGenerator.explain(List.of(route), 0, preferences, both).getLast())
-                .contains("Nearby rainfall recorded: 2 mm", "Rain-weather ranking");
+                .contains("Nearby rainfall recorded: 2 mm").doesNotContain("ranking", "prioritizes");
+    }
+
+    @Test void weatherNotesHandlePartialAndUnknownObservations() {
+        assertThat(RouteExplanationGenerator.weatherNote(null)).isNull();
+        assertThat(RouteExplanationGenerator.weatherNote(com.silverroute.routing.WeatherSummary.from(
+                List.of(), 100.0, null, 33))).isNull();
+        var hot = new com.silverroute.routing.WeatherSummary(34.0, null, true, null, 33, null);
+        assertThat(RouteExplanationGenerator.weatherNote(hot))
+                .contains("Nearby temperature: 34°C", "Unsheltered walking is unknown")
+                .doesNotContain("rainfall", "ranking");
+        var rain = new com.silverroute.routing.WeatherSummary(null, 2.0, null, true, 33, 50.0);
+        assertThat(RouteExplanationGenerator.weatherNote(rain))
+                .contains("Nearby rainfall: 2 mm", "Estimated unsheltered walking: 50 m", "shelter is estimated")
+                .doesNotContain("temperature", "ranking");
+        var both = new com.silverroute.routing.WeatherSummary(34.0, 2.0, true, true, 33, 50.0);
+        assertThat(RouteExplanationGenerator.weatherNote(both))
+                .contains("34°C", "2 mm", "50 m", "not a route-wide forecast");
+        var routes = List.of(route(300.0, 250.0, 40, 0), route(100.0, 50.0, 20, 0));
+        assertThat(RouteExplanationGenerator.explain(routes, 0, preferences, both).toString())
+                .contains("higher than Route 2").doesNotContain("ranking", "prioritizes");
     }
 
     @Test void exactComparisonsAreRepeatableAndIncludeDisadvantages() {
