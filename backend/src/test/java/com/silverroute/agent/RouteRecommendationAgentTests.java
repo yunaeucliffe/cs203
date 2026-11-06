@@ -50,6 +50,33 @@ class RouteRecommendationAgentTests {
         assertThat(RouteRecommendationAgent.validateAndBuild(trip, result, "test")).isEqualTo(answer);
     }
 
+    @Test void weatherNotesFollowRouteIdentityAndSurviveCopies() throws Exception {
+        var base = referenceTrip();
+        var routes = new ArrayList<RouteOption>();
+        for (int i = 0; i < base.routes().size(); i++) {
+            var evidence = new RouteEvidence("NEA Air Temperature", null, null,
+                    i == 2 ? "unavailable" : "available",
+                    Map.of("observations", List.of(Map.of("temperatureCelsius", 33.0 + i))));
+            routes.add(base.routes().get(i).attachConditions(50.0, List.of(evidence), List.of()));
+        }
+        var trip = new AggregatedTrip(new RouteContext(base.context().trip(), base.context().preferences(),
+                routes.stream().map(RouteContext.Candidate::from).toList(), List.of()), routes, base.sources());
+        var answer = RouteRecommendationAgent.validateAndBuild(trip,
+                result("onemap-route-2", "onemap-route-1", "onemap-route-3"), "test");
+        assertThat(answer.recommendedRoute().weatherNote()).contains("34°C", "150 m");
+        assertThat(answer.alternatives().get(0).weatherNote()).contains("33°C", "50 m");
+        assertThat(answer.alternatives().get(1).weatherNote()).isNull();
+        var route = answer.recommendedRoute();
+        assertThat(route.attachConditions(50.0, route.evidence(), route.warnings()).weatherNote())
+                .isEqualTo(route.weatherNote());
+        assertThat(route.explain(route.reasons(), List.of()).weatherNote()).isEqualTo(route.weatherNote());
+        assertThat(route).usingRecursiveComparison().ignoringFields("reasons", "warnings", "weatherNote")
+                .isEqualTo(routes.get(1));
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertThat(mapper.readTree(mapper.writeValueAsString(route)).path("weatherNote").asText())
+                .isEqualTo(route.weatherNote());
+    }
+
     @Test void generatesComparisonsWhenOnlyTwoRoutesRemain() throws Exception {
         var answer = RouteRecommendationAgent.validateAndBuild(referenceTrip(), result("onemap-route-3", "onemap-route-1"), "test");
         assertThat(answer.reasons().toString()).contains("Route 2").doesNotContain("Route 3");

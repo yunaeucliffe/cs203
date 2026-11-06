@@ -18,12 +18,21 @@ public class RouteDataAggregatorService {
     private final RouteDataTool routes;
     private final RouteConditionsService conditions;
     private final Clock clock;
+    private final double heatThreshold;
     @org.springframework.beans.factory.annotation.Autowired
+    public RouteDataAggregatorService(RouteDataTool routes,RouteConditionsService conditions,
+            @org.springframework.beans.factory.annotation.Value("${routing.weather.heat-threshold-celsius:33}") double heatThreshold) {
+        this(routes,conditions,Clock.systemUTC(),heatThreshold);
+    }
     public RouteDataAggregatorService(RouteDataTool routes,RouteConditionsService conditions) {
-        this(routes,conditions,Clock.systemUTC());
+        this(routes,conditions,Clock.systemUTC(),WeatherSummary.DEFAULT_HEAT_THRESHOLD);
     }
     public RouteDataAggregatorService(RouteDataTool routes,RouteConditionsService conditions,Clock clock) {
-        this.routes=routes; this.conditions=conditions; this.clock=clock;
+        this(routes,conditions,clock,WeatherSummary.DEFAULT_HEAT_THRESHOLD);
+    }
+    public RouteDataAggregatorService(RouteDataTool routes,RouteConditionsService conditions,Clock clock,double heatThreshold) {
+        if (!Double.isFinite(heatThreshold)) throw new IllegalArgumentException("Heat threshold must be finite");
+        this.routes=routes; this.conditions=conditions; this.clock=clock; this.heatThreshold=heatThreshold;
     }
     public AggregatedTrip aggregate(TripRequest request,SavedPreferences preferences) {
         var localTime=OneMapService.singaporeDeparture(request.departureTime());
@@ -40,7 +49,7 @@ public class RouteDataAggregatorService {
         boolean live=!request.departureTime().toInstant().isAfter(clock.instant().plusSeconds(900))
                 && !request.departureTime().toInstant().isBefore(clock.instant().minusSeconds(900));
         List<String> warnings=new ArrayList<>(result.warnings());
-        if(!live) warnings.add("Live bus arrivals, rainfall and crowding are excluded: departure is outside the current 15-minute window; future or historical conditions are unavailable.");
+        if(!live) warnings.add("Live bus arrivals, rainfall, temperature and crowding are excluded: departure is outside the current 15-minute window; future or historical conditions are unavailable.");
         List<RouteOption> routesWithConditions=new ArrayList<>();
         Map<String,EvidenceCache.Snapshot> requestCache=new HashMap<>();
         for(var route:result.routes()) {
@@ -53,7 +62,7 @@ public class RouteDataAggregatorService {
             route.evidence().stream().filter(e -> "available".equals(e.availability())).map(RouteEvidence::source).forEach(sources::add);
         }
         var context=new RouteContext(new RouteContext.Trip(request.origin(),request.destination(),localTime.toString()),
-                preferences,routesWithConditions.stream().map(RouteContext.Candidate::from).toList(),List.copyOf(new LinkedHashSet<>(warnings)),
+                preferences,routesWithConditions.stream().map(route -> RouteContext.Candidate.from(route,heatThreshold)).toList(),List.copyOf(new LinkedHashSet<>(warnings)),
                 routesWithConditions.stream().anyMatch(RouteOption::isWalkingOnly) ? 2 : 3);
         return new AggregatedTrip(context,List.copyOf(routesWithConditions),List.copyOf(sources));
     }

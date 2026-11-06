@@ -56,31 +56,6 @@ The walking-only fields are included directly in `schema.sql`. For an existing d
 
 `mockdata.sql` creates or updates the development account with a BCrypt password hash and sample preferences. Rerunning it resets that account's walking speed and priority scores, so use it only when you intend to reset the development account.
 
-### Existing database
-
-If you already have a `silverroute` database, update it after pulling new changes:
-
-1. Stop the backend.
-2. From the repository directory, run:
-
-   ```sh
-   psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/001_preference_priorities.sql
-   psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/002_saved_place_categories.sql
-   psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/003_trip_shares.sql
-   ```
-
-3. Start the backend again.
-
-It's safe to run all three every time: they keep your existing data and skip anything already done.
-
-If you skip this, the backend won't start, because it checks that the database matches the code.
-
-- 001: walking and shelter preferences, and route choices
-- 002: saved place categories
-- 003: trip and live location sharing
-
-Tip: `psql` asks for your PostgreSQL password. If it can't connect, add `-h 127.0.0.1` (or `-h ::1`).
-
 ## Environment variables
 
 Create the local environment file:

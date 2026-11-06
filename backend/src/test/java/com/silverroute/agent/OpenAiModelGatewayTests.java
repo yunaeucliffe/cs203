@@ -36,6 +36,25 @@ class OpenAiModelGatewayTests {
         assertThat(body.at("/text/format/schema/properties/rankings/minItems").asInt()).isZero();
         assertThat(body.toString()).doesNotContain("test-key","routePaths","Secret Name");
     }
+    @Test void weatherSummaryAndTemperatureReachModelWithoutChangingPreferences() throws Exception {
+        var route = TestRoutes.route();
+        var evidence = new com.silverroute.routing.RouteEvidence("NEA Air Temperature", "2026-09-28T00:00:00Z",
+                "2026-09-28T00:00:00Z", "available", Map.of("observations", List.of(Map.of("temperatureCelsius", 31.0))));
+        route = route.attachConditions(10.0, List.of(evidence), List.of());
+        var original = TestRoutes.trip().context();
+        var context = new com.silverroute.routing.RouteContext(original.trip(), original.preferences(),
+                List.of(com.silverroute.routing.RouteContext.Candidate.from(route, 32)), List.of());
+        var mapper = new ObjectMapper();
+        var body = mapper.valueToTree(gateway().requestBody(context));
+        var payload = mapper.readTree(body.at("/input/1/content").asText());
+        assertThat(payload.at("/candidates/0/weather/maxTemperatureCelsius").asDouble()).isEqualTo(31);
+        assertThat(payload.at("/candidates/0/weather/hot").asBoolean()).isFalse();
+        assertThat(payload.at("/candidates/0/weather/heatThresholdCelsius").asDouble()).isEqualTo(32);
+        assertThat(payload.at("/candidates/0/weather/raining").isNull()).isTrue();
+        assertThat(payload.at("/candidates/0/evidence/0/source").asText()).isEqualTo("NEA Air Temperature");
+        assertThat(payload.path("preferences")).isEqualTo(mapper.valueToTree(original.preferences()));
+    }
+
     @Test void acceptsEmptyRankingWhenAllRoutesAreUnavailable() throws Exception {
         assertThat(gateway().parseResponse(response("{\"rankings\":[]}")).rankings()).isEmpty();
     }
