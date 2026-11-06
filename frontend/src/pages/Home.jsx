@@ -9,6 +9,8 @@ import Navbar from '../components/Navbar'
 import LocationAutocomplete from '../components/LocationAutocomplete'
 import SavedPlacesCard from '../components/SavedPlacesCard'
 import { API_URL } from '../api'
+import { loadActiveJourney } from '../utils/activeJourney'
+import { saveRouteSearchDraft } from '../utils/routeSearchDraft'
 
 import {
     Plus,
@@ -42,34 +44,24 @@ function Home() {
         return () => window.removeEventListener('popstate', onPopState)
     }, [])
 
-    const [activeJourney, setActiveJourney] = useState(() => {
-        try {
-            return JSON.parse(localStorage.getItem('activeJourney')) || null
-        } catch {
-            return null
-        }
-    })
+    const [activeJourney, setActiveJourney] = useState(loadActiveJourney)
 
     useEffect(() => {
         const syncActiveJourney = () => {
-            try {
-                setActiveJourney(
-                    JSON.parse(localStorage.getItem('activeJourney')) || null
-                )
-            } catch {
-                setActiveJourney(null)
-            }
+            setActiveJourney(loadActiveJourney())
         }
 
-        // Sync when returning to Home or when Routes updates the journey.
         window.addEventListener('focus', syncActiveJourney)
         window.addEventListener('activeJourneyUpdated', syncActiveJourney)
+
+        const interval = window.setInterval(syncActiveJourney, 30_000)
 
         return () => {
             window.removeEventListener('focus', syncActiveJourney)
             window.removeEventListener('activeJourneyUpdated', syncActiveJourney)
+            window.clearInterval(interval)
         }
-    }, [])
+        }, [])
 
     useEffect(() => {
         const controller = new AbortController()
@@ -101,6 +93,12 @@ function Home() {
     const handleSearch = () => {
         if (destination.trim() === '') return
 
+        saveRouteSearchDraft({
+            destination: destination.trim(),
+            destinationPlace,
+            originMode: 'currentLocation',
+        })
+
         setRoutesOpenMode('newSearch')
         goTo('routes')
     }
@@ -131,6 +129,19 @@ function Home() {
                 }
                 : null
         )
+        saveRouteSearchDraft({
+            destination: place.address,
+            destinationPlace: Number.isFinite(place.latitude) &&
+                Number.isFinite(place.longitude)
+                ? {
+                    name: place.address,
+                    address: place.address,
+                    latitude: place.latitude,
+                    longitude: place.longitude,
+                }
+                : null,
+            originMode: 'currentLocation',
+        })
 
         setRoutesOpenMode('newSearch')
         goTo('routes')
@@ -190,7 +201,7 @@ function Home() {
                 onBack={() => goTo('home')}
                 onHome={() => goTo('home')}
                 onRoutes={() => {
-                    setRoutesOpenMode('restoreSearch')
+                    setRoutesOpenMode('openRoutes')
                     goTo('routes')
                 }}
                 onSavedPlaces={openSavedPlaces}
@@ -215,7 +226,7 @@ function Home() {
                 }}
 
                 onRoutes={() => {
-                    setRoutesOpenMode('restoreSearch')
+                    setRoutesOpenMode('openRoutes')
                     goTo('routes')
                     setAddSavedPlace(false)
                 }}
@@ -252,7 +263,7 @@ function Home() {
                 resumeJourneyOnOpen={routesOpenMode === 'resumeJourney'}
                 onJourneyEnd={() => {
                     setActiveJourney(null)
-                    setRoutesOpenMode('restoreSearch')
+                    setRoutesOpenMode('openRoutes')
                 }}
             />
         )
@@ -273,7 +284,7 @@ function Home() {
                     activePage="home"
                     onHome={() => goTo('home')}
                     onRoutes={() => {
-                        setRoutesOpenMode('restoreSearch')
+                        setRoutesOpenMode('openRoutes')
                         goTo('routes')
                     }}
                     onSignIn={() => goTo('signIn')}
