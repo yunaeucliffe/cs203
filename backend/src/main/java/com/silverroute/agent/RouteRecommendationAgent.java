@@ -78,8 +78,11 @@ public class RouteRecommendationAgent {
             reasons.add(trip.context().preferences().walkingOnlyEnabled()
                     ? "Walk all the way. Within your " + trip.context().preferences().walkingOnlyMaxDistanceMeters() + " m walking limit."
                     : "Walk all the way. No public transport route is available for this trip.");
-            reasons.addAll(RouteExplanationGenerator.explain(ordered, ranked.size(), trip.context().preferences()));
-            ranked.add(walking.explain(reasons, List.of()));
+            var walkingId = walking.id();
+            var weather = trip.context().candidates().stream().filter(c -> c.id().equals(walkingId))
+                    .findFirst().map(RouteContext.Candidate::weather).orElse(null);
+            reasons.addAll(RouteExplanationGenerator.explain(ordered, ranked.size(), trip.context().preferences(), weather));
+            ranked.add(walking.explain(reasons, List.of(), RouteExplanationGenerator.weatherNote(weather)));
         }
         Set<String> warnings = new LinkedHashSet<>(trip.context().dataWarnings());
         if (walking != null && result.rankings().isEmpty())

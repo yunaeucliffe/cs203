@@ -11,7 +11,8 @@ public final class WalkingRouteParser {
     public RouteOption parse(String json, LocationResult origin, LocationResult destination,
             OffsetDateTime departure) throws Exception {
         var root = new ObjectMapper().readTree(json);
-        if (root == null || !root.path("status").isIntegralNumber() || root.path("status").asInt() != 0)
+        if (root == null || !root.path("status").isIntegralNumber()
+                || !root.path("status").canConvertToInt() || root.path("status").intValue() != 0)
             throw new IllegalArgumentException("No valid walking route");
         Double distance = RouteParser.number(root.path("route_summary"), "total_distance");
         Double seconds = RouteParser.number(root.path("route_summary"), "total_time");

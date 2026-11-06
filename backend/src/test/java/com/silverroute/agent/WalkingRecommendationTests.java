@@ -56,6 +56,42 @@ class WalkingRecommendationTests {
         assertThat(answer.reasons().toString()).contains("Walk all the way", "No public transport route")
                 .doesNotContain("Within your", "walking limit");
     }
+    @Test void walkingWeatherNoteUsesCandidateSummaryAndPreservesWarnings() throws Exception {
+        for (boolean transit : List.of(false, true)) {
+            var base = trip(transit);
+            var routes = new ArrayList<>(base.routes());
+            var walking = routes.getLast().attachConditions(100.0, List.of(), List.of("Walking source warning"));
+            routes.set(routes.size() - 1, walking);
+            var candidates = new ArrayList<>(routes.stream().map(RouteContext.Candidate::from).toList());
+            var candidate = candidates.getLast();
+            // Use a context summary independent of route evidence to catch accidental recomputation.
+            var weather = new WeatherSummary(35.0, 2.0, true, true, 32, 300.0);
+            candidates.set(candidates.size() - 1, new RouteContext.Candidate(candidate.id(), candidate.summary(),
+                    candidate.durationMinutes(), candidate.walkingMinutes(), candidate.walkingDistanceMeters(),
+                    candidate.transfers(), candidate.estimatedShelteredWalkingMeters(), candidate.legs(), candidate.evidence(), weather));
+            var trip = new AggregatedTrip(new RouteContext(base.context().trip(), base.context().preferences(),
+                    candidates, List.of(), 2), routes, base.sources());
+            var selections = transit ? List.of(new RankingResult.Selection(routes.getFirst().id(), List.of()))
+                    : List.<RankingResult.Selection>of();
+            var answer = RouteRecommendationAgent.validateAndBuild(trip, new RankingResult(selections), "test");
+            var result = transit ? answer.alternatives().getLast() : answer.recommendedRoute();
+            assertThat(result.weatherNote()).contains("35°C", "2 mm", "300 m");
+            assertThat(result.reasons().toString()).contains("35°C", "Within your 500 m walking limit");
+            assertThat(result.warnings()).contains("Walking source warning");
+            assertThat(answer.warnings()).contains("Walking source warning");
+        }
+    }
+    @Test void walkingWithoutWeatherDoesNotInventANote() throws Exception {
+        for (boolean transit : List.of(false, true)) {
+            var trip = trip(transit);
+            var selections = transit ? List.of(new RankingResult.Selection(trip.routes().getFirst().id(), List.of()))
+                    : List.<RankingResult.Selection>of();
+            var answer = RouteRecommendationAgent.validateAndBuild(trip, new RankingResult(selections), "test");
+            var walking = transit ? answer.alternatives().getLast() : answer.recommendedRoute();
+            assertThat(walking.weatherNote()).isNull();
+            assertThat(walking.reasons().toString()).doesNotContain("Nearby temperature", "Nearby rainfall");
+        }
+    }
     @Test void modelReceivesOnlyTransitWithTwoSlotLimitAndIsSkippedForWalkingOnly() throws Exception {
         var gateway=mock(ModelGateway.class);
         var aggregator=mock(RouteDataAggregatorService.class);

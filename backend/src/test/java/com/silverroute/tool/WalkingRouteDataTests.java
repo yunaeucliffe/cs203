@@ -86,6 +86,15 @@ class WalkingRouteDataTests {
         return new WalkingRouteParser().parse(json,new LocationResult("A",1.3195,103.84214),
                 new LocationResult("B",1.3195,103.84218),request.departureTime());
     }
+    @Test void walkingParserRequiresAnExactRepresentableZeroStatus() throws Exception {
+        String fixture = TestRoutes.fixture("walking");
+        assertThat(parse(fixture).isWalkingOnly()).isTrue();
+        for (String status : List.of("4294967296", "-4294967296", "2147483648", "-2147483649",
+                "1", "-1", "2147483647", "-2147483648", "\"0\"", "0.5", "0.0", "null", "true")) {
+            assertThatThrownBy(() -> parse(fixture.replace("\"status\":0", "\"status\":" + status)))
+                    .as("status %s must be rejected", status).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
     @Test void walkingParserPreservesMetricsGeometryAndRejectsMalformedData() throws Exception {
         String json=TestRoutes.fixture("walking");
         var route=parse(json);
