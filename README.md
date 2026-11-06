@@ -50,7 +50,15 @@ psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/mockdata.sql
 
 `schema.sql` creates `silverroute` if needed and sets up `users`, `user_preferences`, `saved_places`, `categories`, `route_choice_snapshots`, and `trip_shares`. It automatically applies all migrations, so no separate migration commands are needed for a fresh installation.
 
-Saved preferences now contain walking speed, independent 0–100 walking and shelter priority scores, and an automatic-learning toggle. Walking tolerance and the shelter boolean are no longer stored.
+Saved preferences contain walking speed, independent 0–100 walking and shelter priorities, automatic learning, and an opt-in walking-only alternative (default limit 500 m, configurable from 100 to 5,000 m). An eligible walking route reserves one of the three result slots and does not train preferences when chosen.
+
+For an existing database, apply the walking-preference migration **before starting the updated backend**:
+
+```sh
+psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/004_walking_only_preferences.sql
+```
+
+Fresh installations include it through `schema.sql`. Walking tolerance and the shelter boolean are no longer stored.
 
 `mockdata.sql` creates or updates the development account with a BCrypt password hash and sample preferences. Rerunning it resets that account's walking speed and priority scores, so use it only when you intend to reset the development account.
 

@@ -18,7 +18,7 @@ class RouteRecommendationAgentTests {
         for (int i = 1; i <= 3; i++) {
             var stop = new RouteLeg.Stop("stop-" + i, null, "Stop " + i, 1.3 + i / 100.0, 103.8);
             var path = List.of(List.of(stop.latitude(), stop.longitude()));
-            var leg = new RouteLeg("WALK", null, stop, stop, 60.0 * i, 100.0 * i, null, null, path);
+            var leg = new RouteLeg("BUS", "97", stop, stop, 60.0 * i, 100.0 * i, null, null, path);
             routes.add(new RouteOption("onemap-route-" + i, "Candidate", 10 * i, i, 0,
                     100.0 * i, 100.0 * i, null, List.of(leg), List.of(path), List.of(), List.of(), original.warnings()));
         }

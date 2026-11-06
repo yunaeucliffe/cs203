@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL UNIQUE,
 
+    walking_only_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    walking_only_max_distance_meters INTEGER NOT NULL DEFAULT 500
+        CHECK (walking_only_max_distance_meters BETWEEN 100 AND 5000),
     walking_speed VARCHAR(20) NOT NULL DEFAULT 'Normal'
         CHECK (walking_speed IN ('Slow', 'Normal', 'Fast')),
 
@@ -74,3 +77,5 @@ ON saved_places(user_id, label);
 \ir migrations/002_saved_place_categories.sql
 
 \ir migrations/003_trip_shares.sql
+
+\ir migrations/004_walking_only_preferences.sql

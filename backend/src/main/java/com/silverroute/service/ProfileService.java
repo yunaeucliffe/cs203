@@ -48,6 +48,7 @@ public class ProfileService {
         UserPreference foundPreference = preference.get();
         foundPreference.resetLearning(request.automaticLearning());
         foundPreference.updatePriorities(request.minimizeWalkingPriority(), request.shelterPriority());
+        foundPreference.updateWalkingOnly(request.walkingOnlyEnabled(), request.walkingOnlyMaxDistanceMeters());
         foundPreference.updateWalkingSpeed(request.walkingSpeed());
         preferenceRepository.save(foundPreference);
 
@@ -74,6 +75,7 @@ public class ProfileService {
                 user.getUsername(),
                 user.getEmail(),
                 preference.getWalkingSpeed(),
-                preference.getMinimizeWalkingPriority(), preference.getShelterPriority(), preference.isAutomaticLearning());
+                preference.getMinimizeWalkingPriority(), preference.getShelterPriority(), preference.isAutomaticLearning(),
+                preference.isWalkingOnlyEnabled(), preference.getWalkingOnlyMaxDistanceMeters());
     }
 }
