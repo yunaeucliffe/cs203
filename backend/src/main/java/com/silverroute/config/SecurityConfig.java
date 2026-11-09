@@ -2,6 +2,7 @@ package com.silverroute.config;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,6 +22,15 @@ import com.silverroute.repository.UserRepository;
 @Configuration
 public class SecurityConfig {
 
+    @Value("${cors.allowed-origins:http://localhost:5173}")
+    private List<String> allowedOrigins;
+
+    @Value("${csrf.cookie.same-site:lax}")
+    private String csrfCookieSameSite;
+
+    @Value("${csrf.cookie.secure:false}")
+    private boolean csrfCookieSecure;
+
     @Bean
     SecurityContextRepository securityContextRepository() {
         return new HttpSessionSecurityContextRepository();
@@ -35,7 +45,7 @@ public class SecurityConfig {
                 .addFilterAfter(new DeletedAccountFilter(userRepository), SecurityContextHolderFilter.class)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+                        .csrfTokenRepository(csrfTokenRepository()))
                 .securityContext(context -> context
                         .securityContextRepository(securityContextRepository))
                 .authorizeHttpRequests(authorize -> authorize
@@ -53,9 +63,18 @@ public class SecurityConfig {
     }
 
     @Bean
+    CookieCsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setCookieCustomizer(cookie -> cookie
+                .sameSite(csrfCookieSameSite)
+                .secure(csrfCookieSecure));
+        return repository;
+    }
+
+    @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN"));
         configuration.setAllowCredentials(true);
