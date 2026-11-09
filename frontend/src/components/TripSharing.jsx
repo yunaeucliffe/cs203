@@ -33,7 +33,11 @@ function useButtonMessage() {
 // stand still, so ask for a position directly when navigation's fix is too old.
 function LocationUpdates({ share, allowed, journey, onStatus }) {
   const latest = useRef(null)
+  // A simulated journey must never fall back to the device: that would upload the presenter's
+  // real position to everyone holding the share link.
+  const simulated = useRef(false)
   useEffect(() => { latest.current = journey?.location }, [journey?.location])
+  useEffect(() => { simulated.current = Boolean(journey?.simulated) }, [journey?.simulated])
   useEffect(() => {
     if (!share.liveLocation || !allowed) return
     let stopped = false
@@ -42,7 +46,12 @@ function LocationUpdates({ share, allowed, journey, onStatus }) {
       if (uploading) return
       uploading = true
       try {
-        const location = freshJourneyLocation(latest.current) ? latest.current : (await requestLocation()).coords
+        const fresh = freshJourneyLocation(latest.current)
+        if (!fresh && simulated.current) {
+          onStatus(share.id, 'Simulated journey paused. Your real location is not shared.', false)
+          return
+        }
+        const location = fresh ? latest.current : (await requestLocation()).coords
         if (stopped) return
         await shareRequest(`/${share.id}/location`, 'PUT', {
           latitude: location.latitude, longitude: location.longitude,

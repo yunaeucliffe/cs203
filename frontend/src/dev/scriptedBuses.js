@@ -15,25 +15,30 @@ export const MISS_MARGIN_SECONDS = 30
 const CATCHABLE_MARGIN_SECONDS = 45
 const BUSES = 3
 
-// planSecondsToStop is how much of the planned journey is left before the traveller reaches the
-// stop, which is also what the app uses to decide which buses are still catchable; speed is the
-// playback rate, so the dot reaches the stop that much sooner in real time.
+// planSecondsToStop is how much of the planned journey is left before the traveller reaches
+// the stop, which is also what the app uses to decide which buses are still catchable.
 export function scriptedSchedule({ now, planSecondsToStop, speed = 1, missFirst = false }) {
   const remaining = Math.max(0, planSecondsToStop)
-  const scaled = seconds => seconds / speed * 1000
-  // The app will not count a bus the traveller cannot reach, so this is the cut-off.
+  // The app works out the earliest the traveller could be at the stop from the planned journey
+  // in real seconds, and will not count a bus before that. Playback faster than real time gets
+  // the dot there sooner but does not change that calculation, so the schedule is never
+  // compressed below it: otherwise every scripted bus would be rejected as unreachable. Slower
+  // playback is stretched to match, so a bus is not long gone before the dot arrives.
+  const stretch = 1 / Math.min(1, speed)
+  const offset = seconds => seconds * stretch * 1000
+  // The cut-off a bus has to clear to count as catchable.
   const reachable = now + remaining * 1000
   if (!missFirst) {
-    const first = now + scaled(remaining + BOARDING_GRACE_SECONDS)
+    const first = now + offset(remaining + BOARDING_GRACE_SECONDS)
     return Array.from({ length: BUSES }, (unused, index) =>
-      Math.round(first + scaled(index * HEADWAY_SECONDS)))
+      Math.round(first + offset(index * HEADWAY_SECONDS)))
   }
   // A live estimate moving earlier is how a bus becomes unreachable in real use; the app then
   // counts down to the one after it.
   const missed = reachable - MISS_MARGIN_SECONDS * 1000
-  const second = Math.max(missed + scaled(HEADWAY_SECONDS),
+  const second = Math.max(missed + offset(HEADWAY_SECONDS),
     reachable + CATCHABLE_MARGIN_SECONDS * 1000)
-  return [missed, second, second + scaled(HEADWAY_SECONDS)].map(Math.round)
+  return [missed, second, second + offset(HEADWAY_SECONDS)].map(Math.round)
 }
 
 // Shaped like the backend's LTA BusArrival evidence, including the fields the frontend checks

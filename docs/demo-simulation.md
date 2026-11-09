@@ -56,8 +56,12 @@ and bus countdowns update from that position, through the same code paths as a r
 
 **The wall clock is never altered.** `Date.now()` is the real time everywhere, so "Last
 updated", the one-minute staleness rule and "Times may be outdated" behave exactly as in
-production. Playback speed moves the *traveller*, not the clock — which is why above 1× the dot
-outpaces the bus countdowns, as the panel notes.
+production. Playback speed moves the *traveller*, not the clock, and the app decides which
+buses are catchable from the planned journey in real seconds. Scripted arrivals are therefore
+never compressed to match fast playback — doing so would have the app reject every one of them
+as unreachable. Above 1× the dot reaches the stop early and waits there in real time; for the
+bus part of a demo, jump to the stop and use **Miss next bus**, which re-times against wherever
+the traveller is now.
 
 **Position** is a fix like any other: on the route, accurate to 8 m, stamped with the real
 time. It is fed to the same `locateOnRoute` matching the phone's fixes go through, so the
@@ -68,9 +72,9 @@ device's GPS watch is stopped while a simulation runs, and resumes when it is st
 minutes away, absent at night, and will never be missed on cue. A scripted stop answers in
 place of the provider, in the same shape as the backend's `LTA BusArrival` evidence and with
 real wall-clock arrival times, so the countdown is a real countdown. The schedule is fixed the
-first time a stop is polled (a bus roughly a minute after the traveller reaches the stop, then
-every four minutes) rather than regenerated per refresh, so the times tick down instead of
-sliding away. Switch **Bus times** to `real` to demo against live LTA data instead.
+first time a stop is polled (a bus roughly a minute after the traveller is due at the stop,
+then every four minutes) rather than regenerated per refresh, so the times tick down instead
+of sliding away. Switch **Bus times** to `real` to demo against live LTA data instead.
 
 ### Showing a bus being missed
 
@@ -115,4 +119,7 @@ Two production hooks gained optional arguments for it, both no-ops by default:
   no live ones.
 - Journey progress only ever moves forwards through the steps, so jumping backwards restarts
   that tracking (handled automatically).
-- While simulating, a shared trip link shows the simulated position.
+- While simulating, a shared trip link shows the simulated position. Live sharing normally
+  asks the device for a position when navigation's fix goes stale; that fallback is suppressed
+  for a simulated journey, so pausing it or switching location off cannot upload the
+  presenter's real coordinates. Sharing reports that it is waiting instead.

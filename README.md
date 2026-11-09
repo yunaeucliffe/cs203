@@ -137,26 +137,48 @@ On macOS or Linux, `npm ci` and `npm run dev` can be used instead. Open <http://
 ## Deploy the frontend (Vercel)
 
 Set the Vercel project's root directory to `frontend`; `frontend/vercel.json` supplies the
-framework, build command and the rewrite that keeps deep links on `index.html`. Configure one
-environment variable for the deployment:
+framework, the build command and the rewrite that keeps deep links on `index.html`.
 
-| Variable | Value |
-| --- | --- |
-| `VITE_API_URL` | Base URL of the deployed backend, for example `https://silverroute-api.example.com`. Unset falls back to `http://localhost:8081` for local development. |
+### Recommended: reach the API through the same origin
 
-The deployed frontend is a different origin from the backend, so the backend has to allow it
-and send its cookies cross-site. In the backend's environment:
+SilverRoute authenticates with a session cookie, and browsers are increasingly strict about
+cookies on cross-site requests: Safari blocks third-party cookies by default, so
+`SameSite=None` is **not** enough to make a separately hosted API work there. Serving the API
+from the same origin as the frontend avoids the problem, and needs no CORS or cookie changes.
+
+Add a rewrite for `/api` ahead of the SPA rewrite in `frontend/vercel.json`, pointing at the
+deployed backend. The order matters, or the SPA rewrite swallows `/api`:
+
+```json
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://silverroute-api.example.com/api/:path*" },
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ]
+}
+```
+
+Then set `VITE_API_URL=/` in the Vercel project, so the frontend calls its own origin, and
+`SESSION_COOKIE_SECURE=true` in the backend's environment, because the browser is on HTTPS.
+
+### Alternative: a separate API origin
+
+Set `VITE_API_URL` to the backend's base URL, for example
+`https://silverroute-api.example.com`. The backend then has to allow that origin and send its
+cookies cross-site:
 
 ```properties
-CORS_ALLOWED_ORIGINS=https://silverroute.vercel.app,https://silverroute-*.vercel.app
+CORS_ALLOWED_ORIGINS=https://silverroute.vercel.app
 SESSION_COOKIE_SAME_SITE=none
 SESSION_COOKIE_SECURE=true
 ```
 
-`CORS_ALLOWED_ORIGINS` accepts patterns, which preview deployments need because their host
-changes with every push. `SameSite=none` cookies are only sent over HTTPS, so the backend must
-be served over HTTPS as well; otherwise the browser drops the session cookie and every
-authenticated request comes back as 401.
+List each deployment origin explicitly. `CORS_ALLOWED_ORIGINS` accepts patterns, but a pattern
+such as `https://silverroute-*.vercel.app` also matches projects on other people's Vercel
+accounts and would grant them credentialed access to the API, so name the preview origins
+actually needed rather than a prefix. `SameSite=none` also requires HTTPS on both sides, and
+any browser with third-party cookies disabled — Safari by default — still drops the session
+cookie, so sign-in fails there. Prefer the same-origin proxy above.
 
 ## Demo journey simulation
 

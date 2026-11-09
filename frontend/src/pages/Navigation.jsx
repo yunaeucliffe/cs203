@@ -173,7 +173,8 @@ function Navigation({
   const simulation = useJourneySimulation(route)
   const location = simulation.active ? simulation.location : deviceLocation
   const locationError = simulation.active ? '' : deviceLocationError
-  useJourneySharing({ id: journeyId, route, origin, destination, location })
+  useJourneySharing({ id: journeyId, route, origin, destination, location,
+    simulated: simulation.active })
   const container = useRef(null)
 
   // On phones the panel is a bottom sheet of varying height, not a full-height column,

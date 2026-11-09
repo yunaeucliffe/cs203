@@ -2,9 +2,9 @@ package com.silverroute.config;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -22,19 +22,27 @@ import com.silverroute.repository.UserRepository;
 @Configuration
 public class SecurityConfig {
 
-    // A deployed frontend (e.g. on Vercel) is a different origin from the backend, and preview
-    // deployments get a new host each time, so the allowed origins are configuration rather
-    // than a constant. Patterns are accepted, e.g. https://silverroute-*.vercel.app.
-    @Value("${app.cors.allowed-origins}")
-    private List<String> allowedOrigins;
+    private static final String DEFAULT_ORIGIN = "http://localhost:5173";
+    private static final String COMMA = "\\s*,\\s*";
 
-    // Cross-site requests only carry the session and CSRF cookies when they are
-    // SameSite=None; Secure, which in turn requires HTTPS on both sides.
-    @Value("${server.servlet.session.cookie.same-site}")
-    private String sameSite;
+    // Read from the Environment with defaults rather than injected placeholders: the security
+    // tests build a plain context that does not load application.properties, and a frontend
+    // served from the same origin as the API needs none of these settings changed.
+    private final List<String> allowedOrigins;
+    private final String sameSite;
+    private final boolean secureCookies;
 
-    @Value("${server.servlet.session.cookie.secure}")
-    private boolean secureCookies;
+    SecurityConfig(Environment environment) {
+        // A frontend deployed elsewhere (e.g. on Vercel without an API proxy) is a different
+        // origin, so the origins allowed to call the API with credentials are configuration.
+        this.allowedOrigins = List.of(environment
+                .getProperty("app.cors.allowed-origins", DEFAULT_ORIGIN).split(COMMA));
+        // Cross-site requests only carry the session and CSRF cookies when they are
+        // SameSite=None; Secure, which in turn requires HTTPS on both sides.
+        this.sameSite = environment.getProperty("server.servlet.session.cookie.same-site", "lax");
+        this.secureCookies = environment
+                .getProperty("server.servlet.session.cookie.secure", Boolean.class, false);
+    }
 
     @Bean
     SecurityContextRepository securityContextRepository() {

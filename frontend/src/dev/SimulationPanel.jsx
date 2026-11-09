@@ -122,7 +122,8 @@ export default function SimulationPanel({ simulation }) {
         </div>
 
         {speed > 1 && <p className="font-mono text-[10px] leading-snug text-amber-200/70">
-          Bus times run on the real clock, so above 1× the dot outpaces them.
+          Bus times run on the real clock, so above 1× the dot reaches the stop early and waits
+          there in real time. Jump to the stop, then use Miss next bus.
         </p>}
       </>}
     </div>}

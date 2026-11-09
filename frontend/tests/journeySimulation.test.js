@@ -92,14 +92,6 @@ test('simulated positions count as being on the route', () => {
   assert.equal(locateOnRoute(data, positionAt(timeline, 1200)).index, 1)
 })
 
-test('a scripted bus pulls in shortly after the traveller reaches the stop', () => {
-  const arrivals = scriptedSchedule({ now, planSecondsToStop: 600, speed: 1 })
-  assert.equal(arrivals[0], now + 660000)
-  assert.equal(arrivals[1], arrivals[0] + HEADWAY_SECONDS * 1000)
-  // Playback speed only moves real time closer, never the wall clock itself.
-  assert.equal(scriptedSchedule({ now, planSecondsToStop: 600, speed: 4 })[0], now + 165000)
-})
-
 const timingFor = (arrivals, elapsedSeconds) => {
   const data = route()
   const timeline = buildTimeline(data)
@@ -110,6 +102,33 @@ const timingFor = (arrivals, elapsedSeconds) => {
   const progress = locateOnRoute(data, positionAt(timeline, elapsedSeconds))
   return navigationTiming({ ...data, evidence: [evidence] }, progress, now, now)
 }
+
+test('a scripted bus pulls in shortly after the traveller reaches the stop', () => {
+  const arrivals = scriptedSchedule({ now, planSecondsToStop: 600, speed: 1 })
+  assert.equal(arrivals[0], now + 660000)
+  assert.equal(arrivals[1], arrivals[0] + HEADWAY_SECONDS * 1000)
+  // Already at the stop: the next bus is a minute away whatever the playback speed.
+  assert.equal(scriptedSchedule({ now, planSecondsToStop: 0, speed: 8 })[0], now + 60000)
+})
+
+// The app decides which buses are catchable from the planned journey in real seconds, so a
+// schedule compressed to match fast playback would have every bus rejected as unreachable.
+test('a scripted bus is catchable at every playback speed', () => {
+  for (const speed of [0.5, 1, 2, 4, 8]) {
+    const arrivals = scriptedSchedule({ now, planSecondsToStop: 600, speed })
+    const timing = timingFor(arrivals, 0)
+    assert.equal(timing.buses[1].at, arrivals[0], `first bus rejected at ${speed}x`)
+    assert.ok(timing.minutes > 0)
+  }
+})
+
+test('a bus can still be missed on cue at every playback speed', () => {
+  for (const speed of [0.5, 1, 2, 4, 8]) {
+    const missed = scriptedSchedule({ now, planSecondsToStop: 600, speed, missFirst: true })
+    const timing = timingFor(missed, 0)
+    assert.equal(timing.buses[1].at, missed[1], `wrong bus chosen at ${speed}x`)
+  }
+})
 
 test('the journey counts down to the scripted bus', () => {
   const arrivals = scriptedSchedule({ now, planSecondsToStop: 600, speed: 1 })
