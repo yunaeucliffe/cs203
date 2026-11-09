@@ -101,6 +101,9 @@ Keep `SESSION_COOKIE_SECURE=false` for local HTTP development. Set it to `true` 
 
 The existing OneMap and LTA variables in `.env.example` can also be configured when those integrations are needed. Do not commit the `.env` file.
 
+The frontend has its own variables in `frontend/.env.example`, needed only when it is deployed
+somewhere other than the Vite dev server. See **Deploy the frontend (Vercel)**.
+
 ## Run the backend
 
 From the repository directory:
@@ -130,6 +133,38 @@ npm.cmd run dev
 ```
 
 On macOS or Linux, `npm ci` and `npm run dev` can be used instead. Open <http://localhost:5173> after Vite starts.
+
+## Deploy the frontend (Vercel)
+
+Set the Vercel project's root directory to `frontend`; `frontend/vercel.json` supplies the
+framework, build command and the rewrite that keeps deep links on `index.html`. Configure one
+environment variable for the deployment:
+
+| Variable | Value |
+| --- | --- |
+| `VITE_API_URL` | Base URL of the deployed backend, for example `https://silverroute-api.example.com`. Unset falls back to `http://localhost:8081` for local development. |
+
+The deployed frontend is a different origin from the backend, so the backend has to allow it
+and send its cookies cross-site. In the backend's environment:
+
+```properties
+CORS_ALLOWED_ORIGINS=https://silverroute.vercel.app,https://silverroute-*.vercel.app
+SESSION_COOKIE_SAME_SITE=none
+SESSION_COOKIE_SECURE=true
+```
+
+`CORS_ALLOWED_ORIGINS` accepts patterns, which preview deployments need because their host
+changes with every push. `SameSite=none` cookies are only sent over HTTPS, so the backend must
+be served over HTTPS as well; otherwise the browser drops the session cookie and every
+authenticated request comes back as 401.
+
+## Demo journey simulation
+
+A presenter's tool that plays a simulated position along a route the route engine returned, so
+an active journey can be demonstrated without walking one. It is off unless switched on with
+`?demo=1`, and then appears as a dev panel on the journey screen. It can pause, resume, change
+speed, jump to the bus stop, miss a bus on cue, and make location or live data fail — without
+ever altering the wall clock. See [demo journey simulation](docs/demo-simulation.md).
 
 ## API documentation (Swagger UI)
 

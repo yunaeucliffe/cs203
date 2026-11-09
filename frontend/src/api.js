@@ -1,4 +1,6 @@
-export const API_URL = 'http://localhost:8081'
+// Set VITE_API_URL for a deployed frontend (e.g. on Vercel) to point at the hosted backend;
+// local development falls back to the backend's default port.
+export const API_URL = (import.meta.env?.VITE_API_URL || 'http://localhost:8081').replace(/\/+$/, '')
 
 export const CONNECTION_ERROR = "Can't connect to SilverRoute. Check your internet connection and try again."
 

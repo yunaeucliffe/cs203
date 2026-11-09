@@ -7,6 +7,8 @@ import { createDestinationIcon } from '../utils/mapIcons'
 import DirectionMarker from '../components/DirectionMarker'
 import { useNavigationTiming } from '../components/useNavigationTiming'
 import { clockTime } from '../utils/navigationTiming'
+import { useJourneySimulation } from '../dev/useJourneySimulation'
+import SimulationPanel from '../dev/SimulationPanel'
 
 import {
   MapContainer,
@@ -162,11 +164,15 @@ function Navigation({
   onStartCompass = () => {},
 }) {
   const [sidebarHidden, setSidebarHidden] = useState(false)
-  const [location, setLocation] = useState(null)
-  const [locationError, setLocationError] = useState('')
+  const [deviceLocation, setDeviceLocation] = useState(null)
+  const [deviceLocationError, setDeviceLocationError] = useState('')
   const [following, setFollowing] = useState(true)
   const [handlePosition, setHandlePosition] = useState(null)
   const panel = useRef(null)
+  // A demo simulation can stand in for the phone's GPS; it is inert unless demo mode is on.
+  const simulation = useJourneySimulation(route)
+  const location = simulation.active ? simulation.location : deviceLocation
+  const locationError = simulation.active ? '' : deviceLocationError
   useJourneySharing({ id: journeyId, route, origin, destination, location })
   const container = useRef(null)
 
@@ -200,7 +206,8 @@ function Navigation({
     }
   }, [sidebarHidden])
   const [fallbackStart] = useState(Date.now)
-  const timing = useNavigationTiming(route, location, startedAt ?? fallbackStart)
+  const timing = useNavigationTiming(route, location, startedAt ?? fallbackStart,
+    { busRefreshKey: simulation.busRefreshKey, resetKey: simulation.resetKey })
 
   // The compass starts from the "Start navigation" tap. Tapping "Follow my location"
   // tries again, e.g. if the phone asked for permission and the user said no at first.
@@ -211,32 +218,36 @@ function Navigation({
 
   useEffect(() => {
     if (!navigator.geolocation) return
+    // A running simulation supplies the position instead, so stop asking the device for one.
+    // The last device fix is left alone: it is ignored while simulating, and the staleness
+    // check below clears it once the watch restarts.
+    if (simulation.active) return
     let active = true
     const watch = navigator.geolocation.watchPosition(({ coords, timestamp }) => {
       if (!active) return
-      setLocation({ latitude: coords.latitude, longitude: coords.longitude,
+      setDeviceLocation({ latitude: coords.latitude, longitude: coords.longitude,
         accuracy: coords.accuracy, timestamp })
-      setLocationError('')
+      setDeviceLocationError('')
     }, error => {
       if (!active) return
-      setLocationError(error.code === 1
+      setDeviceLocationError(error.code === 1
         ? 'Location permission is blocked. Allow location access in your browser to follow your journey.'
         : error.code === 3
           ? 'Location update timed out. Waiting for a new GPS fix…'
           : 'Your location is unavailable. Waiting for a GPS signal…')
       // Phones standing still (e.g. at a bus stop) can time out; the 30-second check below
       // clears an old fix, so only clear it straight away for real failures.
-      if (error.code !== 3) setLocation(null)
+      if (error.code !== 3) setDeviceLocation(null)
     }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 })
     const timer = window.setInterval(() => {
-      setLocation(current => current && Date.now() - current.timestamp > 30000 ? null : current)
+      setDeviceLocation(current => current && Date.now() - current.timestamp > 30000 ? null : current)
     }, 5000)
     return () => {
       active = false
       navigator.geolocation.clearWatch(watch)
       window.clearInterval(timer)
     }
-  }, [])
+  }, [simulation.active])
 
   const paths = route?.routePaths || []
   const legs = route?.legs || []
@@ -436,6 +447,8 @@ function Navigation({
         </div>
 
       </section>}
+
+      <SimulationPanel simulation={simulation} />
 
     </div>
   )
