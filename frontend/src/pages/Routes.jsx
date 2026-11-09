@@ -517,12 +517,12 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
               key={selectedRoute.id}
               route={selectedRoute}
               index={selectedIndex}
-              origin={result.origin}
-              destination={result.destination}
-              engine={result.engine}
+              origin={result?.origin ?? activeNavigation?.origin ?? initialJourney?.origin}
+              destination={result?.destination ?? activeNavigation?.destination ?? initialJourney?.destination}
+              engine={result?.engine}
               live={!navigating}
-              warnings={result.warnings}
-              sources={result.sources}
+              warnings={result?.warnings}
+              sources={result?.sources}
               onBack={() => window.history.back()}
               choiceButtonRef={setChoiceButtonContainer}
             />
