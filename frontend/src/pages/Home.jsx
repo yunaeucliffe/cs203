@@ -361,7 +361,7 @@ function Home() {
                             {/* SEARCH AREA */}
                             <div className="mt-6 max-w-[680px] sm:mt-10">
 
-                                <div className="flex flex-col border-2 border-[#3E424B] bg-white sm:flex-row">
+                                <div className="flex flex-col divide-y-2 divide-[#3E424B] border-2 border-[#3E424B] bg-white sm:flex-row sm:divide-y-0">
 
                                     {/* Input */}
                                     <div className="flex min-w-0 flex-1 items-center gap-3 px-5">
