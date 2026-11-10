@@ -1,3 +1,5 @@
+import LiveEstimateNote from './LiveEstimateNote'
+
 const time = value => new Date(value).toLocaleTimeString('en-SG', {
     timeZone: 'Asia/Singapore', hour: 'numeric', minute: '2-digit', hour12: true,
 })
@@ -22,11 +24,7 @@ function BusLiveStatus({ bus, live }) {
     return (
         <div className="mt-2 rounded-lg bg-[#FAF7F0] px-3 py-2">
             <p className="text-sm font-semibold text-[#2A3439]">{primary}</p>
-            <p className="mt-0.5 text-xs text-[#7A7F7A]">
-                Live estimate from LTA; actual arrival may differ.
-                {stale && ' Estimate expired.'}
-                {live && ' Updates automatically.'}
-            </p>
+            <LiveEstimateNote stale={stale} live={live} />
         </div>
     )
 }

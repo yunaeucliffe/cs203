@@ -27,6 +27,7 @@ function Home() {
     const [isAuthenticated, setIsAuthenticated] = useState(false)
     const [userName, setUserName] = useState('there')
     const [savedPlaces, setSavedPlaces] = useState([])
+    const [savedPlaceCategories, setSavedPlaceCategories] = useState([])
     const [addSavedPlace, setAddSavedPlace] = useState(false)
     // Each page change adds a browser history entry, so the phone's Back button returns
     // to the previous SilverRoute page instead of leaving the app.
@@ -80,6 +81,11 @@ function Home() {
                     signal: controller.signal,
                 })
                 if (placesResponse.ok) setSavedPlaces(await placesResponse.json())
+                const categoriesResponse = await fetch(`${API_URL}/api/users/me/categories`, {
+                    credentials: 'include',
+                    signal: controller.signal,
+                })
+                if (categoriesResponse.ok) setSavedPlaceCategories(await categoriesResponse.json())
             })
             .catch((error) => {
                 if (error.name !== 'AbortError') {
@@ -162,6 +168,12 @@ function Home() {
                         .then((response) => response.ok ? response.json() : [])
                         .then(setSavedPlaces)
                         .catch(() => setSavedPlaces([]))
+                    fetch(`${API_URL}/api/users/me/categories`, {
+                        credentials: 'include',
+                    })
+                        .then((response) => response.ok ? response.json() : [])
+                        .then(setSavedPlaceCategories)
+                        .catch(() => setSavedPlaceCategories([]))
                 }}
                 onSignUp={() => {
                     goTo('signUp')
@@ -443,6 +455,9 @@ function Home() {
                                             key={place.id}
                                             label={place.label}
                                             address={place.address}
+                                            category={savedPlaceCategories.find(
+                                                (category) => category.id === place.categoryId
+                                            )}
                                             onClick={() => selectSavedPlace(place)}
                                         />
                                     ))}

@@ -102,51 +102,52 @@ function RouteDetails({
 
 
             {/* HEADER */}
-            <div className="mb-6">
+            {/* On mobile, "Choose this route" sits between the mode chain and route notices;
+                on sm+ it sits beside the title, same as before. A CSS grid with named areas
+                lets the one button slot (and its portal ref) move between the two spots. */}
+            <div
+                className="mb-6 grid gap-y-3 [grid-template-areas:'title'_'origin'_'summary'_'button'_'notices'_'demo'] sm:grid-cols-[1fr_auto] sm:items-center sm:gap-x-4 sm:[grid-template-areas:'title_button'_'origin_origin'_'summary_summary'_'notices_notices'_'demo_demo']"
+            >
 
-                {/* TITLE ROW */}
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                {/* ROUTE TITLE + BADGES */}
+                <div className="flex flex-wrap items-center gap-3 [grid-area:title]">
 
-                    {/* ROUTE TITLE + BADGES */}
-                    <div className="flex flex-wrap items-center gap-3">
+                    <h1
+                        className="text-4xl text-[#2A3439]"
+                        style={{ fontFamily: '"DM Serif Display", serif' }}
+                    >
+                        Route {index + 1}
+                    </h1>
 
-                        <h1
-                            className="text-4xl text-[#2A3439]"
-                            style={{ fontFamily: '"DM Serif Display", serif' }}
-                        >
-                            Route {index + 1}
-                        </h1>
+                    {index === 0 && (
+                        <span className="rounded-full bg-[#DCE7D2] px-3 py-1 text-sm font-semibold">
+                            {isWalkingOnly ? 'Walking option' : 'Recommended for you'}
+                        </span>
+                    )}
 
-                        {index === 0 && (
-                            <span className="rounded-full bg-[#DCE7D2] px-3 py-1 text-sm font-semibold">
-                                {isWalkingOnly ? 'Walking option' : 'Recommended for you'}
-                            </span>
-                        )}
-
-                        {isDemo && (
-                            <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">
-                                Demo route
-                            </span>
-                        )}
-
-                    </div>
-
-
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div ref={choiceButtonRef} />
-                    </div>
+                    {isDemo && (
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">
+                            Demo route
+                        </span>
+                    )}
 
                 </div>
 
 
+                {/* CHOOSE THIS ROUTE */}
+                <div className="flex flex-wrap items-center gap-3 [grid-area:button] sm:justify-self-end">
+                    <div ref={choiceButtonRef} />
+                </div>
+
+
                 {/* ORIGIN AND DESTINATION */}
-                <p className="mt-2 text-[#555C60]">
+                <p className="text-[#555C60] [grid-area:origin]">
                     {origin?.name} → {destination?.name}
                 </p>
 
 
                 {/* ROUTE SUMMARY */}
-                <div className="mt-3">
+                <div className="[grid-area:summary]">
                     {isWalkingOnly && <p className="mb-2 text-lg font-semibold">Walk all the way</p>}
                     <RouteModeChain legs={route.legs} size="md" />
                     {isWalkingOnly && route.reasons?.length > 0 && (
@@ -158,7 +159,7 @@ function RouteDetails({
 
 
                 {(warnings.length > 0 || route.warnings?.length > 0) && (
-                    <details className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <details className="rounded-xl border border-amber-200 bg-amber-50 p-4 [grid-area:notices]">
                         <summary className="cursor-pointer font-semibold">Route notices</summary>
                         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
                             {[...new Set([...warnings, ...(route.warnings || [])])].map((warning, i) => <li key={i}>{warning}</li>)}
@@ -168,7 +169,7 @@ function RouteDetails({
 
                 {/* DEMO NOTICE */}
                 {isDemo && (
-                    <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                    <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 [grid-area:demo]">
                         This route uses sample data and should not be used for navigation.
                     </p>
                 )}
