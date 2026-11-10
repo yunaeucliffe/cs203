@@ -36,13 +36,53 @@ class TripShareServiceTests {
     @Test void createsUnpredictableExpiringDetailsOnlyLink() {
         owner();
         when(shares.save(any())).thenAnswer(call -> call.getArgument(0));
-        var request = new TripShareService.Create("Home", "Clinic", "Bus 10", Instant.now().plusSeconds(900), false);
+        var request = new TripShareService.Create("Home", "Clinic", "Bus 10", Instant.now().plusSeconds(900), false, null);
         var first = service.create("owner@example.com", request);
         var second = service.create("owner@example.com", request);
         assertThat(first.token()).hasSize(43).isNotEqualTo(second.token());
         assertThat(first.liveLocation()).isFalse();
         assertThat(first.latitude()).isNull();
         assertThat(first.expiresAt()).isBetween(Instant.now().plusSeconds(86390), Instant.now().plusSeconds(86410));
+    }
+    @Test void sharedRouteIsStoredAndGivenToTheRecipient() {
+        owner();
+        var path = List.of(List.of(List.of(1.3, 103.8), List.of(1.31, 103.81)), List.of(List.of(1.31, 103.81), List.of(1.32, 103.82)));
+        var stored = new TripShare[1];
+        when(shares.save(any())).thenAnswer(call -> stored[0] = call.getArgument(0));
+        service.create("owner@example.com", new TripShareService.Create(
+                "Home", "Clinic", "Bus 10", Instant.now().plusSeconds(900), true, path));
+        when(shares.findByToken(stored[0].token)).thenReturn(Optional.of(stored[0]));
+        assertThat(service.read(stored[0].token).routePath()).isEqualTo(path);
+    }
+    @Test void detailsOnlyAndUnreadableRoutesStillShowTheTrip() {
+        owner();
+        var stored = new TripShare[1];
+        when(shares.save(any())).thenAnswer(call -> stored[0] = call.getArgument(0));
+        service.create("owner@example.com", new TripShareService.Create(
+                "Home", "Clinic", "Bus 10", Instant.now().plusSeconds(900), false, List.of()));
+        assertThat(stored[0].routePath).isNull();
+        share.routePath = "not json";
+        when(shares.findByToken("secret")).thenReturn(Optional.of(share));
+        assertThat(service.read("secret").routePath()).isEmpty();
+        assertThat(service.read("secret").origin()).isEqualTo(share.origin);
+    }
+    @Test void unusableRouteGeometryIsRejectedRatherThanShared() {
+        owner();
+        var tooManyPoints = List.of(java.util.stream.IntStream.range(0, 1501)
+                .mapToObj(index -> List.of(1.3 + index / 100000.0, 103.8)).toList());
+        for (var invalid : List.of(
+                List.of(List.of(List.of(1.3, 103.8, 5.0))),
+                List.of(List.of(List.of(1.3))),
+                List.of(List.of(java.util.Arrays.asList(1.3, null))),
+                List.of(List.of(List.of(95.0, 103.8))),
+                List.of(List.of(List.of(1.3, 200.0))),
+                tooManyPoints)) {
+            assertThatThrownBy(() -> service.create("owner@example.com", new TripShareService.Create(
+                    "Home", "Clinic", "Bus 10", Instant.now().plusSeconds(900), false, invalid)))
+                    .isInstanceOfSatisfying(ResponseStatusException.class,
+                            ex -> assertThat(ex.getStatusCode().value()).isEqualTo(400));
+        }
+        verify(shares, never()).save(any());
     }
     @Test void validLinkCanBeReadWithoutOwnerLookup() {
         when(shares.findByToken("secret")).thenReturn(Optional.of(share));

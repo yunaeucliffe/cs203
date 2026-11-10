@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Check, Copy, MapPin, Share2, X } from 'lucide-react'
 import { TripSharingContext } from './TripSharingContext'
 import { shareRequest, shareUrl, requestLocation } from '../api/tripShares'
-import { estimateArrival, matchesJourney, freshJourneyLocation, isSharingJourney } from '../utils/tripSharing'
+import { estimateArrival, matchesJourney, freshJourneyLocation, isSharingJourney, shareableRoutePath } from '../utils/tripSharing'
 
 // Full width on phones, natural width side by side on larger screens.
 const button = 'flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl px-5 py-2 text-center text-base font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3E424B] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
@@ -256,6 +256,8 @@ export default function TripSharing({ route, origin, destination }) {
       const share = await shareRequest('', 'POST', {
         origin: originName, destination: destinationName,
         routeSummary: summary, estimatedArrival: estimateArrival(route), liveLocation: live,
+        // The drawn route, so family see the way ahead and not only where the traveller is now.
+        routePath: shareableRoutePath(route.routePaths),
       })
       add(share, live)
     } catch (error) { show('create', error.message) }

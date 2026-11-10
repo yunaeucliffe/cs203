@@ -16,3 +16,5 @@ CREATE TABLE IF NOT EXISTS trip_shares (
 CREATE INDEX IF NOT EXISTS idx_trip_shares_owner ON trip_shares(user_id);
 -- Added after the table was first created; safe to rerun on existing databases.
 ALTER TABLE trip_shares ADD COLUMN IF NOT EXISTS arrived BOOLEAN NOT NULL DEFAULT FALSE;
+-- The recipient's map draws the planned route: JSON [[[latitude, longitude], ...], ...].
+ALTER TABLE trip_shares ADD COLUMN IF NOT EXISTS route_path TEXT;

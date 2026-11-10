@@ -45,10 +45,12 @@ class TripShareSecurityTests {
     }
     @Test void anonymousCanReadPublicLink() throws Exception {
         when(service.read("secret")).thenReturn(new TripShareService.PublicView("Home", "Clinic", "Bus 10",
-                Instant.now().plusSeconds(300), Instant.now().plusSeconds(600), false, null, null, null));
+                Instant.now().plusSeconds(300), Instant.now().plusSeconds(600), false, null, null, null,
+                java.util.List.of(java.util.List.of(java.util.List.of(1.3, 103.8), java.util.List.of(1.31, 103.81)))));
         mvc.perform(get("/api/shared-trips/secret")).andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.origin").value("Home"))
+                .andExpect(jsonPath("$.routePath[0][0][0]").value(1.3))
                 .andExpect(jsonPath("$.id").doesNotExist()).andExpect(jsonPath("$.token").doesNotExist());
     }
     @Test void invalidLinkReturnsOnlyClearMessage() throws Exception {

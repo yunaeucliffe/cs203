@@ -18,6 +18,8 @@ public class TripShare {
     @Column(nullable = false) public boolean liveLocation;
     @Column(nullable = false) public boolean revoked;
     @Column(nullable = false) public boolean arrived;
+    // The drawn route as JSON [[[latitude, longitude], ...], ...]; null for older shares.
+    @Column(columnDefinition = "text") public String routePath;
     public Double latitude;
     public Double longitude;
     public Instant locationUpdatedAt;
