@@ -28,23 +28,62 @@ public class OneMapRouteDataTool implements RouteDataTool {
     @Override
     public ToolExecutionResult execute(TripRequest request) throws Exception {
 
+        return execute(request, new com.silverroute.routing.SavedPreferences("Normal", 50, 20));
+    }
+
+    @Override
+    public ToolExecutionResult execute(TripRequest request, com.silverroute.routing.SavedPreferences preferences) throws Exception {
         var origin = resolve(request.origin(), request.originCoordinates());
         var destination = resolve(request.destination(), request.destinationCoordinates());
-
-        String routeJson = oneMapService.getRoute(
-                origin.latitude(),
-                origin.longitude(),
-                destination.latitude(),
-                destination.longitude(),
-                request.departureTime());
-
-        List<RouteOption> routes = oneMapService.parseRoutes(routeJson);
-
-        return new ToolExecutionResult(
-                NAME,
-                routes,
-                List.of());
+        var routes = new java.util.ArrayList<RouteOption>();
+        var warnings = new java.util.ArrayList<String>();
+        RouteOption walking = null;
+        Exception transitFailure = null;
+        try {
+            var supplied = oneMapService.parseRoutes(oneMapService.getRoute(origin.latitude(), origin.longitude(),
+                    destination.latitude(), destination.longitude(), request.departureTime()));
+            for (var route : supplied) {
+                if (!route.isWalkingOnly()) routes.add(route);
+                else if (eligible(route, preferences) && (walking == null || route.walkingDistanceMeters() < walking.walkingDistanceMeters()))
+                    walking = route;
+            }
+        } catch (com.silverroute.exception.InvalidAddressException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            transitFailure = exception;
+        }
+        if (preferences.walkingOnlyEnabled()) {
+            try {
+                var candidate = new com.silverroute.routing.WalkingRouteParser().parse(
+                        oneMapService.getWalkingRoute(origin.latitude(), origin.longitude(), destination.latitude(), destination.longitude()),
+                        origin, destination, request.departureTime());
+                if (eligible(candidate, preferences)
+                        && (walking == null || candidate.walkingDistanceMeters() < walking.walkingDistanceMeters()))
+                    walking = candidate;
+            } catch (com.silverroute.exception.InvalidAddressException exception) {
+                throw exception;
+            } catch (Exception exception) {
+                if (walking == null) warnings.add("The walking-only route could not be retrieved; public transport options are shown when available.");
+            }
+        }
+        if (walking != null && (preferences.walkingOnlyEnabled() || routes.isEmpty())) routes.add(walking);
+        if (routes.isEmpty()) {
+            if (transitFailure != null) throw transitFailure;
+            throw new com.silverroute.exception.RouteDataUnavailableException("No routes are available within your current travel settings. Try different locations or a larger walking limit.");
+        }
+        if (routes.stream().allMatch(RouteOption::isWalkingOnly))
+            warnings.add("Public transport is unavailable for this search. A walking-only option is available.");
+        return new ToolExecutionResult(NAME, List.copyOf(routes), List.copyOf(warnings));
     }
+
+    private boolean eligible(RouteOption route, com.silverroute.routing.SavedPreferences preferences) {
+        return route.isWalkingOnly() && route.walkingDistanceMeters() != null
+                && Double.isFinite(route.walkingDistanceMeters()) && route.walkingDistanceMeters() >= 0
+                && (!preferences.walkingOnlyEnabled() || route.walkingDistanceMeters() <= preferences.walkingOnlyMaxDistanceMeters())
+                && route.durationMinutes() != null && route.durationMinutes() >= 0
+                && route.legs().stream().allMatch(leg -> leg.path().size() >= 2);
+    }
+
     private com.silverroute.api.LocationResult resolve(
             String name,
             TripRequest.Coordinates coordinates) throws Exception {

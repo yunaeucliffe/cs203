@@ -77,4 +77,3 @@ export function useBusArrivals(route, enabled = true, refreshKey = 0) {
   const current = useMemo(() => ({ ...route, evidence: [...updates, ...(route.evidence || [])] }), [route, updates])
   return { now, failed, route: current }
 }
-

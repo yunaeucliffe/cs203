@@ -56,7 +56,7 @@ public class OpenAiModelGateway implements ModelGateway {
                 "routeId",Map.of("type","string","enum",ids),"warnings",strings));
         Map<String,Object> schema=Map.of("type","object","additionalProperties",false,"required",List.of("rankings"),
                 "properties",Map.of("rankings",Map.of("type","array","minItems",0,
-                        "maxItems",Math.min(3,ids.size()),"items",selection)));
+                        "maxItems",Math.min(context.selectionLimit(),ids.size()),"items",selection)));
         return Map.of("model",model,"store",false,"max_output_tokens",2500,
                 "input",List.of(Map.of("role","developer","content",prompt),Map.of("role","user","content",input)),
                 "text",Map.of("format",Map.of("type","json_schema","name","route_rankings","strict",true,"schema",schema)));

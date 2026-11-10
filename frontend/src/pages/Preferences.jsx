@@ -1,3 +1,4 @@
+import { walkingPreferenceError } from '../utils/walkingPreferences'
 import PrioritySettings from '../components/PrioritySettings'
 import { useState } from 'react'
 import { API_URL, getCsrfToken } from '../api'
@@ -11,6 +12,8 @@ function Preferences({ onComplete }) {
     minimizeWalkingPriority: 50,
     shelterPriority: 20,
     automaticLearning: true,
+    walkingOnlyEnabled: false,
+    walkingOnlyMaxDistanceMeters: 500,
     })
 
     const [error, setError] = useState('')
@@ -18,6 +21,8 @@ function Preferences({ onComplete }) {
 
     const handleComplete = async () => {
         setError('')
+        const validationError = walkingPreferenceError(formValues)
+        if (validationError) { setError(validationError); return }
         setIsSaving(true)
 
         try {

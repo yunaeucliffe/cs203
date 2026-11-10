@@ -1,3 +1,4 @@
+import { walkingPreferenceError } from '../utils/walkingPreferences'
 import AdditionalPreferences from '../components/AdditionalPreferences'
 import { priorityCategory } from '../utils/priorityCategories'
 import PrioritySettings from '../components/PrioritySettings'
@@ -36,6 +37,8 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
     minimizeWalkingPriority: 50,
     shelterPriority: 20,
     automaticLearning: true,
+    walkingOnlyEnabled: false,
+    walkingOnlyMaxDistanceMeters: 500,
   })
 
   useEffect(() => {
@@ -74,6 +77,8 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
       minimizeWalkingPriority: user.minimizeWalkingPriority,
       shelterPriority: user.shelterPriority,
       automaticLearning: user.automaticLearning,
+      walkingOnlyEnabled: user.walkingOnlyEnabled ?? false,
+      walkingOnlyMaxDistanceMeters: user.walkingOnlyMaxDistanceMeters ?? 500,
     })
 
     setActionError('')
@@ -83,6 +88,8 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
   const handleSavePreferences = async (event) => {
     event.preventDefault()
     setActionError('')
+    const validationError = walkingPreferenceError(formValues)
+    if (validationError) { setActionError(validationError); return }
     setIsSaving(true)
 
     try {
@@ -286,6 +293,9 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
           </div>
         )}
 
+        {!isEditing && <div className="mt-5 rounded-xl bg-white/60 p-5">
+          <p>Walking-only alternatives: {user.walkingOnlyEnabled ? `Up to ${user.walkingOnlyMaxDistanceMeters} m` : 'Off'}</p>
+        </div>}
         {!isEditing && <AdditionalPreferences automaticLearning={user.automaticLearning} />}
 
         {/* EDITING PREFERENCES */}

@@ -27,6 +27,19 @@ public class UserPreference {
     @Column(name = "shelter_priority", nullable = false)
     private int shelterPriority;
 
+    @Column(name = "walking_only_enabled", nullable = false)
+    private boolean walkingOnlyEnabled;
+    @Column(name = "walking_only_max_distance_meters", nullable = false)
+    private int walkingOnlyMaxDistanceMeters = 500;
+    public boolean isWalkingOnlyEnabled() { return walkingOnlyEnabled; }
+    public int getWalkingOnlyMaxDistanceMeters() { return walkingOnlyMaxDistanceMeters; }
+    public void updateWalkingOnly(Boolean enabled, Integer meters) {
+        if (meters != null && (meters < 100 || meters > 5000))
+            throw new IllegalArgumentException("Walking limit must be between 100 and 5000 metres");
+        if (enabled != null) walkingOnlyEnabled = enabled;
+        if (meters != null) walkingOnlyMaxDistanceMeters = meters;
+    }
+
     public int getMinimizeWalkingPriority() { return minimizeWalkingPriority; }
     public int getShelterPriority() { return shelterPriority; }
 

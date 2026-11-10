@@ -14,7 +14,7 @@ public class MockModelGateway implements ModelGateway {
         return new RankingResult(context.candidates().stream()
                 .sorted(Comparator.comparing(RouteContext.Candidate::walkingMinutes,
                         Comparator.nullsLast(Comparator.naturalOrder())))
-                .limit(3).map(route -> new RankingResult.Selection(route.id(),
+                .limit(context.selectionLimit()).map(route -> new RankingResult.Selection(route.id(),
                         List.of("Mock data; not for navigation"))).toList());
     }
 }

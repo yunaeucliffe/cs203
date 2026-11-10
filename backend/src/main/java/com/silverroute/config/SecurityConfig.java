@@ -2,9 +2,9 @@ package com.silverroute.config;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -22,27 +22,14 @@ import com.silverroute.repository.UserRepository;
 @Configuration
 public class SecurityConfig {
 
-    private static final String DEFAULT_ORIGIN = "http://localhost:5173";
-    private static final String COMMA = "\\s*,\\s*";
+    @Value("${cors.allowed-origins:http://localhost:5173}")
+    private List<String> allowedOrigins;
 
-    // Read from the Environment with defaults rather than injected placeholders: the security
-    // tests build a plain context that does not load application.properties, and a frontend
-    // served from the same origin as the API needs none of these settings changed.
-    private final List<String> allowedOrigins;
-    private final String sameSite;
-    private final boolean secureCookies;
+    @Value("${csrf.cookie.same-site:lax}")
+    private String csrfCookieSameSite;
 
-    SecurityConfig(Environment environment) {
-        // A frontend deployed elsewhere (e.g. on Vercel without an API proxy) is a different
-        // origin, so the origins allowed to call the API with credentials are configuration.
-        this.allowedOrigins = List.of(environment
-                .getProperty("app.cors.allowed-origins", DEFAULT_ORIGIN).split(COMMA));
-        // Cross-site requests only carry the session and CSRF cookies when they are
-        // SameSite=None; Secure, which in turn requires HTTPS on both sides.
-        this.sameSite = environment.getProperty("server.servlet.session.cookie.same-site", "lax");
-        this.secureCookies = environment
-                .getProperty("server.servlet.session.cookie.secure", Boolean.class, false);
-    }
+    @Value("${csrf.cookie.secure:false}")
+    private boolean csrfCookieSecure;
 
     @Bean
     SecurityContextRepository securityContextRepository() {
@@ -75,18 +62,19 @@ public class SecurityConfig {
         return http.build();
     }
 
-    private CookieCsrfTokenRepository csrfTokenRepository() {
+    @Bean
+    CookieCsrfTokenRepository csrfTokenRepository() {
         CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        // The CSRF cookie has to follow the same rules as the session cookie, or a deployed
-        // frontend is sent a token it cannot read back.
-        repository.setCookieCustomizer(cookie -> cookie.sameSite(sameSite).secure(secureCookies));
+        repository.setCookieCustomizer(cookie -> cookie
+                .sameSite(csrfCookieSameSite)
+                .secure(csrfCookieSecure));
         return repository;
     }
 
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(allowedOrigins);
+        configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN"));
         configuration.setAllowCredentials(true);

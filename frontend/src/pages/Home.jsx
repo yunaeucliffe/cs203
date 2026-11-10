@@ -9,17 +9,21 @@ import Navbar from '../components/Navbar'
 import LocationAutocomplete from '../components/LocationAutocomplete'
 import SavedPlacesCard from '../components/SavedPlacesCard'
 import { API_URL } from '../api'
+import { loadActiveJourney } from '../utils/activeJourney'
+import { saveRouteSearchDraft } from '../utils/routeSearchDraft'
 
 import {
     Plus,
     ArrowRight,
     Search,
+    Navigation,
 } from 'lucide-react'
 
 function Home() {
     const [destination, setDestination] = useState('')
     const [destinationPlace, setDestinationPlace] = useState(null)
     const [currentPage, setCurrentPage] = useState('home')
+    const [routesOpenMode, setRoutesOpenMode] = useState('restoreSearch')
     const [isAuthenticated, setIsAuthenticated] = useState(false)
     const [userName, setUserName] = useState('there')
     const [savedPlaces, setSavedPlaces] = useState([])
@@ -39,6 +43,25 @@ function Home() {
         window.addEventListener('popstate', onPopState)
         return () => window.removeEventListener('popstate', onPopState)
     }, [])
+
+    const [activeJourney, setActiveJourney] = useState(loadActiveJourney)
+
+    useEffect(() => {
+        const syncActiveJourney = () => {
+            setActiveJourney(loadActiveJourney())
+        }
+
+        window.addEventListener('focus', syncActiveJourney)
+        window.addEventListener('activeJourneyUpdated', syncActiveJourney)
+
+        const interval = window.setInterval(syncActiveJourney, 30_000)
+
+        return () => {
+            window.removeEventListener('focus', syncActiveJourney)
+            window.removeEventListener('activeJourneyUpdated', syncActiveJourney)
+            window.clearInterval(interval)
+        }
+        }, [])
 
     useEffect(() => {
         const controller = new AbortController()
@@ -68,10 +91,15 @@ function Home() {
     }, [])
 
     const handleSearch = () => {
-        if (destination.trim() === '') {
-            return
-        }
+        if (destination.trim() === '') return
 
+        saveRouteSearchDraft({
+            destination: destination.trim(),
+            destinationPlace,
+            originMode: 'currentLocation',
+        })
+
+        setRoutesOpenMode('newSearch')
         goTo('routes')
     }
 
@@ -91,8 +119,31 @@ function Home() {
 
     const selectSavedPlace = (place) => {
         setDestination(place.address)
-        setDestinationPlace(Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
-            ? { name: place.address, address: place.address, latitude: place.latitude, longitude: place.longitude } : null)
+        setDestinationPlace(
+            Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
+                ? {
+                    name: place.address,
+                    address: place.address,
+                    latitude: place.latitude,
+                    longitude: place.longitude,
+                }
+                : null
+        )
+        saveRouteSearchDraft({
+            destination: place.address,
+            destinationPlace: Number.isFinite(place.latitude) &&
+                Number.isFinite(place.longitude)
+                ? {
+                    name: place.address,
+                    address: place.address,
+                    latitude: place.latitude,
+                    longitude: place.longitude,
+                }
+                : null,
+            originMode: 'currentLocation',
+        })
+
+        setRoutesOpenMode('newSearch')
         goTo('routes')
     }
 
@@ -149,7 +200,10 @@ function Home() {
             <Profile
                 onBack={() => goTo('home')}
                 onHome={() => goTo('home')}
-                onRoutes={() => goTo('routes')}
+                onRoutes={() => {
+                    setRoutesOpenMode('openRoutes')
+                    goTo('routes')
+                }}
                 onSavedPlaces={openSavedPlaces}
                 onSignIn={() => goTo('signIn')}
                 isAuthenticated={isAuthenticated}
@@ -172,6 +226,7 @@ function Home() {
                 }}
 
                 onRoutes={() => {
+                    setRoutesOpenMode('openRoutes')
                     goTo('routes')
                     setAddSavedPlace(false)
                 }}
@@ -201,12 +256,18 @@ function Home() {
                 onProfile={() => goTo('profile')}
                 onSavedPlaces={openSavedPlaces}
                 isAuthenticated={isAuthenticated}
-                initialDestination={destination}
-                initialDestinationPlace={destinationPlace}
+                routesOpenMode={routesOpenMode}
+                initialDestination={routesOpenMode === 'newSearch' ? destination : ''}
+                initialDestinationPlace={routesOpenMode === 'newSearch' ? destinationPlace : null}
+                initialJourney={routesOpenMode === 'resumeJourney' ? activeJourney : null}
+                resumeJourneyOnOpen={routesOpenMode === 'resumeJourney'}
+                onJourneyEnd={() => {
+                    setActiveJourney(null)
+                    setRoutesOpenMode('openRoutes')
+                }}
             />
         )
     }
-
     return (
         <div className=" relative min-h-screen bg-[#FAF7F0] text-[#2A3439]">
 
@@ -222,7 +283,10 @@ function Home() {
                 <Navbar
                     activePage="home"
                     onHome={() => goTo('home')}
-                    onRoutes={() => goTo('routes')}
+                    onRoutes={() => {
+                        setRoutesOpenMode('openRoutes')
+                        goTo('routes')
+                    }}
                     onSignIn={() => goTo('signIn')}
                     onProfile={() => goTo('profile')}
                     onSavedPlaces={openSavedPlaces}
@@ -232,7 +296,45 @@ function Home() {
                 {/* MAIN */}
                 <main className="mx-auto max-w-7xl px-4 sm:px-8">
 
-                    <div className="grid grid-cols-1 lg:min-h-[calc(100vh-87px)] lg:grid-cols-[1.12fr_0.88fr]">
+                {activeJourney?.route && (
+                    <div className="mb-6 mt-6 rounded-2xl border border-[#D9E2D5] bg-white p-6 shadow-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div>
+                                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-green-700">
+                                    <Navigation size={18} />
+                                    Journey in progress
+                                </div>
+
+                                <h2 className="text-xl font-semibold">
+                                    {typeof activeJourney.origin === 'string'
+                                        ? activeJourney.origin
+                                        : activeJourney.origin?.name || 'Current location'}
+                                    {' → '}
+                                    {typeof activeJourney.destination === 'string'
+                                        ? activeJourney.destination
+                                        : activeJourney.destination?.name || 'Destination'}
+                                </h2>
+
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Your route is saved. Continue where you left off.
+                                </p>
+                            </div>
+
+                            <button
+                               onClick={() => {
+                                    setRoutesOpenMode('resumeJourney')
+                                    goTo('routes')
+                                }}
+                                className="shrink-0 rounded-xl bg-[#2A3439] px-5 py-3 font-medium text-white transition hover:opacity-90"
+                            >
+                                Continue Journey
+                                <ArrowRight size={16} className="ml-2 inline" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:min-h-[calc(100vh-87px)] lg:grid-cols-[1.12fr_0.88fr]">
 
 
                         {/* ================================================= */}

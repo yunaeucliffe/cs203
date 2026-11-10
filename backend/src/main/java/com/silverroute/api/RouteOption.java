@@ -7,7 +7,14 @@ import com.silverroute.routing.RouteEvidence;
 public record RouteOption(String id, String summary, Integer durationMinutes, Integer walkingMinutes,
         Integer transfers, Double walkingDistanceMeters, Double distanceMeters,
         Double estimatedShelteredWalkingMeters, List<RouteLeg> legs, List<List<List<Double>>> routePaths,
-        List<RouteEvidence> evidence, List<String> reasons, List<String> warnings) {
+        List<RouteEvidence> evidence, List<String> reasons, List<String> warnings, String weatherNote) {
+    public RouteOption(String id, String summary, Integer durationMinutes, Integer walkingMinutes,
+            Integer transfers, Double walkingDistanceMeters, Double distanceMeters,
+            Double estimatedShelteredWalkingMeters, List<RouteLeg> legs, List<List<List<Double>>> routePaths,
+            List<RouteEvidence> evidence, List<String> reasons, List<String> warnings) {
+        this(id, summary, durationMinutes, walkingMinutes, transfers, walkingDistanceMeters, distanceMeters,
+                estimatedShelteredWalkingMeters, legs, routePaths, evidence, reasons, warnings, null);
+    }
     public RouteOption {
         legs = List.copyOf(legs);
         routePaths = List.copyOf(routePaths);
@@ -15,15 +22,23 @@ public record RouteOption(String id, String summary, Integer durationMinutes, In
         reasons = List.copyOf(reasons);
         warnings = List.copyOf(warnings);
     }
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean isWalkingOnly() {
+        return !legs.isEmpty() && legs.stream().allMatch(leg -> "WALK".equals(leg.mode()));
+    }
+
     public RouteOption attachConditions(Double shelter, List<RouteEvidence> evidence, List<String> warnings) {
         return new RouteOption(id, summary, durationMinutes, walkingMinutes, transfers,
-                walkingDistanceMeters, distanceMeters, shelter, legs, routePaths, evidence, reasons, warnings);
+                walkingDistanceMeters, distanceMeters, shelter, legs, routePaths, evidence, reasons, warnings, weatherNote);
     }
     public RouteOption explain(List<String> reasons, List<String> modelWarnings) {
+        return explain(reasons, modelWarnings, weatherNote);
+    }
+    public RouteOption explain(List<String> reasons, List<String> modelWarnings, String weatherNote) {
         var combined = new java.util.LinkedHashSet<>(warnings);
         combined.addAll(modelWarnings);
         return new RouteOption(id, summary, durationMinutes, walkingMinutes, transfers,
                 walkingDistanceMeters, distanceMeters, estimatedShelteredWalkingMeters, legs, routePaths,
-                evidence, reasons, List.copyOf(combined));
+                evidence, reasons, List.copyOf(combined), weatherNote);
     }
 }

@@ -50,34 +50,11 @@ psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/mockdata.sql
 
 `schema.sql` creates `silverroute` if needed and sets up `users`, `user_preferences`, `saved_places`, `categories`, `route_choice_snapshots`, and `trip_shares`. It automatically applies all migrations, so no separate migration commands are needed for a fresh installation.
 
-Saved preferences now contain walking speed, independent 0–100 walking and shelter priority scores, and an automatic-learning toggle. Walking tolerance and the shelter boolean are no longer stored.
+Saved preferences contain walking speed, independent 0–100 walking and shelter priorities, automatic learning, and an opt-in walking-only alternative (default limit 500 m, configurable from 100 to 5,000 m). An eligible walking route reserves one of the three result slots and does not train preferences when chosen.
+
+The walking-only fields are included directly in `schema.sql`. For an existing database without these fields, recreate the database using the setup commands above before starting the updated backend. Recreating the database deletes existing data; rerunning `schema.sql` alone does not add these fields to an existing table. Walking tolerance and the shelter boolean are no longer stored.
 
 `mockdata.sql` creates or updates the development account with a BCrypt password hash and sample preferences. Rerunning it resets that account's walking speed and priority scores, so use it only when you intend to reset the development account.
-
-### Existing database
-
-If you already have a `silverroute` database, update it after pulling new changes:
-
-1. Stop the backend.
-2. From the repository directory, run:
-
-   ```sh
-   psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/001_preference_priorities.sql
-   psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/002_saved_place_categories.sql
-   psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/migrations/003_trip_shares.sql
-   ```
-
-3. Start the backend again.
-
-It's safe to run all three every time: they keep your existing data and skip anything already done.
-
-If you skip this, the backend won't start, because it checks that the database matches the code.
-
-- 001: walking and shelter preferences, and route choices
-- 002: saved place categories
-- 003: trip and live location sharing
-
-Tip: `psql` asks for your PostgreSQL password. If it can't connect, add `-h 127.0.0.1` (or `-h ::1`).
 
 ## Environment variables
 
@@ -136,8 +113,8 @@ On macOS or Linux, `npm ci` and `npm run dev` can be used instead. Open <http://
 
 ## Deploy the frontend (Vercel)
 
-Set the Vercel project's root directory to `frontend`; `frontend/vercel.json` supplies the
-framework, the build command and the rewrite that keeps deep links on `index.html`.
+Set the Vercel project's root directory to `frontend`. Vercel detects Vite and builds it;
+`frontend/vercel.json` supplies the rewrites described below.
 
 ### Recommended: reach the API through the same origin
 
@@ -146,20 +123,22 @@ cookies on cross-site requests: Safari blocks third-party cookies by default, so
 `SameSite=None` is **not** enough to make a separately hosted API work there. Serving the API
 from the same origin as the frontend avoids the problem, and needs no CORS or cookie changes.
 
-Add a rewrite for `/api` ahead of the SPA rewrite in `frontend/vercel.json`, pointing at the
-deployed backend. The order matters, or the SPA rewrite swallows `/api`:
+This is how the project is already deployed. `frontend/vercel.json` rewrites `/api` to the
+backend on Railway, ahead of the SPA rewrite — the order matters, or the SPA rewrite swallows
+`/api`:
 
 ```json
 {
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://silverroute-api.example.com/api/:path*" },
+    { "source": "/api/:path*", "destination": "https://cs203-production.up.railway.app/api/:path*" },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ]
 }
 ```
 
-Then set `VITE_API_URL=/` in the Vercel project, so the frontend calls its own origin, and
-`SESSION_COOKIE_SECURE=true` in the backend's environment, because the browser is on HTTPS.
+Leave `VITE_API_URL` unset or set it to `/` in the Vercel project, so the frontend calls its
+own origin, and set `SESSION_COOKIE_SECURE=true` in the backend's environment, because the
+browser is on HTTPS.
 
 ### Alternative: a separate API origin
 
@@ -169,14 +148,13 @@ cookies cross-site:
 
 ```properties
 CORS_ALLOWED_ORIGINS=https://silverroute.vercel.app
-SESSION_COOKIE_SAME_SITE=none
+SESSION_COOKIE_SAMESITE=none
 SESSION_COOKIE_SECURE=true
 ```
 
-List each deployment origin explicitly. `CORS_ALLOWED_ORIGINS` accepts patterns, but a pattern
-such as `https://silverroute-*.vercel.app` also matches projects on other people's Vercel
-accounts and would grant them credentialed access to the API, so name the preview origins
-actually needed rather than a prefix. `SameSite=none` also requires HTTPS on both sides, and
+List each deployment origin explicitly, comma separated: the backend matches origins exactly
+and does not accept wildcard patterns, so every preview origin that needs credentialed access
+has to be named. `SameSite=none` also requires HTTPS on both sides, and
 any browser with third-party cookies disabled — Safari by default — still drops the session
 cookie, so sign-in fails there. Prefer the same-origin proxy above.
 

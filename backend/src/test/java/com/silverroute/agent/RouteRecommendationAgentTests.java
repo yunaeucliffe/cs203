@@ -18,7 +18,7 @@ class RouteRecommendationAgentTests {
         for (int i = 1; i <= 3; i++) {
             var stop = new RouteLeg.Stop("stop-" + i, null, "Stop " + i, 1.3 + i / 100.0, 103.8);
             var path = List.of(List.of(stop.latitude(), stop.longitude()));
-            var leg = new RouteLeg("WALK", null, stop, stop, 60.0 * i, 100.0 * i, null, null, path);
+            var leg = new RouteLeg("BUS", "97", stop, stop, 60.0 * i, 100.0 * i, null, null, path);
             routes.add(new RouteOption("onemap-route-" + i, "Candidate", 10 * i, i, 0,
                     100.0 * i, 100.0 * i, null, List.of(leg), List.of(path), List.of(), List.of(), original.warnings()));
         }
@@ -48,6 +48,33 @@ class RouteRecommendationAgentTests {
         assertThat(displayed.get(1).reasons().toString()).contains("lower than Route 1");
         assertThat(displayed.get(2).reasons().toString()).contains("lower than Route 1");
         assertThat(RouteRecommendationAgent.validateAndBuild(trip, result, "test")).isEqualTo(answer);
+    }
+
+    @Test void weatherNotesFollowRouteIdentityAndSurviveCopies() throws Exception {
+        var base = referenceTrip();
+        var routes = new ArrayList<RouteOption>();
+        for (int i = 0; i < base.routes().size(); i++) {
+            var evidence = new RouteEvidence("NEA Air Temperature", null, null,
+                    i == 2 ? "unavailable" : "available",
+                    Map.of("observations", List.of(Map.of("temperatureCelsius", 33.0 + i))));
+            routes.add(base.routes().get(i).attachConditions(50.0, List.of(evidence), List.of()));
+        }
+        var trip = new AggregatedTrip(new RouteContext(base.context().trip(), base.context().preferences(),
+                routes.stream().map(RouteContext.Candidate::from).toList(), List.of()), routes, base.sources());
+        var answer = RouteRecommendationAgent.validateAndBuild(trip,
+                result("onemap-route-2", "onemap-route-1", "onemap-route-3"), "test");
+        assertThat(answer.recommendedRoute().weatherNote()).contains("34°C", "150 m");
+        assertThat(answer.alternatives().get(0).weatherNote()).contains("33°C", "50 m");
+        assertThat(answer.alternatives().get(1).weatherNote()).isNull();
+        var route = answer.recommendedRoute();
+        assertThat(route.attachConditions(50.0, route.evidence(), route.warnings()).weatherNote())
+                .isEqualTo(route.weatherNote());
+        assertThat(route.explain(route.reasons(), List.of()).weatherNote()).isEqualTo(route.weatherNote());
+        assertThat(route).usingRecursiveComparison().ignoringFields("reasons", "warnings", "weatherNote")
+                .isEqualTo(routes.get(1));
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertThat(mapper.readTree(mapper.writeValueAsString(route)).path("weatherNote").asText())
+                .isEqualTo(route.weatherNote());
     }
 
     @Test void generatesComparisonsWhenOnlyTwoRoutesRemain() throws Exception {

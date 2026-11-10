@@ -8,6 +8,7 @@ import RouteSearchMap from '../components/RouteSearchMap'
 import NavigationPage from './Navigation'
 import { useCompassHeading } from '../components/useCompassHeading'
 import { TripSharingContext } from '../components/TripSharingContext'
+import { loadActiveJourney } from '../utils/activeJourney'
 
 import {
   Navigation,
@@ -17,16 +18,75 @@ import {
 import Navbar from '../components/Navbar'
 import LocationAutocomplete from '../components/LocationAutocomplete'
 import { hasCoordinates } from '../utils/geo'
+import {
+  loadRouteSearchDraft,
+  saveRouteSearchDraft,
+  clearRouteSearchDraft,
+} from '../utils/routeSearchDraft'
 
-function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, initialDestination = '', initialDestinationPlace = null }) {
-  const [destination, setDestination] = useState(initialDestination)
-  const [originText, setOriginText] = useState('')
-  const [originPlace, setOriginPlace] = useState(null)
-  const [destinationPlace, setDestinationPlace] = useState(initialDestinationPlace)
-  const [deviceLocation, setDeviceLocation] = useState(null)
-  const [result, setResult] = useState(null)
-  const [hasSearched, setHasSearched] = useState(false)
-  const [selectedIndex, setSelectedIndex] = useState(0)
+function loadRouteSearchState() {
+  try {
+    return JSON.parse(localStorage.getItem('routeSearchState')) || null
+  } catch {
+    return null
+  }
+}
+
+function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAuthenticated, initialDestination = '', initialDestinationPlace = null, initialJourney = null, resumeJourneyOnOpen = false, routesOpenMode = 'restoreSearch', }) {
+  const [savedSearch] = useState(loadRouteSearchState)
+  const [savedDraft] = useState(loadRouteSearchDraft)
+  const [savedJourney] = useState(loadActiveJourney)
+
+  const shouldRestoreJourneyResults =
+    routesOpenMode === 'openRoutes' &&
+    Boolean(savedJourney?.route)
+  const useDraft =
+    !shouldRestoreJourneyResults &&
+    routesOpenMode !== 'resumeJourney' &&
+    (
+      routesOpenMode === 'newSearch' ||
+      Boolean(savedDraft)
+    )
+  const [destination, setDestination] = useState(
+    useDraft
+      ? initialDestination || savedDraft?.destination || ''
+      : savedSearch?.destination?.name || ''
+  )
+
+  const [originText, setOriginText] = useState(
+    useDraft ? '' : savedSearch?.origin?.name || ''
+  )
+
+  const [originPlace, setOriginPlace] = useState(
+    !useDraft && savedSearch?.origin && hasCoordinates(savedSearch.origin)
+      ? savedSearch.origin
+      : null
+  )
+
+  const [destinationPlace, setDestinationPlace] = useState(
+    useDraft
+      ? initialDestinationPlace || savedDraft?.destinationPlace || null
+      : savedSearch?.destination || null
+  )
+
+  const [deviceLocation, setDeviceLocation] = useState(
+    !useDraft && savedSearch?.origin?.name === 'Current location'
+      ? savedSearch.origin
+      : null
+  )
+
+  const [hasSearched, setHasSearched] = useState(
+    shouldRestoreJourneyResults ||
+    (
+      !useDraft &&
+      (routesOpenMode === 'restoreSearch' || routesOpenMode === 'openRoutes') &&
+      Boolean(savedSearch?.hasSearched)
+    )
+  )
+
+  const [selectedIndex, setSelectedIndex] = useState(
+    initialJourney?.selectedIndex ?? savedSearch?.selectedIndex ?? 0
+  )
   const [loading, setLoading] = useState(false)
   const [locating, setLocating] = useState(false)
   const [error, setError] = useState('')
@@ -35,34 +95,143 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   const pending = useRef(null)
   const locationRequest = useRef(0)
   const locationWatch = useRef(null)
+  const [navigating, setNavigating] = useState(
+    Boolean(resumeJourneyOnOpen && initialJourney?.route)
+  )
   const [viewingDetails, setViewingDetails] = useState(false)
-  const [navigating, setNavigating] = useState(false)
-  const [activeNavigation, setActiveNavigation] = useState(null)
   const [choice, setChoice] = useState(null)
   const [choiceButtonContainer, setChoiceButtonContainer] = useState(null)
   const { heading, start: startCompass, stop: stopCompass } = useCompassHeading()
+  const resumeHistoryInitialized = useRef(false)
+
   const { setJourney, endJourney } = useContext(TripSharingContext)
-  // Leaving the routes page abandons the navigation, so stop uploading its location.
+
+  // Stop sharing the journey's location when leaving Routes.
   useEffect(() => () => setJourney(null), [setJourney])
 
-  // Opening route details or navigation adds a browser history entry (see openDetails and
-  // onStartNavigation), so the phone's Back button steps back within SilverRoute.
+  // Opening route details or navigation adds a browser history entry.
+  // The phone's Back button can then navigate within SilverRoute.
   useEffect(() => {
     const onPopState = (event) => {
       const view = event.state?.view
       setNavigating(view === 'navigation')
       setViewingDetails(view === 'details' || view === 'navigation')
     }
+
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
+  useEffect(() => {
+    if (
+      resumeHistoryInitialized.current ||
+      !resumeJourneyOnOpen ||
+      !initialJourney?.route
+    ) return
+
+    resumeHistoryInitialized.current = true
+
+    window.history.replaceState({ page: 'routes' }, '')
+    window.history.pushState({ page: 'routes', view: 'details' }, '')
+    window.history.pushState({ page: 'routes', view: 'navigation' }, '')
+  }, [resumeJourneyOnOpen, initialJourney?.route])
+
   const openDetails = (index) => {
     setSelectedIndex(index)
     setViewingDetails(true)
+
+    try {
+      const previous = JSON.parse(
+        localStorage.getItem('routeSearchState') || '{}'
+      )
+
+      localStorage.setItem(
+        'routeSearchState',
+        JSON.stringify({
+          ...previous,
+          selectedIndex: index,
+          viewingDetails: true,
+        })
+      )
+    } catch (error) {
+      console.error('Unable to save route selection:', error)
+    }
+
     window.history.pushState({ page: 'routes', view: 'details' }, '')
   }
 
+  const [result, setResult] = useState(() => {
+    const journey =
+      initialJourney?.route
+        ? initialJourney
+        : shouldRestoreJourneyResults
+          ? savedJourney
+          : null
+
+    if (journey?.route) {
+      return {
+        recommendationId: journey.recommendationId,
+        origin: journey.origin,
+        destination: journey.destination,
+        routes: journey.routes || [journey.route],
+        sources: [],
+        engine: undefined,
+      }
+    }
+
+    if (
+      !useDraft &&
+      (routesOpenMode === 'restoreSearch' || routesOpenMode === 'openRoutes') &&
+      savedSearch?.routes?.length
+    ) {
+      return {
+        recommendationId: savedSearch.recommendationId,
+        origin: savedSearch.origin,
+        destination: savedSearch.destination,
+        routes: savedSearch.routes,
+        sources: savedSearch.sources || [],
+        engine: savedSearch.engine,
+      }
+    }
+
+    return null
+  })
+
+  const [activeNavigation, setActiveNavigation] = useState(
+    () => initialJourney || loadActiveJourney()
+  )
+
+  const handleContinueJourney = () => {
+    const journey = loadActiveJourney()
+    if (!journey?.route) {
+      setActiveNavigation(null)
+      return
+    }
+
+    setActiveNavigation(journey)
+
+    // Restore the journey's route results.
+    setResult({
+      recommendationId: journey.recommendationId,
+      origin: journey.origin,
+      destination: journey.destination,
+      routes: journey.routes || [journey.route],
+      sources: [],
+      engine: undefined,
+    })
+
+    setSelectedIndex(journey.selectedIndex ?? 0)
+    setHasSearched(true)
+    setViewingDetails(false)
+    setNavigating(true)
+
+    // Back from navigation should return to Route Details.
+    window.history.replaceState({ page: 'routes' }, '')
+    window.history.pushState({ page: 'routes', view: 'details' }, '')
+    window.history.pushState({ page: 'routes', view: 'navigation' }, '')
+
+    startCompass()
+  }
 
   useEffect(() => {
     window.scrollTo({
@@ -89,7 +258,10 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     }
   }, [result])
 
-  const selectedRoute = result?.routes[selectedIndex]
+  const selectedRoute =
+    result?.routes?.[selectedIndex] ??
+    (routesOpenMode === 'resumeJourney' ? initialJourney?.route : null)
+
   const canStartNavigation = Boolean(
     selectedRoute && result?.recommendationId &&
     choice?.recommendationId === result.recommendationId &&
@@ -106,10 +278,22 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
     setNavigating(false)
     setError('')
     setAddressSuggestion(null)
-  }, [])
+  }, [setNavigating])
 
   const locateUser = useCallback(() => {
     clearResult()
+
+    // Clear any old GPS coordinates before requesting a fresh location.
+    setDeviceLocation(null)
+
+    setOriginPlace(null)
+    setOriginText('')
+
+    // Clear the old automatic origin without erasing manually entered locations.
+    setOriginText(previous =>
+      previous === 'Current location' ? '' : previous
+    )
+
     if (locationWatch.current !== null) {
       navigator.geolocation.clearWatch(locationWatch.current)
       locationWatch.current = null
@@ -183,10 +367,22 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
   }, [clearResult, stopCompass])
 
   useEffect(() => {
-    // Defer until mount completes; cancelling also avoids duplicate requests in Strict Mode.
+    if (!resumeJourneyOnOpen || !initialJourney?.route) return
+
+    startCompass()
+  }, [resumeJourneyOnOpen, initialJourney?.route, startCompass])
+  useEffect(() => {
+    // Never replace the location of a resumed journey.
+    if (initialJourney?.route || shouldRestoreJourneyResults) return
+
+    // Only locate automatically for a new or unfinished search,
+    // or when there is no saved completed search.
+    if (!useDraft && savedSearch?.routes?.length) return
+
     const timer = window.setTimeout(locateUser, 0)
+
     return () => window.clearTimeout(timer)
-  }, [locateUser])
+  }, [locateUser, initialJourney?.route, shouldRestoreJourneyResults, useDraft, savedSearch])
 
   const handleFindRoute = async () => {
     if (loading || locating) return
@@ -215,12 +411,30 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
       }
       setHasSearched(true)
       setSelectedIndex(0)
+      clearRouteSearchDraft()
+      // Persist route search results so users can return to them later.
+      const searchState = {
+        recommendationId: recommendations.recommendationId,
+        origin,
+        destination: target,
+        routes,
+        sources: recommendations.sources ?? [],
+        engine: recommendations.engine,
+        selectedIndex: 0,
+        hasSearched: true,
+      }
+
+      try {
+        localStorage.setItem('routeSearchState', JSON.stringify(searchState))
+      } catch (error) {
+        console.error('Unable to save route search:', error)
+      }
       setResult({
-          ...recommendations,
-          origin,
-          destination: target,
-          routes,
-          sources: recommendations.sources ?? [],
+        ...recommendations,
+        origin,
+        destination: target,
+        routes,
+        sources: recommendations.sources ?? [],
       })
     } catch (failure) {
       if (!controller.signal.aborted) {
@@ -248,17 +462,34 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
           key={activeNavigation?.id}
           journeyId={activeNavigation?.id}
           route={selectedRoute}
-          origin={result.origin}
-          destination={result.destination}
+          origin={result?.origin ?? activeNavigation?.origin ?? initialJourney?.origin}
+          destination={result?.destination ?? activeNavigation?.destination ?? initialJourney?.destination}
           startedAt={activeNavigation?.startedAt}
           heading={heading}
           onStartCompass={startCompass}
-          onBack={() => window.history.back()}
+          onBack={() => {
+            setNavigating(false)
+            window.history.back()
+          }}
           onEnd={() => {
+            // End the active journey and stop sharing.
             endJourney()
+            localStorage.removeItem('activeJourney')
+            window.dispatchEvent(new Event('activeJourneyUpdated'))
+
+            // Clear saved searches for the NEXT visit.
+            localStorage.removeItem('routeSearchState')
+            clearRouteSearchDraft()
+
+            // Keep the current recommendations visible until leaving Routes.
             setActiveNavigation(null)
             stopCompass()
-            // Skip back past the navigation and route details entries to the results.
+            setNavigating(false)
+            setViewingDetails(false)
+
+            onJourneyEnd?.()
+
+            // Return to route results without deleting the current result.
             window.history.go(-2)
           }}
         />
@@ -286,12 +517,12 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
               key={selectedRoute.id}
               route={selectedRoute}
               index={selectedIndex}
-              origin={result.origin}
-              destination={result.destination}
-              engine={result.engine}
+              origin={result?.origin ?? activeNavigation?.origin ?? initialJourney?.origin}
+              destination={result?.destination ?? activeNavigation?.destination ?? initialJourney?.destination}
+              engine={result?.engine}
               live={!navigating}
-              warnings={result.warnings}
-              sources={result.sources}
+              warnings={result?.warnings}
+              sources={result?.sources}
               onBack={() => window.history.back()}
               choiceButtonRef={setChoiceButtonContainer}
             />
@@ -390,11 +621,23 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                           clearResult()
                           setDestination(text)
                           setDestinationPlace(null)
+
+                          saveRouteSearchDraft({
+                            destination: text,
+                            destinationPlace: null,
+                            originMode: 'currentLocation',
+                          })
                         }}
                         onSelect={(place) => {
                           clearResult()
                           setDestination(place.name)
                           setDestinationPlace(place)
+
+                          saveRouteSearchDraft({
+                            destination: place.name,
+                            destinationPlace: place,
+                            originMode: 'currentLocation',
+                          })
                         }}
                         onSubmit={handleFindRoute}
                         placeholder="Enter destination, landmark or address"
@@ -496,14 +739,48 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
             </div>
 
             {result && (
-              <section ref={resultsSection} aria-label="Recommended routes" className="mt-8 scroll-mt-6">
-                    <h2
-                      className="mb-5 text-3xl text-[#2A3439]"
-                      style={{ fontFamily: '"DM Serif Display", serif' }}
-                    >
-                      Your recommended routes
-                    </h2>
+            <section ref={resultsSection} aria-label="Recommended routes" className="mt-8 scroll-mt-6">
 
+              {activeNavigation?.route && (
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#D9E2D5] bg-white p-5 shadow-sm">
+                  <div>
+                    <p className="mb-1 text-sm font-semibold text-green-700">
+                      Journey in progress
+                    </p>
+
+                    <p className="font-semibold text-[#2A3439]">
+                      {activeNavigation.origin?.name || 'Current location'}
+                      {' → '}
+                      {activeNavigation.destination?.name || 'Destination'}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleContinueJourney}
+                    className="rounded-xl bg-[#2A3439] px-5 py-3 font-semibold text-white transition hover:opacity-90"
+                  >
+                    Continue Journey
+                  </button>
+                </div>
+              )}
+
+              <h2
+                className="mb-5 text-3xl text-[#2A3439]"
+                style={{ fontFamily: '"DM Serif Display", serif' }}
+                >
+                Your recommended routes
+              </h2>
+
+                {result.warnings?.length > 0 && (
+                  <details className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4"
+                    open={result.routes.every(route => route.legs?.length > 0 && route.legs.every(leg => leg.mode === 'WALK'))}>
+                    <summary className="cursor-pointer font-semibold">Route notices</summary>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                      {[...new Set(result.warnings)].map((warning, index) => <li key={index}>{warning}</li>)}
+                    </ul>
+                  </details>
+                )}
                 <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                   {result.routes.map((route, index) => (
                     <RouteCard
@@ -534,21 +811,54 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, isAuthenticated, i
                     activeNavigation?.routeId === selectedRoute.id
                   }
                   onStartNavigation={() => {
-                    if (canStartNavigation) {
-                      // Keep the original start time when continuing the same navigation.
-                      setActiveNavigation(current =>
-                        current?.recommendationId === result.recommendationId &&
-                        current?.routeId === selectedRoute.id ? current : {
-                          id: `${result.recommendationId}:${selectedRoute.id}:${Date.now()}`,
-                          recommendationId: result.recommendationId,
-                          routeId: selectedRoute.id,
-                          startedAt: Date.now(),
-                        })
+                    // Continue an existing journey without resetting its start time.
+                    if (
+                      activeNavigation?.recommendationId === result.recommendationId &&
+                      activeNavigation?.routeId === selectedRoute.id
+                    ) {
                       setNavigating(true)
-                      window.history.pushState({ page: 'routes', view: 'navigation' }, '')
-                      // Started from the "Start navigation" tap, which phones require for the compass.
+
+                      window.history.pushState(
+                        { page: 'routes', view: 'navigation' },
+                        ''
+                      )
+
                       startCompass()
+                      return
                     }
+
+                    // New journeys require a valid route choice.
+                    if (!canStartNavigation) return
+
+                    const journey = {
+                      id: `${result.recommendationId}:${selectedRoute.id}:${Date.now()}`,
+                      recommendationId: result.recommendationId,
+                      routeId: selectedRoute.id,
+                      route: selectedRoute,
+                      routes: result.routes,
+                      selectedIndex,
+                      origin: result.origin,
+                      destination: result.destination,
+                      startedAt: Date.now(),
+                    }
+
+                    // Save the journey so it can be resumed from Home.
+                    try {
+                      localStorage.setItem('activeJourney', JSON.stringify(journey))
+                      window.dispatchEvent(new Event('activeJourneyUpdated'))
+                    } catch (error) {
+                      console.error('Unable to save active journey:', error)
+                    }
+
+                    setActiveNavigation(journey)
+                    setNavigating(true)
+
+                    window.history.pushState(
+                      { page: 'routes', view: 'navigation' },
+                      ''
+                    )
+
+                    startCompass()
                   }}
                   renderButton={(button) =>
                     choiceButtonContainer
