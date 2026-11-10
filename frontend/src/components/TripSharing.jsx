@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Check, Copy, MapPin, Share2, X } from 'lucide-react'
 import { TripSharingContext } from './TripSharingContext'
 import { shareRequest, shareUrl, requestLocation } from '../api/tripShares'
-import { estimateArrival, matchesJourney, freshJourneyLocation, isSharingJourney } from '../utils/tripSharing'
+import { estimateArrival, matchesJourney, freshJourneyLocation, isSharingJourney, shareableRoutePath } from '../utils/tripSharing'
 
 // Full width on phones, natural width side by side on larger screens.
 const button = 'flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl px-5 py-2 text-center text-base font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3E424B] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
@@ -33,7 +33,11 @@ function useButtonMessage() {
 // stand still, so ask for a position directly when navigation's fix is too old.
 function LocationUpdates({ share, allowed, journey, onStatus }) {
   const latest = useRef(null)
+  // A simulated journey must never fall back to the device: that would upload the presenter's
+  // real position to everyone holding the share link.
+  const simulated = useRef(false)
   useEffect(() => { latest.current = journey?.location }, [journey?.location])
+  useEffect(() => { simulated.current = Boolean(journey?.simulated) }, [journey?.simulated])
   useEffect(() => {
     if (!share.liveLocation || !allowed) return
     let stopped = false
@@ -42,7 +46,12 @@ function LocationUpdates({ share, allowed, journey, onStatus }) {
       if (uploading) return
       uploading = true
       try {
-        const location = freshJourneyLocation(latest.current) ? latest.current : (await requestLocation()).coords
+        const fresh = freshJourneyLocation(latest.current)
+        if (!fresh && simulated.current) {
+          onStatus(share.id, 'Simulated journey paused. Your real location is not shared.', false)
+          return
+        }
+        const location = fresh ? latest.current : (await requestLocation()).coords
         if (stopped) return
         await shareRequest(`/${share.id}/location`, 'PUT', {
           latitude: location.latitude, longitude: location.longitude,
@@ -247,6 +256,8 @@ export default function TripSharing({ route, origin, destination }) {
       const share = await shareRequest('', 'POST', {
         origin: originName, destination: destinationName,
         routeSummary: summary, estimatedArrival: estimateArrival(route), liveLocation: live,
+        // The drawn route, so family see the way ahead and not only where the traveller is now.
+        routePath: shareableRoutePath(route.routePaths),
       })
       add(share, live)
     } catch (error) { show('create', error.message) }

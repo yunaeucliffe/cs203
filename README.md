@@ -78,6 +78,9 @@ Keep `SESSION_COOKIE_SECURE=false` for local HTTP development. Set it to `true` 
 
 The existing OneMap and LTA variables in `.env.example` can also be configured when those integrations are needed. Do not commit the `.env` file.
 
+The frontend has its own variables in `frontend/.env.example`, needed only when it is deployed
+somewhere other than the Vite dev server. See **Deploy the frontend (Vercel)**.
+
 ## Run the backend
 
 From the repository directory:
@@ -107,6 +110,61 @@ npm.cmd run dev
 ```
 
 On macOS or Linux, `npm ci` and `npm run dev` can be used instead. Open <http://localhost:5173> after Vite starts.
+
+## Deploy the frontend (Vercel)
+
+Set the Vercel project's root directory to `frontend`. Vercel detects Vite and builds it;
+`frontend/vercel.json` supplies the rewrites described below.
+
+### Recommended: reach the API through the same origin
+
+SilverRoute authenticates with a session cookie, and browsers are increasingly strict about
+cookies on cross-site requests: Safari blocks third-party cookies by default, so
+`SameSite=None` is **not** enough to make a separately hosted API work there. Serving the API
+from the same origin as the frontend avoids the problem, and needs no CORS or cookie changes.
+
+This is how the project is already deployed. `frontend/vercel.json` rewrites `/api` to the
+backend on Railway, ahead of the SPA rewrite — the order matters, or the SPA rewrite swallows
+`/api`:
+
+```json
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://cs203-production.up.railway.app/api/:path*" },
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ]
+}
+```
+
+Leave `VITE_API_URL` unset or set it to `/` in the Vercel project, so the frontend calls its
+own origin, and set `SESSION_COOKIE_SECURE=true` in the backend's environment, because the
+browser is on HTTPS.
+
+### Alternative: a separate API origin
+
+Set `VITE_API_URL` to the backend's base URL, for example
+`https://silverroute-api.example.com`. The backend then has to allow that origin and send its
+cookies cross-site:
+
+```properties
+CORS_ALLOWED_ORIGINS=https://silverroute.vercel.app
+SESSION_COOKIE_SAMESITE=none
+SESSION_COOKIE_SECURE=true
+```
+
+List each deployment origin explicitly, comma separated: the backend matches origins exactly
+and does not accept wildcard patterns, so every preview origin that needs credentialed access
+has to be named. `SameSite=none` also requires HTTPS on both sides, and
+any browser with third-party cookies disabled — Safari by default — still drops the session
+cookie, so sign-in fails there. Prefer the same-origin proxy above.
+
+## Demo journey simulation
+
+A presenter's tool that plays a simulated position along a route the route engine returned, so
+an active journey can be demonstrated without walking one. It is off unless switched on with
+`?demo=1`, and then appears as a dev panel on the journey screen. It can pause, resume, change
+speed, jump to the bus stop, miss a bus on cue, and make location or live data fail — without
+ever altering the wall clock. See [demo journey simulation](docs/demo-simulation.md).
 
 ## API documentation (Swagger UI)
 

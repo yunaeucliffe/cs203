@@ -3,13 +3,21 @@ import { useBusArrivals } from './useBusArrivals.js'
 import { confirmProgress, locateOnRoute, navigationTiming } from '../utils/navigationTiming.js'
 
 // startedAt comes from the caller so leaving and continuing navigation keeps the same trip start.
-export function useNavigationTiming(route, location, startedAt) {
-  const { route: current, now, failed } = useBusArrivals(route)
+// busRefreshKey asks for live bus data again at once; resetKey forgets the journey progress
+// tracked so far, which a demo simulation needs when its position jumps (progress only ever
+// moves forwards through the steps).
+export function useNavigationTiming(route, location, startedAt, { busRefreshKey = 0, resetKey = 0 } = {}) {
+  const { route: current, now, failed } = useBusArrivals(route, true, busRefreshKey)
   const tracking = useRef({ progress: null, pendingLeg: null })
   const [timing, setTiming] = useState(() => ({
     ...navigationTiming(route, null, startedAt, startedAt),
     updatedAt: startedAt, located: false, now: startedAt,
   }))
+
+  // Declared first so the reset lands before the recalculation below reads it.
+  useEffect(() => {
+    tracking.current = { progress: null, pendingLeg: null }
+  }, [resetKey])
 
   useEffect(() => {
     // Schedule the calculation so a new GPS fix or provider response updates the
@@ -29,7 +37,7 @@ export function useNavigationTiming(route, location, startedAt) {
           matched ? location.timestamp : startedAt })
     }, 0)
     return () => clearTimeout(timer)
-  }, [route, current, location, now, failed, startedAt])
+  }, [route, current, location, now, failed, startedAt, resetKey])
 
   return timing
 }

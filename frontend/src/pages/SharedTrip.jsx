@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet'
+import { useEffect, useMemo, useState } from 'react'
+import { MapContainer, TileLayer, CircleMarker, Marker, Polyline, Popup, useMap } from 'react-leaflet'
 import { API_URL } from '../api'
-import { formatRouteSummary, updatedAgo } from '../utils/tripSharing'
+import { formatRouteSummary, updatedAgo, routeLines } from '../utils/tripSharing'
+import { createDestinationIcon } from '../utils/mapIcons'
 import 'leaflet/dist/leaflet.css'
+
+const destinationIcon = createDestinationIcon({ size: 24, shadow: true })
 
 function formatDateTime(value) {
   return new Date(value).toLocaleString('en-SG', {
@@ -12,9 +15,25 @@ function formatDateTime(value) {
   })
 }
 
-function FollowLocation({ latitude, longitude }) {
+function FollowLocation({ latitude, longitude, following, onFollowingChange }) {
   const map = useMap()
-  useEffect(() => { map.panTo([latitude, longitude]) }, [map, latitude, longitude])
+  // Dragging the map means the viewer is looking elsewhere, so stop pulling the view back.
+  useEffect(() => {
+    const stopFollowing = () => onFollowingChange(false)
+    map.on('dragstart', stopFollowing)
+    return () => map.off('dragstart', stopFollowing)
+  }, [map, onFollowingChange])
+  useEffect(() => { if (following) map.panTo([latitude, longitude]) }, [map, following, latitude, longitude])
+  return null
+}
+
+// Keeps the whole journey in view. `points` only changes when the route or the view mode does,
+// so a five-second poll can't keep snapping the map back while it is being read.
+function FitRoute({ points }) {
+  const map = useMap()
+  useEffect(() => {
+    if (points.length > 0) map.fitBounds(points, { padding: [30, 30], maxZoom: 16 })
+  }, [map, points])
   return null
 }
 
@@ -23,6 +42,9 @@ export default function SharedTrip({ token }) {
   const [message, setMessage] = useState('Loading shared trip...')
   const [now, setNow] = useState(() => Date.now())
   const [openedAt] = useState(() => Date.now())
+  // Kept out of `trip` so its array identity survives polling; the route of a share never changes.
+  const [route, setRoute] = useState([])
+  const [following, setFollowing] = useState(false)
   useEffect(() => {
     let cancelled = false
     let busy = false
@@ -42,7 +64,16 @@ export default function SharedTrip({ token }) {
           throw error
         }
         const data = await response.json()
-        if (!cancelled) { setTrip(data); setMessage('') }
+        if (!cancelled) {
+          setTrip(data)
+          setMessage('')
+          // Keeping the same array when there is nothing new to draw stops the map refitting on a poll.
+          setRoute(current => {
+            if (current.length > 0) return current
+            const lines = routeLines(data.routePath)
+            return lines.length > 0 ? lines : current
+          })
+        }
       } catch (error) {
         const offline = error.name === 'TypeError' || error.name === 'TimeoutError'
         if (!cancelled) {
@@ -63,6 +94,13 @@ export default function SharedTrip({ token }) {
   // No first location within 60 seconds of opening (e.g. no GPS signal indoors).
   const noLocationYet = active && trip.liveLocation && !hasLocation && now - openedAt > 60000
   const arrivalPassed = active && new Date(trip.estimatedArrival).getTime() <= now
+  const hasRoute = Boolean(active && route.length > 0)
+  const start = hasRoute ? route[0][0] : null
+  const end = hasRoute ? route.at(-1).at(-1) : null
+  // Without a route there is nothing else to look at, so an older share keeps following the dot.
+  const followingLocation = Boolean(hasLocation && (following || !hasRoute))
+  // Empty while following, so the map pans with the traveller instead of refitting the route.
+  const fitPoints = useMemo(() => followingLocation ? [] : route.flat(), [followingLocation, route])
   const card = 'rounded-[24px] border border-[#7A7F7A]/20 bg-white p-5 sm:p-6'
   return <main className="min-h-screen bg-[#FAF7F0] px-4 py-8 text-[#2A3439] sm:px-6">
     <div className="mx-auto max-w-3xl space-y-5">
@@ -82,23 +120,48 @@ export default function SharedTrip({ token }) {
         </section>
         <section className={card}>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">Live location</h2>
+            <h2 className="text-lg font-semibold">{trip.liveLocation ? 'Route and live location' : 'Route'}</h2>
             {(hasLocation || noLocationYet) && <span className={`rounded-full px-3 py-1 text-sm font-semibold ${outdated || noLocationYet ? 'bg-amber-100 text-amber-900' : 'bg-[#DCE7D2]'}`}>
               {noLocationYet ? 'No location yet' : outdated ? 'Outdated' : 'Live'}
             </span>}
           </div>
-          {!trip.liveLocation ? <p className="mt-2 text-[#555C60]">Live location is not shared for this trip.</p> : <>
+          {!trip.liveLocation ? <p className="mt-2 text-[#555C60]">
+            Live location is not shared for this trip.{hasRoute ? ' Their planned route is shown below.' : ''}
+          </p> : <>
             {message && <p role="status" className="mt-2 text-amber-900">Updates unavailable. Showing the last known location.</p>}
             <p role="status" className="mt-2 text-[#555C60]">{hasLocation
               ? `${outdated && !message ? 'Updates have stopped. ' : ''}Last updated ${updatedAgo(trip.locationUpdatedAt, now)}.`
               : noLocationYet
                 ? 'No location has been received yet. Their phone may have no GPS signal (for example indoors) or location may be turned off.'
                 : 'Waiting for the first location update.'}</p>
-            {hasLocation && <MapContainer center={[trip.latitude, trip.longitude]} zoom={16} className="mt-4 h-80 w-full rounded-xl sm:h-96">
+          </>}
+          {(hasRoute || hasLocation) && <>
+            <MapContainer center={hasLocation ? [trip.latitude, trip.longitude] : start} zoom={16} className="mt-4 h-80 w-full rounded-xl sm:h-96">
               <TileLayer url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png" attribution="&copy; OneMap contributors" />
-              <FollowLocation latitude={trip.latitude} longitude={trip.longitude} />
-              <CircleMarker center={[trip.latitude, trip.longitude]} radius={10} pathOptions={{ color: outdated ? '#777' : '#2F6FED' }}><Popup>Latest shared location</Popup></CircleMarker>
-            </MapContainer>}
+              <FitRoute points={fitPoints} />
+              {hasLocation && <FollowLocation latitude={trip.latitude} longitude={trip.longitude}
+                following={followingLocation} onFollowingChange={setFollowing} />}
+              {/* The planned route: a white casing under a blue line, as in Navigation. */}
+              {hasRoute && <>
+                <Polyline positions={route} pathOptions={{ color: 'white', weight: 10, lineCap: 'round', lineJoin: 'round' }} />
+                <Polyline positions={route} pathOptions={{ color: '#2F6FED', weight: 6, lineCap: 'round', lineJoin: 'round' }} />
+                <CircleMarker center={start} radius={7} pathOptions={{ color: 'white', weight: 3, fillColor: '#3E424B', fillOpacity: 1 }}>
+                  <Popup>Starting point: {trip.origin}</Popup>
+                </CircleMarker>
+                <Marker position={end} icon={destinationIcon}><Popup>Destination: {trip.destination}</Popup></Marker>
+              </>}
+              {hasLocation && <CircleMarker center={[trip.latitude, trip.longitude]} radius={10}
+                pathOptions={{ color: 'white', weight: 3, fillColor: outdated ? '#777' : '#2F6FED', fillOpacity: 1 }}>
+                <Popup>Latest shared location</Popup>
+              </CircleMarker>}
+            </MapContainer>
+            {hasRoute && <p className="mt-3 text-sm text-[#555C60]">
+              The blue line is their planned route, ending at the red dot.{hasLocation ? ' The blue dot is where they are now.' : ''}
+            </p>}
+            {hasRoute && hasLocation && <button type="button" onClick={() => setFollowing(!followingLocation)}
+              className="mt-3 min-h-12 w-full rounded-xl border border-[#7A7F7A]/40 bg-white px-5 font-semibold hover:bg-[#FAF7F0] focus-visible:outline-2 focus-visible:outline-offset-2 sm:w-auto">
+              {followingLocation ? 'Show whole route' : 'Follow their location'}
+            </button>}
           </>}
         </section>
       </>}

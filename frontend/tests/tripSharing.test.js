@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { estimateArrival, formatRouteSummary, updatedAgo, matchesJourney,
-  freshJourneyLocation, isSharingJourney } from '../src/utils/tripSharing.js'
+  freshJourneyLocation, isSharingJourney, routeLines, shareableRoutePath } from '../src/utils/tripSharing.js'
 
 test('a 37-minute trip shared at 3:51 pm arrives at 4:28 pm even if the itinerary ends near now', () => {
   const startedAt = Date.parse('2026-10-23T15:51:00+08:00')
@@ -60,4 +60,30 @@ test('only a fresh navigation position can be uploaded', () => {
     { ...location, latitude: NaN }, { ...location, longitude: null }]) {
     assert.equal(freshJourneyLocation(invalid, now), false)
   }
+})
+
+test('only drawable coordinate pairs become route lines', () => {
+  const walk = [[1.3, 103.8], [1.31, 103.81]]
+  assert.deepEqual(routeLines([walk]), [walk])
+  // A single point is not a line, and bad values are dropped rather than drawn in the sea.
+  assert.deepEqual(routeLines([[[1.3, 103.8]]]), [])
+  assert.deepEqual(routeLines([[...walk, [95, 103.8], [1.3, 200], [1.3], ['a', 'b'], null]]), [walk])
+  for (const missing of [undefined, null, 'route', [null], [[]]]) {
+    assert.deepEqual(routeLines(missing), [])
+  }
+})
+
+test('a long route is thinned for sharing but still starts and ends in the right place', () => {
+  const long = [Array.from({ length: 3001 }, (_, index) => [1.3 + index / 100000, 103.8])]
+  const shared = shareableRoutePath(long)
+  const points = shared[0]
+  assert.ok(points.length <= 1500, `thinned to ${points.length} points`)
+  assert.deepEqual(points[0], long[0][0])
+  assert.deepEqual(points.at(-1), long[0].at(-1))
+})
+
+test('a short route is shared point for point', () => {
+  const paths = [[[1.3, 103.8], [1.31, 103.81]], [[1.31, 103.81], [1.32, 103.82]]]
+  assert.deepEqual(shareableRoutePath(paths), paths)
+  assert.deepEqual(shareableRoutePath(undefined), [])
 })

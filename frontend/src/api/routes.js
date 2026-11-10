@@ -1,4 +1,5 @@
 import { API_URL, CONNECTION_ERROR, getCsrfToken } from '../api.js'
+import { simulatedBusArrival } from '../dev/simulationStore.js'
 
 const UNEXPECTED_RESPONSE = 'Something went wrong while getting your routes. Please try again.'
 
@@ -30,6 +31,10 @@ export function searchLocation(query, signal) {
 }
 
 export function fetchBusArrivals(busStopCode, service, signal) {
+  // A demo simulation answers for the provider so arrivals can be scripted or made to fail;
+  // it returns null in normal use, including every production session (see dev/demoMode.js).
+  const simulated = simulatedBusArrival(busStopCode, service)
+  if (simulated) return simulated
   return getJson(`/api/bus-arrival-estimates?${new URLSearchParams({ busStopCode, service })}`, signal)
 }
 

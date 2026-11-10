@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { busArrivalDetails, retainBusArrivalEvidence } from '../utils/busArrivals.js'
 import { fetchBusArrivals } from '../api/routes.js'
 
-export function useBusArrivals(route, enabled = true) {
+// refreshKey lets a caller ask for the live data again at once instead of waiting for the next
+// poll; the demo simulation uses it when its scripted answers change.
+export function useBusArrivals(route, enabled = true, refreshKey = 0) {
   const [now, setNow] = useState(Date.now)
   const [updates, setUpdates] = useState([])
   const [failed, setFailed] = useState([])
@@ -66,7 +68,7 @@ export function useBusArrivals(route, enabled = true) {
       document.removeEventListener('visibilitychange', onVisibilityChange)
       controller?.abort()
     }
-  }, [route, enabled])
+  }, [route, enabled, refreshKey])
   useEffect(() => {
     if (!enabled) return
     const timer = setInterval(() => setNow(Date.now()), 10000)
