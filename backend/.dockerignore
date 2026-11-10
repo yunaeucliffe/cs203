@@ -1,0 +1,22 @@
+# Build output and local tooling state; the image builds its own jar.
+target/
+*.class
+
+# Secrets and local environment files must never be baked into the image.
+.env
+.env.*
+*.env
+
+# VCS and editor metadata.
+.git
+.gitignore
+.gitattributes
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Not needed at build or runtime.
+test-api.http
+HELP.md
+*.log

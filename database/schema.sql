@@ -77,3 +77,4 @@ ON saved_places(user_id, label);
 \ir migrations/002_saved_place_categories.sql
 
 \ir migrations/003_trip_shares.sql
+\ir migrations/004_spring_session.sql
