@@ -40,3 +40,5 @@ dist/
 
 # The backend is a Maven project; npm lockfiles there are accidental
 backend/package-lock.json
+.vercel
+.env*
