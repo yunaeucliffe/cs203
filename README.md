@@ -324,6 +324,7 @@ The frontend and backend deploy together as one Vercel project using [Services](
    - `CRON_SECRET` — any random string. Vercel automatically sends it as `Authorization: Bearer <value>` when invoking the cron job below; the backend rejects the cleanup endpoint without it.
    - `CORS_ALLOWED_ORIGINS` only if the deployed frontend origin differs from the backend's own (same-origin deployments via the routing below don't need this changed).
    - The existing `LTA_DATAMALL_API_KEY`, `ONEMAP_EMAIL`, `ONEMAP_PASSWORD`, `OPENAI_API_KEY`, `OPENAI_MODEL` as already used locally.
+     None of these block startup: if one is missing the backend still boots, logs a warning, and the affected feature reports itself unavailable (OneMap-backed search/routing returns 503; LTA-backed evidence shows as unavailable).
    - Leave `PORT` unset unless you need something other than the container default; the backend honors it automatically (`server.port=${PORT:8081}`).
 3. **Environment variables** — set this on the frontend's environment:
    - `VITE_API_URL=/` so browser requests stay on the frontend's own origin and are routed to the backend by the rewrites below (see `frontend/src/api.js`).

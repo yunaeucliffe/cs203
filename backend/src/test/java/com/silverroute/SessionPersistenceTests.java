@@ -40,31 +40,55 @@ class SessionPersistenceTests {
 
     @Test
     void loginPersistsTheSessionInThePostgresSessionTable() throws Exception {
-        HttpClient client = HttpClient.newBuilder().cookieHandler(new CookieManager()).build();
+        // Create our own account rather than relying on seed data: CI applies
+        // only database/schema.sql, not database/mockdata.sql.
+        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
+        String email = "session-test-" + suffix + "@example.com";
+        String password = "password123";
         String base = "http://localhost:" + port;
+        try {
+            HttpClient signUpClient = HttpClient.newBuilder().cookieHandler(new CookieManager()).build();
+            HttpResponse<String> signUpResponse = signUpClient.send(
+                    jsonPost(base + "/api/auth/signup", csrfToken(signUpClient, base),
+                            "{\"name\":\"Session Test\",\"username\":\"session-test-" + suffix
+                                    + "\",\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"),
+                    HttpResponse.BodyHandlers.ofString());
+            assertThat(signUpResponse.statusCode()).isEqualTo(201);
 
-        HttpResponse<String> csrfResponse = client.send(
+            long before = sessionCount(email);
+
+            // A fresh client has no session, so this login must create a new stored one.
+            HttpClient client = HttpClient.newBuilder().cookieHandler(new CookieManager()).build();
+            HttpResponse<String> loginResponse = client.send(
+                    jsonPost(base + "/api/auth/login", csrfToken(client, base),
+                            "{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"),
+                    HttpResponse.BodyHandlers.ofString());
+            assertThat(loginResponse.statusCode()).isEqualTo(200);
+
+            assertThat(sessionCount(email)).isGreaterThan(before);
+        } finally {
+            jdbcTemplate.update("delete from spring_session where principal_name = ?", email);
+            jdbcTemplate.update("delete from users where email = ?", email);
+        }
+    }
+
+    private long sessionCount(String email) {
+        return jdbcTemplate.queryForObject(
+                "select count(*) from spring_session where principal_name = ?", Long.class, email);
+    }
+
+    private static String csrfToken(HttpClient client, String base) throws Exception {
+        HttpResponse<String> response = client.send(
                 HttpRequest.newBuilder(URI.create(base + "/api/auth/csrf")).GET().build(),
                 HttpResponse.BodyHandlers.ofString());
-        String csrfToken = csrfResponse.body().replaceAll(".*\"token\":\"([^\"]+)\".*", "$1");
+        return response.body().replaceAll(".*\"token\":\"([^\"]+)\".*", "$1");
+    }
 
-        long before = jdbcTemplate.queryForObject(
-                "select count(*) from spring_session where principal_name = ?",
-                Long.class, "mary@example.com");
-
-        HttpResponse<String> loginResponse = client.send(
-                HttpRequest.newBuilder(URI.create(base + "/api/auth/login"))
-                        .header("Content-Type", "application/json")
-                        .header("X-XSRF-TOKEN", csrfToken)
-                        .POST(HttpRequest.BodyPublishers.ofString(
-                                "{\"email\":\"mary@example.com\",\"password\":\"password123\"}"))
-                        .build(),
-                HttpResponse.BodyHandlers.ofString());
-        assertThat(loginResponse.statusCode()).isEqualTo(200);
-
-        long after = jdbcTemplate.queryForObject(
-                "select count(*) from spring_session where principal_name = ?",
-                Long.class, "mary@example.com");
-        assertThat(after).isGreaterThan(before);
+    private static HttpRequest jsonPost(String url, String csrfToken, String body) {
+        return HttpRequest.newBuilder(URI.create(url))
+                .header("Content-Type", "application/json")
+                .header("X-XSRF-TOKEN", csrfToken)
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
     }
 }
