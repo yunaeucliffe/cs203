@@ -1,7 +1,7 @@
 import { walkingPreferenceError } from '../utils/walkingPreferences'
 import PrioritySettings from '../components/PrioritySettings'
 import { useState } from 'react'
-import { API_URL, getCsrfToken } from '../api'
+import { savePreferences } from '../api/account'
 import { PreferenceSelector } from '../components/PreferenceComponents'
 
 function Preferences({ onComplete }) {
@@ -26,27 +26,7 @@ function Preferences({ onComplete }) {
         setIsSaving(true)
 
         try {
-            const csrfToken = await getCsrfToken()
-
-            const response = await fetch(
-                `${API_URL}/api/users/me/preferences`,
-                {
-                    method: 'PUT',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-XSRF-TOKEN': csrfToken,
-                    },
-                    body: JSON.stringify(formValues),
-                },
-            )
-
-            const data = await response.json().catch(() => null)
-
-            if (!response.ok) {
-                throw new Error(data?.message || 'Unable to save preferences.')
-            }
-
+            await savePreferences(formValues)
             onComplete()
         } catch (requestError) {
             setError(requestError.message)

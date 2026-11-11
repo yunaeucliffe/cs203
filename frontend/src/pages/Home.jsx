@@ -1,3 +1,4 @@
+import { hasCoordinates } from '../utils/geo'
 import { useEffect, useState } from 'react'
 import SignIn from './SignIn'
 import SignUp from './SignUp'
@@ -118,28 +119,14 @@ function Home() {
     }
 
     const selectSavedPlace = (place) => {
+        const destinationPlace = hasCoordinates(place)
+            ? { name: place.address, address: place.address, latitude: place.latitude, longitude: place.longitude }
+            : null
         setDestination(place.address)
-        setDestinationPlace(
-            Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
-                ? {
-                    name: place.address,
-                    address: place.address,
-                    latitude: place.latitude,
-                    longitude: place.longitude,
-                }
-                : null
-        )
+        setDestinationPlace(destinationPlace)
         saveRouteSearchDraft({
             destination: place.address,
-            destinationPlace: Number.isFinite(place.latitude) &&
-                Number.isFinite(place.longitude)
-                ? {
-                    name: place.address,
-                    address: place.address,
-                    latitude: place.latitude,
-                    longitude: place.longitude,
-                }
-                : null,
+            destinationPlace,
             originMode: 'currentLocation',
         })
 
