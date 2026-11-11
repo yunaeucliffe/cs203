@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Route choice confirmation test</title>
+<div id="root"></div>
+<output id="result">Running</output>
+<script type="module">
+  // Open /tests/routeChoice.browser.html on the Vite development server.
+  import React, { act } from 'react'
+  import { createRoot } from 'react-dom/client'
+  import RouteChoice from '../src/components/RouteChoice.jsx'
+
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true
+  const message = 'Route chosen. AI updated your priorities: walking 47, shelter 25. More shelter despite extra walking.'
+  const originalFetch = window.fetch
+  const root = createRoot(document.querySelector('#root'))
+  try {
+    window.fetch = async (url, options) => {
+      if (url.endsWith('/api/auth/csrf')) return { ok: true, json: async () => ({ token: 'test-token' }) }
+      if (url.endsWith('/api/route-recommendations/test/choice') &&
+          JSON.parse(options.body).routeId === 'alternative') {
+        return { ok: true, json: async () => ({ routeId: 'alternative', choiceVersion: 1, message }) }
+      }
+      throw new Error('Unexpected request')
+    }
+    await act(async () => root.render(React.createElement(RouteChoice, {
+      recommendationId: 'test', routeId: 'alternative', visible: true,
+      renderButton: button => button,
+    })))
+    await act(async () => document.querySelector('#root button').click())
+    if (!document.querySelector('dialog[open]')?.innerText.includes(message)) {
+      throw new Error('The open confirmation dialog must show the saved learning message')
+    }
+    document.querySelector('#result').textContent = 'Passed'
+  } catch (error) {
+    document.querySelector('#result').textContent = 'Failed: ' + error.message
+    throw error
+  } finally {
+    window.fetch = originalFetch
+    await act(async () => root.unmount())
+  }
+</script>

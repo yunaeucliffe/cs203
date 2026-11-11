@@ -1,4 +1,4 @@
-export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8081'
+export const API_URL = import.meta.env?.VITE_API_URL ?? 'http://localhost:8081'
 
 export const CONNECTION_ERROR = "Can't connect to SilverRoute. Check your internet connection and try again."
 

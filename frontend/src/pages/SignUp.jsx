@@ -12,7 +12,13 @@ function SignUp({ onBackToLogin, onSignUp, onHome }) {
     setError('')
     const formData = new FormData(event.currentTarget)
 
-    if (formData.get('password') !== formData.get('confirmPassword')) {
+    const password = formData.get('password')
+    const length = Array.from(password).length
+    if (length < 8 || length > 72) {
+      setError('Use 8 to 72 characters for your password.')
+      return
+    }
+    if (password !== formData.get('confirmPassword')) {
       setError('Passwords do not match.')
       return
     }
@@ -31,7 +37,7 @@ function SignUp({ onBackToLogin, onSignUp, onHome }) {
           name: formData.get('name'),
           username: formData.get('username'),
           email: formData.get('email'),
-          password: formData.get('password'),
+          password,
         }),
       })
       const data = await response.json().catch(() => null)
@@ -118,12 +124,10 @@ function SignUp({ onBackToLogin, onSignUp, onHome }) {
         <Input
           id="signup-password"
           label="Password"
-          hint="At least 8 characters."
+          hint="8 to 72 characters."
           name="password"
           placeholder="Create a password"
           autoComplete="new-password"
-          minLength="8"
-          maxLength="72"
           required />
         <Input
           id="signup-confirm-password"

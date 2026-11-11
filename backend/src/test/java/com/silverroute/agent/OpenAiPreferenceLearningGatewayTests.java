@@ -46,6 +46,7 @@ class OpenAiPreferenceLearningGatewayTests {
     }
     @Test void rejectsUnsafeAndMalformedAdjustments() throws Exception {
         for(String invalid:List.of("null","{}",valid.replace("-3","-11"),valid.replace("-3","-3.0"),
+                valid.replace("-3","-3,\"walkingDelta\":4"),
                 valid.replace("-3","\"-3\""),valid.replace("medium","low"),valid.replace("medium","certain"),
                 valid.replace("-3","2147483648"),valid.replace("}",",\"extra\":true}"),valid+" {}")) {
             assertThatThrownBy(() -> gateway().parseResponse(response(invalid))).isInstanceOf(ModelAgentException.class);

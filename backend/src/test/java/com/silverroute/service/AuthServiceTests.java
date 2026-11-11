@@ -95,6 +95,22 @@ class AuthServiceTests {
     }
 
     @Test
+    void longUnicodePasswordRoundTripsIncludingItsFinalCharacter() {
+        String prefix = "😀".repeat(18);
+        String email = "alex@example.com";
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            ReflectionTestUtils.setField(user, "id", 7L);
+            when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+            return user;
+        });
+
+        assertThat(authService.signUp(new SignUpRequest("Alex", "alex", email, prefix + "a")).success()).isTrue();
+        assertThat(authService.login(new LoginRequest(email, prefix + "a")).success()).isTrue();
+        assertThat(authService.login(new LoginRequest(email, prefix + "b")).success()).isFalse();
+    }
+
+    @Test
     void signUpRejectsAnExistingEmail() {
         when(userRepository.existsByEmailIgnoreCase("mary@example.com")).thenReturn(true);
 
