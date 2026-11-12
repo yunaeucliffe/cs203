@@ -66,17 +66,8 @@ public class OpenAiModelGateway implements ModelGateway {
             JsonNode root=mapper.readTree(response);
             if(root==null || !"completed".equals(root.path("status").asText()))
                 throw new ModelAgentException("OpenAI did not complete the route ranking");
-            List<String> texts=new ArrayList<>();
-            for(JsonNode output:root.path("output")) {
-                if(!"message".equals(output.path("type").asText())) continue;
-                for(JsonNode content:output.path("content")) {
-                    if("refusal".equals(content.path("type").asText()))
-                        throw new ModelAgentException("OpenAI declined to rank these routes");
-                    if("output_text".equals(content.path("type").asText()) && content.path("text").isTextual()) texts.add(content.get("text").textValue());
-                }
-            }
-            if(texts.size()!=1) throw new ModelAgentException("OpenAI returned an invalid ranking response");
-            JsonNode json=mapper.readTree(texts.getFirst());
+            JsonNode json = mapper.readTree(OpenAiResponse.outputText(root,
+                    "OpenAI declined to rank these routes", "OpenAI returned an invalid ranking response"));
             if(!json.isObject() || json.size()!=1 || !json.path("rankings").isArray()) throw new IllegalArgumentException("Invalid rankings");
             for(JsonNode item:json.path("rankings")) {
                 if(!item.isObject() || item.size()!=2 || !item.path("routeId").isTextual()

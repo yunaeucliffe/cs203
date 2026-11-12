@@ -60,8 +60,8 @@ public class RouteChoiceService {
     }
     @Transactional
     public Receipt choose(String email, UUID id, String routeId, long expectedVersion) {
-        Long owner=userId(email);
-        var preference=preferences.lockByUserId(owner).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        var preference=preferences.lockByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Long owner=preference.getUserId();
         var snapshot=snapshots.lockOwned(id,owner).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,"Recommendation not found"));
         if (snapshot.getSelectedRouteId()!=null) {
             if (snapshot.getChoiceVersion()!=expectedVersion+1 || !routeId.equals(snapshot.getSelectedRouteId())) throw new ResponseStatusException(HttpStatus.CONFLICT,"A route was already confirmed for this recommendation");
@@ -103,9 +103,9 @@ public class RouteChoiceService {
     }
     @Transactional
     public UndoReceipt undo(String email, UUID id, long confirmedVersion) {
-        Long owner=userId(email);
         // Lock in the same order as choose/manual updates to serialize replay and new choices.
-        var preference=preferences.lockByUserId(owner).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        var preference=preferences.lockByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Long owner=preference.getUserId();
         var snapshot=snapshots.lockOwned(id,owner).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,"Recommendation not found"));
         if (snapshot.getSelectedRouteId()==null && snapshot.getChoiceVersion()==confirmedVersion+1)
             return new UndoReceipt(snapshot.getChoiceVersion(),"Choice undone. Select a route and confirm again.");

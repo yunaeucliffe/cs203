@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Vendored GeoTools Maven repository (see backend/pom.xml) must be committed.
+!lib-repo/**/*.jar

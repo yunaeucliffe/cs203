@@ -17,3 +17,20 @@ export async function deleteAccount() {
   if (response.status === 401) throw new Error('Your session has expired. Please sign in again.')
   if (!response.ok) throw new Error(DELETE_FAILED)
 }
+
+export async function savePreferences(values) {
+  const token = await getCsrfToken()
+  const response = await fetch(`${API_URL}/api/users/me/preferences`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': token },
+    body: JSON.stringify(values),
+  })
+  const data = await response.json().catch(() => null)
+  if (!response.ok) {
+    const error = new Error(data?.message || 'Unable to save preferences.')
+    error.status = response.status
+    throw error
+  }
+  return data
+}

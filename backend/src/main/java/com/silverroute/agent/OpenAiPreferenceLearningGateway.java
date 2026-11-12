@@ -58,17 +58,8 @@ public class OpenAiPreferenceLearningGateway implements PreferenceLearningGatewa
         try {
             JsonNode root=mapper.readTree(response);
             if (root==null || !"completed".equals(root.path("status").asText())) throw new IllegalArgumentException();
-            List<String> texts=new ArrayList<>();
-            for (var output:root.path("output")) {
-                if (!"message".equals(output.path("type").asText())) continue;
-                for (var content:output.path("content")) {
-                    if ("refusal".equals(content.path("type").asText())) throw new IllegalArgumentException();
-                    if ("output_text".equals(content.path("type").asText()) && content.path("text").isTextual())
-                        texts.add(content.path("text").textValue());
-                }
-            }
-            if (texts.size()!=1) throw new IllegalArgumentException();
-            var json=mapper.readTree(texts.getFirst());
+            var json = mapper.readTree(OpenAiResponse.outputText(root,
+                    "OpenAI declined to assess preferences", "Invalid preference response"));
             if (!json.isObject() || json.size()!=4 || !json.path("walkingDelta").isIntegralNumber()
                     || !json.path("walkingDelta").canConvertToInt() || !json.path("shelterDelta").isIntegralNumber()
                     || !json.path("shelterDelta").canConvertToInt() || !json.path("confidence").isTextual()
