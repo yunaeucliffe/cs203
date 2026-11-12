@@ -1,9 +1,13 @@
 package com.silverroute.service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
+import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,9 +29,13 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final UserPreferenceRepository preferenceRepository;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private static final String PBKDF2_ID = "pbkdf2@SpringSecurity_v5_8";
+    private final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
+    private final DelegatingPasswordEncoder passwordEncoder = new DelegatingPasswordEncoder(
+            PBKDF2_ID, Map.of(PBKDF2_ID, Pbkdf2PasswordEncoder.defaultsForSpringSecurity_v5_8()));
 
     public AuthService(UserRepository userRepository, UserPreferenceRepository preferenceRepository) {
+        passwordEncoder.setDefaultPasswordEncoderForMatches(bcrypt);
         this.userRepository = userRepository;
         this.preferenceRepository = preferenceRepository;
     }
@@ -49,6 +57,14 @@ public class AuthService {
         }
 
         return new LoginResponse(true, user.getId(), user.getName(), "Login successful");
+    }
+
+    private String encodePassword(String password) {
+        // Keep the existing BCrypt format for passwords it can represent in full.
+        if (password.getBytes(StandardCharsets.UTF_8).length <= 72) {
+            return bcrypt.encode(password);
+        }
+        return passwordEncoder.encode(password);
     }
 
     @Transactional
@@ -74,7 +90,7 @@ public class AuthService {
                 request.name().trim(),
                 username,
                 email,
-                passwordEncoder.encode(request.password())));
+                encodePassword(request.password())));
         preferenceRepository.save(new UserPreference(user.getId(), "Normal", 50, 20));
 
         return new LoginResponse(true, user.getId(), user.getName(), "Account created successfully");

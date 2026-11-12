@@ -144,7 +144,7 @@ The login flow is:
 ```text
 React SignIn page
   -> POST /api/auth/login
-  -> BCrypt password validation
+  -> Password hash verification
   -> authenticated Spring Security session
   -> HttpOnly JSESSIONID cookie
   -> GET /api/users/me/profile
@@ -153,7 +153,7 @@ React SignIn page
 
 The browser sends the session cookie using credentialed requests. User identity is read from the authenticated server session rather than from a browser-controlled user ID. Login is protected with a CSRF token, the session expires after 30 minutes of inactivity, and the legacy `/api/users/{userId}/profile` route only permits the authenticated owner.
 
-New accounts are created with a BCrypt password hash and default travel preferences, then signed into a server-side session automatically.
+New accounts receive default travel preferences and are signed in automatically. Passwords use BCrypt up to its 72-byte UTF-8 limit. Longer Unicode passwords use PBKDF2 and retain the full password.
 
 ## Login and profile APIs
 

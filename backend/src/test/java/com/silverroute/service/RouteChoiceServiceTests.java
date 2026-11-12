@@ -59,7 +59,9 @@ class RouteChoiceServiceTests {
         when(learning.assess(any())).thenThrow(new IllegalStateException("secret diagnostics"));
         var receipt=service.choose("a@example.com",snapshot.getId(),"alt",0);
         assertThat(receipt.message()).contains("unavailable").doesNotContain("secret");
+        assertThat(receipt.preferencesUpdated()).isFalse();
         assertThat(receipt.minimizeWalkingPriority()).isEqualTo(50);
+        assertThat(receipt.shelterPriority()).isEqualTo(20);
         assertThat(snapshot.getSelectedRouteId()).isEqualTo("alt");
         assertThat(service.choose("a@example.com",snapshot.getId(),"alt",0)).isEqualTo(receipt);
         verify(learning,times(1)).assess(any());

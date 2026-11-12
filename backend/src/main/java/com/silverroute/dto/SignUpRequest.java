@@ -1,5 +1,7 @@
 package com.silverroute.dto;
 
+import org.hibernate.validator.constraints.CodePointLength;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -12,5 +14,5 @@ public record SignUpRequest(
                 message = "may only contain letters, numbers, dots, underscores, and hyphens")
         String username,
         @NotBlank @Email @Size(max = 255) String email,
-        @NotBlank @Size(min = 8, max = 72) String password) {
+        @NotBlank @CodePointLength(min = 8, max = 72) String password) {
 }
