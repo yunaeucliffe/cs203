@@ -18,6 +18,7 @@ public class OpenAiPreferenceLearningGateway implements PreferenceLearningGatewa
     private final String apiKey, model, prompt;
     private final RestClient client;
     private final ObjectMapper mapper = new ObjectMapper()
+            .enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
