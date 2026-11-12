@@ -1,5 +1,6 @@
 import { hasCoordinates } from '../utils/geo'
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
+import { TripSharingContext } from '../components/TripSharingContext'
 import SignIn from './SignIn'
 import SignUp from './SignUp'
 import Preferences from './Preferences'
@@ -10,7 +11,7 @@ import Navbar from '../components/Navbar'
 import LocationAutocomplete from '../components/LocationAutocomplete'
 import SavedPlacesCard from '../components/SavedPlacesCard'
 import { API_URL } from '../api'
-import { loadActiveJourney } from '../utils/activeJourney'
+import { clearSavedJourney, loadActiveJourney } from '../utils/activeJourney'
 import { saveRouteSearchDraft } from '../utils/routeSearchDraft'
 
 import {
@@ -30,6 +31,7 @@ function Home() {
     const [savedPlaces, setSavedPlaces] = useState([])
     const [savedPlaceCategories, setSavedPlaceCategories] = useState([])
     const [addSavedPlace, setAddSavedPlace] = useState(false)
+    const { signedOut } = useContext(TripSharingContext)
     // Each page change adds a browser history entry, so the phone's Back button returns
     // to the previous SilverRoute page instead of leaving the app.
     const goTo = (page, { replace = false } = {}) => {
@@ -207,6 +209,14 @@ function Home() {
                 onSignIn={() => goTo('signIn')}
                 isAuthenticated={isAuthenticated}
                 onLogout={() => {
+                    // Forget everything about this user, so the next person on this device sees none of it.
+                    signedOut()
+                    clearSavedJourney()
+                    setDestination('')
+                    setDestinationPlace(null)
+                    setSavedPlaces([])
+                    setSavedPlaceCategories([])
+                    setUserName('there')
                     setIsAuthenticated(false)
                     goTo('home', { replace: true })
                 }}

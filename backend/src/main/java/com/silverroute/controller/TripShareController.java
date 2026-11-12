@@ -1,6 +1,7 @@
 package com.silverroute.controller;
 
 import java.util.*;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
@@ -17,8 +18,11 @@ public class TripShareController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.active(auth.getName()));
     }
     @PostMapping("/api/users/me/trip-shares")
-    public ResponseEntity<View> create(Authentication auth, @Valid @RequestBody Create request) {
-        return ResponseEntity.status(201).cacheControl(CacheControl.noStore()).body(service.create(auth.getName(), request));
+    public ResponseEntity<View> create(Authentication auth, @Valid @RequestBody Create request, HttpServletRequest http) {
+        // The service re-checks the stored session: another tab may sign out while this request is in flight.
+        var session = http.getSession(false);
+        var share = service.create(auth.getName(), request, session == null ? null : session.getId());
+        return ResponseEntity.status(201).cacheControl(CacheControl.noStore()).body(share);
     }
     @PutMapping("/api/users/me/trip-shares/{id}/location")
     @ResponseStatus(HttpStatus.NO_CONTENT)

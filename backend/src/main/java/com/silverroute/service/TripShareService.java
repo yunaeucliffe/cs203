@@ -50,9 +50,14 @@ public class TripShareService {
         return new View(s.id, s.token, s.origin, s.destination, s.routeSummary,
                 s.estimatedArrival, s.expiresAt, s.liveLocation, s.latitude, s.longitude, s.locationUpdatedAt);
     }
-    public View create(String email, Create request) {
+    // The stored session is checked while holding the user lock signOut also takes: either this share commits
+    // first and signOut revokes it, or signOut has already deleted the session and the request is rejected.
+    public View create(String email, Create request, String sessionId) {
+        var owner = users.lockByEmail(email).orElseThrow(() -> unavailable()).getId();
+        if (sessionId == null || !shares.sessionExists(sessionId))
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Please sign in to share your trip.");
         var s = new TripShare();
-        s.userId = owner(email);
+        s.userId = owner;
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         s.token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -96,6 +101,13 @@ public class TripShareService {
         s.latitude = null;
         s.longitude = null;
         s.locationUpdatedAt = null;
+    }
+    // Signing out ends every share, so family don't keep seeing a trip or location the user can no longer manage
+    // (recipients see the standard "invalid or has ended" message). Revoking and deleting the stored session
+    // commit together, so if either fails the user is still signed in and can retry.
+    public void signOut(String email, String sessionId) {
+        users.lockByEmail(email).ifPresent(user -> shares.revokeAllOwned(user.getId()));
+        if (sessionId != null) shares.deleteSession(sessionId);
     }
     // Privacy: once the 24-hour backup expiry passes, delete the share and its last location.
     @Scheduled(fixedRate = 10, timeUnit = TimeUnit.MINUTES)

@@ -98,7 +98,7 @@ export default function SharedTrip({ token }) {
             {hasLocation && <MapContainer center={[trip.latitude, trip.longitude]} zoom={16} className="mt-4 h-80 w-full rounded-xl sm:h-96">
               <TileLayer url="https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png" attribution="&copy; OneMap contributors" />
               <FollowLocation latitude={trip.latitude} longitude={trip.longitude} />
-              <CircleMarker center={[trip.latitude, trip.longitude]} radius={10} pathOptions={{ color: outdated ? '#777' : '#2F6FED' }}><Popup>Latest shared location</Popup></CircleMarker>
+              <CircleMarker center={[trip.latitude, trip.longitude]} radius={10} pathOptions={{ color: 'white', weight: 3, fillColor: outdated ? '#777' : '#2F6FED', fillOpacity: 1 }}><Popup>Latest shared location</Popup></CircleMarker>
             </MapContainer>}
           </>}
         </section>
