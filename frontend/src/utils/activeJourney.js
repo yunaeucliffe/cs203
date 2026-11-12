@@ -1,3 +1,5 @@
+import { clearRouteSearchDraft } from './routeSearchDraft.js'
+
 const JOURNEY_GRACE_PERIOD_MS = 2 * 60 * 60 * 1000
 const FALLBACK_DURATION_MINUTES = 60
 
@@ -35,4 +37,12 @@ export function loadActiveJourney() {
     localStorage.removeItem('activeJourney')
     return null
   }
+}
+
+// Signing out forgets the journey and route searches saved on this device, so the next person can't see them.
+export function clearSavedJourney() {
+  localStorage.removeItem('activeJourney')
+  localStorage.removeItem('routeSearchState')
+  clearRouteSearchDraft()
+  window.dispatchEvent(new Event('activeJourneyUpdated'))
 }

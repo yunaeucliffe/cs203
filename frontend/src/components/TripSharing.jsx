@@ -186,7 +186,17 @@ export function TripSharingProvider({ children }) {
     }
     setJourney(null)
   }
-  return <TripSharingContext.Provider value={{ shares: active, allowed, status, end, journey, setJourney, endJourney,
+  // The server ends every share on sign-out; drop them here at once so location uploads and the
+  // navbar pill stop now rather than at the next refresh.
+  function signedOut() {
+    version.current++
+    if (shares.length > 0) setNotice('You signed out, so trip sharing has ended.')
+    setShares([])
+    setAllowed({})
+    setStatus({})
+    setJourney(null)
+  }
+  return <TripSharingContext.Provider value={{ shares: active, allowed, status, end, journey, setJourney, endJourney, signedOut,
     enable: id => setAllowed(previous => ({ ...previous, [id]: journey?.id })),
     add: (share, consent) => {
       version.current++
@@ -197,10 +207,14 @@ export function TripSharingProvider({ children }) {
   }}>
     {active.map(share => <LocationUpdates key={share.id} share={share} journey={journey}
       allowed={isSharingJourney(share, journey, allowed)} onStatus={reportStatus} />)}
-    {/* One message, fixed on screen so it's seen wherever sharing was ended from. */}
-    {notice && <div role="status" className="fixed inset-x-4 bottom-4 z-[1100] mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-[#7A7F7A]/20 bg-white p-4 shadow-lg">
-      <span className="flex items-center gap-2 font-semibold"><Check size={18} className="shrink-0 text-green-700" />{notice}</span>
-      <button type="button" className="min-h-10 rounded-lg px-3 text-sm font-semibold hover:bg-[#FAF7F0]" onClick={() => setNotice('')}>Dismiss</button>
+    {/* One message, fixed on screen so it's seen wherever sharing was ended from. Placed like the app's other pop-ups (Routes). */}
+    {notice && <div role="status" className="fixed left-4 right-4 top-4 z-[2000] flex items-start gap-2 rounded-xl border border-[#7A7F7A]/20 bg-white p-4 pr-2 shadow-lg sm:left-auto sm:max-w-sm">
+      <p className="flex flex-1 items-start gap-2 pt-2 font-semibold"><Check size={18} className="mt-0.5 shrink-0 text-green-700" aria-hidden="true" />{notice}</p>
+      {/* 44px target so it is easy to tap on a phone */}
+      <button type="button" aria-label="Dismiss message" onClick={() => setNotice('')}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-[#FAF7F0]">
+        <X size={24} aria-hidden="true" />
+      </button>
     </div>}
     {children}
   </TripSharingContext.Provider>

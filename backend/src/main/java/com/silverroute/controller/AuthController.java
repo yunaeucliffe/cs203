@@ -21,6 +21,7 @@ import com.silverroute.dto.LoginRequest;
 import com.silverroute.dto.LoginResponse;
 import com.silverroute.dto.SignUpRequest;
 import com.silverroute.service.AuthService;
+import com.silverroute.service.TripShareService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -33,10 +34,13 @@ public class AuthController {
 
     private final AuthService authService;
     private final SecurityContextRepository securityContextRepository;
+    private final TripShareService tripShareService;
 
-    public AuthController(AuthService authService, SecurityContextRepository securityContextRepository) {
+    public AuthController(AuthService authService, SecurityContextRepository securityContextRepository,
+            TripShareService tripShareService) {
         this.authService = authService;
         this.securityContextRepository = securityContextRepository;
+        this.tripShareService = tripShareService;
     }
 
     @PostMapping("/login")
@@ -74,6 +78,11 @@ public class AuthController {
             Authentication authentication,
             HttpServletRequest request,
             HttpServletResponse response) {
+        if (authentication instanceof UsernamePasswordAuthenticationToken) {
+            // Ends trip sharing and the stored session together; if that fails, the user stays signed in to retry.
+            HttpSession session = request.getSession(false);
+            tripShareService.signOut(authentication.getName(), session == null ? null : session.getId());
+        }
         new SecurityContextLogoutHandler().logout(request, response, authentication);
         return ResponseEntity.noContent().build();
     }

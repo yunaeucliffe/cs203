@@ -2,7 +2,8 @@
 // In production it is set to "/" so requests stay on the frontend's own
 // origin and are routed to the backend by Vercel; the trailing slash is
 // stripped so "${API_URL}/api/..." doesn't become "//api/...".
-export const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8081').replace(/\/+$/, '')
+// import.meta.env only exists under Vite; "?." lets `npm test` (plain Node) load this file too.
+export const API_URL = (import.meta.env?.VITE_API_URL ?? 'http://localhost:8081').replace(/\/+$/, '')
 
 export const CONNECTION_ERROR = "Can't connect to SilverRoute. Check your internet connection and try again."
 

@@ -80,7 +80,7 @@ class TripShareSecurityTests {
     @Test void createUsesSessionIdentityAndValidatesArrival() throws Exception {
         mvc.perform(post(path).with(user("alice")).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated());
-        verify(service).create(eq("alice"), any());
+        verify(service).create(eq("alice"), any(), any());
         reset(service);
         mvc.perform(post(path).with(user("alice")).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content(body.replace("2099-01-01T10:00:00Z", "2000-01-01T10:00:00Z"))).andExpect(status().isBadRequest());

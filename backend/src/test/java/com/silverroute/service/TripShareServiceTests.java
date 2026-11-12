@@ -28,17 +28,19 @@ class TripShareServiceTests {
         share.expiresAt = Instant.now().plusSeconds(600);
         share.liveLocation = true;
     }
-    void owner() {
+    Optional<User> ownerUser() {
         var user = new User("Owner", "owner", "owner@example.com", "unused");
         ReflectionTestUtils.setField(user, "id", 1L);
-        when(users.findByEmail("owner@example.com")).thenReturn(Optional.of(user));
+        return Optional.of(user);
     }
+    void owner() { when(users.findByEmail("owner@example.com")).thenReturn(ownerUser()); }
     @Test void createsUnpredictableExpiringDetailsOnlyLink() {
-        owner();
+        when(users.lockByEmail("owner@example.com")).thenReturn(ownerUser());
+        when(shares.sessionExists("session-1")).thenReturn(true);
         when(shares.save(any())).thenAnswer(call -> call.getArgument(0));
         var request = new TripShareService.Create("Home", "Clinic", "Bus 10", Instant.now().plusSeconds(900), false);
-        var first = service.create("owner@example.com", request);
-        var second = service.create("owner@example.com", request);
+        var first = service.create("owner@example.com", request, "session-1");
+        var second = service.create("owner@example.com", request, "session-1");
         assertThat(first.token()).hasSize(43).isNotEqualTo(second.token());
         assertThat(first.liveLocation()).isFalse();
         assertThat(first.latitude()).isNull();
@@ -106,6 +108,28 @@ class TripShareServiceTests {
         service.stop("owner@example.com", share.id, true);
         service.stop("owner@example.com", share.id, false);
         assertThat(share.arrived).isTrue();
+    }
+    @Test void signingOutRevokesAllOfTheOwnersSharesAndEndsTheSession() {
+        when(users.lockByEmail("owner@example.com")).thenReturn(ownerUser());
+        service.signOut("owner@example.com", "session-1");
+        verify(shares).revokeAllOwned(1L);
+        verify(shares).deleteSession("session-1");
+    }
+    @Test void signingOutAfterAccountDeletionStillEndsTheSession() {
+        when(users.lockByEmail("gone@example.com")).thenReturn(Optional.empty());
+        service.signOut("gone@example.com", "session-1");
+        verify(shares, never()).revokeAllOwned(any());
+        verify(shares).deleteSession("session-1");
+    }
+    @Test void endedSessionCannotCreateShare() {
+        when(users.lockByEmail("owner@example.com")).thenReturn(ownerUser());
+        var request = new TripShareService.Create("Home", "Clinic", "Bus 10", Instant.now().plusSeconds(900), true);
+        for (String sessionId : new String[] {"ended-session", null}) {
+            assertThatThrownBy(() -> service.create("owner@example.com", request, sessionId))
+                    .isInstanceOfSatisfying(ResponseStatusException.class,
+                            e -> assertThat(e.getStatusCode().value()).isEqualTo(401));
+        }
+        verify(shares, never()).save(any());
     }
     @Test void expiredSharesAreDeleted() {
         var before = Instant.now();
