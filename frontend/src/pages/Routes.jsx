@@ -24,6 +24,17 @@ import {
   clearRouteSearchDraft,
 } from '../utils/routeSearchDraft'
 
+function resultFromJourney(journey) {
+  return {
+    recommendationId: journey.recommendationId,
+    origin: journey.origin,
+    destination: journey.destination,
+    routes: journey.routes || [journey.route],
+    sources: [],
+    engine: undefined,
+  }
+}
+
 function loadRouteSearchState() {
   try {
     return JSON.parse(localStorage.getItem('routeSearchState')) || null
@@ -169,14 +180,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
           : null
 
     if (journey?.route) {
-      return {
-        recommendationId: journey.recommendationId,
-        origin: journey.origin,
-        destination: journey.destination,
-        routes: journey.routes || [journey.route],
-        sources: [],
-        engine: undefined,
-      }
+      return resultFromJourney(journey)
     }
 
     if (
@@ -211,14 +215,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
     setActiveNavigation(journey)
 
     // Restore the journey's route results.
-    setResult({
-      recommendationId: journey.recommendationId,
-      origin: journey.origin,
-      destination: journey.destination,
-      routes: journey.routes || [journey.route],
-      sources: [],
-      engine: undefined,
-    })
+    setResult(resultFromJourney(journey))
 
     setSelectedIndex(journey.selectedIndex ?? 0)
     setHasSearched(true)

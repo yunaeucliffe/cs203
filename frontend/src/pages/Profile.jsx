@@ -7,7 +7,7 @@ import InfoRow from '../components/InfoRow'
 import Navbar from '../components/Navbar'
 import {PreferenceCard, PreferenceSelector} from '../components/PreferenceComponents'
 import {API_URL, getCsrfToken} from '../api'
-import {deleteAccount} from '../api/account'
+import { deleteAccount, savePreferences } from '../api/account'
 import {
   ArrowLeft,
   User,
@@ -93,35 +93,12 @@ function Profile({ onBack, onLogout, onHome, onRoutes, onSavedPlaces, onSignIn, 
     setIsSaving(true)
 
     try {
-      const csrfToken = await getCsrfToken()
-
-      const response = await fetch(
-        `${API_URL}/api/users/me/preferences`,
-        {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-XSRF-TOKEN': csrfToken,
-          },
-          body: JSON.stringify(formValues),
-        },
-      )
-
-      const data = await response.json().catch(() => null)
-
-      if (response.status === 401) {
-        throw new Error('Your session has expired. Please sign in again.')
-      }
-
-      if (!response.ok) {
-        throw new Error(data?.message || 'Unable to save preferences.')
-      }
-
-      setUser(data)
+      setUser(await savePreferences(formValues))
       setIsEditing(false)
     } catch (requestError) {
-      setActionError(requestError.message)
+      setActionError(requestError.status === 401
+        ? 'Your session has expired. Please sign in again.'
+        : requestError.message)
     } finally {
       setIsSaving(false)
     }
