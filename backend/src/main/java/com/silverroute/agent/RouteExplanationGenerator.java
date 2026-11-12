@@ -67,20 +67,6 @@ public final class RouteExplanationGenerator {
         return List.copyOf(reasons);
     }
 
-    public static String weatherNote(WeatherSummary weather) {
-        if (weather == null || (weather.maxTemperatureCelsius() == null && weather.maxRainfallMm() == null))
-            return null;
-        List<String> facts = new ArrayList<>();
-        if (weather.maxTemperatureCelsius() != null)
-            facts.add("Nearby temperature: " + decimal(weather.maxTemperatureCelsius()) + "°C");
-        if (weather.maxRainfallMm() != null)
-            facts.add("Nearby rainfall: " + decimal(weather.maxRainfallMm()) + " mm");
-        facts.add(weather.estimatedUnshelteredWalkingMeters() == null
-                ? "Unsheltered walking is unknown"
-                : "Estimated unsheltered walking: " + whole(weather.estimatedUnshelteredWalkingMeters()) + " m");
-        return String.join(" · ", facts) + ". Nearby observations are not a route-wide forecast; shelter is estimated.";
-    }
-
     private static String decimal(Double value) {
         return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
     }
