@@ -78,7 +78,7 @@ export default function RouteChoice({ recommendationId, routeId, onChoiceChange,
         <h2 id="route-choice-title" className="text-center text-2xl font-semibold">Route chosen</h2>
         {receipt?.message && <p className="mt-4">{receipt.message}</p>}
         {error && <p role="alert" className="mt-4 text-red-700">{error}</p>}
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
+        <div className="mt-6 flex flex-col-reverse justify-center gap-3 sm:flex-row sm:flex-wrap">
           <button type="button" disabled={saving} onClick={() => submit(true)}
             className="rounded-full border border-[#3E424B] px-6 py-3 disabled:opacity-60">
             {saving ? 'Undoing choice…' : 'Undo choice'}

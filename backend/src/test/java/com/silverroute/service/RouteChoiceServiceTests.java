@@ -20,10 +20,8 @@ class RouteChoiceServiceTests {
     final UserPreference preference=new UserPreference(1L,"Normal",50,20);
     final RouteChoiceSnapshot snapshot=new RouteChoiceSnapshot(1L,0,"[{\"id\":\"best\",\"walking\":500,\"sheltered\":100,\"durationMinutes\":20,\"transfers\":0},{\"id\":\"alt\",\"walking\":700,\"sheltered\":350,\"durationMinutes\":18,\"transfers\":1}]");
     @BeforeEach void setup() {
-        var user=new User("Test","test","a@example.com","unused"); ReflectionTestUtils.setField(user,"id",1L);
-        when(users.findByEmail("a@example.com")).thenReturn(Optional.of(user));
         when(snapshots.lockOwned(snapshot.getId(),1L)).thenReturn(Optional.of(snapshot));
-        when(preferences.lockByUserId(1L)).thenReturn(Optional.of(preference));
+        when(preferences.lockByEmail("a@example.com")).thenReturn(Optional.of(preference));
         when(learning.assess(any())).thenReturn(new PreferenceAdjustment(-3,5,"medium","More shelter may explain the extra walking."));
     }
     @Test void aiDecidesIndependentDeltasImmediatelyAndDuplicateDoesNotCallAgain() {

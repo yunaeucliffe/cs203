@@ -60,8 +60,8 @@ function RouteCard({ route, index, onClick }) {
 
                 {/* WALKING */}
                 <div className="flex flex-col gap-y-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
-                    <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
-                        <Footprints size={22} />
+                    <span className="flex min-w-0 items-start gap-2 text-sm sm:text-base [&>svg]:shrink-0">
+                        <Footprints size={22} className="h-[18px] w-[18px] sm:h-[22px] sm:w-[22px]" />
                         Walking
                     </span>
                     <span className="font-semibold">
@@ -73,8 +73,8 @@ function RouteCard({ route, index, onClick }) {
 
                 {/* TRANSFERS */}
                 <div className="flex flex-col gap-y-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
-                    <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
-                        <Bus size={22} />
+                    <span className="flex min-w-0 items-start gap-2 text-sm sm:text-base [&>svg]:shrink-0">
+                        <Bus size={22} className="h-[18px] w-[18px] sm:h-[22px] sm:w-[22px]" />
                         Transfers
                     </span>
                     <span className="font-semibold">
@@ -84,8 +84,8 @@ function RouteCard({ route, index, onClick }) {
 
                 {/* SHELTERED WALKING */}
                 <div className="flex flex-col gap-y-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
-                    <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
-                        <Umbrella size={22} />
+                    <span className="flex min-w-0 items-start gap-2 text-sm sm:text-base [&>svg]:shrink-0">
+                        <Umbrella size={22} className="h-[18px] w-[18px] sm:h-[22px] sm:w-[22px]" />
                         Sheltered walking
                     </span>
                     <span className="font-semibold">
@@ -95,8 +95,8 @@ function RouteCard({ route, index, onClick }) {
 
                 {/* DISTANCE */}
                 <div className="flex flex-col gap-y-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
-                    <span className="flex min-w-0 items-center gap-2 [&>svg]:shrink-0">
-                        <Navigation size={22} />
+                    <span className="flex min-w-0 items-start gap-2 text-sm sm:text-base [&>svg]:shrink-0">
+                        <Navigation size={22} className="h-[18px] w-[18px] sm:h-[22px] sm:w-[22px]" />
                         Distance
                     </span>
                     <span className="font-semibold">

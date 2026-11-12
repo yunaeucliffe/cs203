@@ -1,3 +1,4 @@
+import { hasCoordinates } from '../utils/geo'
 import { useEffect, useState } from 'react'
 import SignIn from './SignIn'
 import SignUp from './SignUp'
@@ -27,6 +28,7 @@ function Home() {
     const [isAuthenticated, setIsAuthenticated] = useState(false)
     const [userName, setUserName] = useState('there')
     const [savedPlaces, setSavedPlaces] = useState([])
+    const [savedPlaceCategories, setSavedPlaceCategories] = useState([])
     const [addSavedPlace, setAddSavedPlace] = useState(false)
     // Each page change adds a browser history entry, so the phone's Back button returns
     // to the previous SilverRoute page instead of leaving the app.
@@ -80,6 +82,11 @@ function Home() {
                     signal: controller.signal,
                 })
                 if (placesResponse.ok) setSavedPlaces(await placesResponse.json())
+                const categoriesResponse = await fetch(`${API_URL}/api/users/me/categories`, {
+                    credentials: 'include',
+                    signal: controller.signal,
+                })
+                if (categoriesResponse.ok) setSavedPlaceCategories(await categoriesResponse.json())
             })
             .catch((error) => {
                 if (error.name !== 'AbortError') {
@@ -118,28 +125,14 @@ function Home() {
     }
 
     const selectSavedPlace = (place) => {
+        const destinationPlace = hasCoordinates(place)
+            ? { name: place.address, address: place.address, latitude: place.latitude, longitude: place.longitude }
+            : null
         setDestination(place.address)
-        setDestinationPlace(
-            Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
-                ? {
-                    name: place.address,
-                    address: place.address,
-                    latitude: place.latitude,
-                    longitude: place.longitude,
-                }
-                : null
-        )
+        setDestinationPlace(destinationPlace)
         saveRouteSearchDraft({
             destination: place.address,
-            destinationPlace: Number.isFinite(place.latitude) &&
-                Number.isFinite(place.longitude)
-                ? {
-                    name: place.address,
-                    address: place.address,
-                    latitude: place.latitude,
-                    longitude: place.longitude,
-                }
-                : null,
+            destinationPlace,
             originMode: 'currentLocation',
         })
 
@@ -162,6 +155,12 @@ function Home() {
                         .then((response) => response.ok ? response.json() : [])
                         .then(setSavedPlaces)
                         .catch(() => setSavedPlaces([]))
+                    fetch(`${API_URL}/api/users/me/categories`, {
+                        credentials: 'include',
+                    })
+                        .then((response) => response.ok ? response.json() : [])
+                        .then(setSavedPlaceCategories)
+                        .catch(() => setSavedPlaceCategories([]))
                 }}
                 onSignUp={() => {
                     goTo('signUp')
@@ -361,7 +360,7 @@ function Home() {
                             {/* SEARCH AREA */}
                             <div className="mt-6 max-w-[680px] sm:mt-10">
 
-                                <div className="flex flex-col border-2 border-[#3E424B] bg-white sm:flex-row">
+                                <div className="flex flex-col divide-y-2 divide-[#3E424B] border-2 border-[#3E424B] bg-white sm:flex-row sm:divide-y-0">
 
                                     {/* Input */}
                                     <div className="flex min-w-0 flex-1 items-center gap-3 px-5">
@@ -443,6 +442,9 @@ function Home() {
                                             key={place.id}
                                             label={place.label}
                                             address={place.address}
+                                            category={savedPlaceCategories.find(
+                                                (category) => category.id === place.categoryId
+                                            )}
                                             onClick={() => selectSavedPlace(place)}
                                         />
                                     ))}

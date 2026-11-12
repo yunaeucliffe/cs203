@@ -31,10 +31,25 @@
         <geotools.version>33.2</geotools.version>
     </properties>
     <repositories>
+        <!--
+            GeoTools (plus jgridshift and jai_core) is published only to
+            repo.osgeo.org, not Maven Central, and that server's outages broke
+            our builds. The exact 33.2 artifacts we use are vendored in
+            lib-repo/ (with their original .sha1 checksums) so builds no longer
+            depend on osgeo. When bumping geotools.version, copy the new
+            artifacts from a machine that resolved them from
+            https://repo.osgeo.org/repository/release/ into lib-repo/.
+        -->
         <repository>
-            <id>osgeo</id>
-            <name>OSGeo release repository</name>
-            <url>https://repo.osgeo.org/repository/release/</url>
+            <id>vendored-geotools</id>
+            <name>Vendored OSGeo artifacts</name>
+            <url>file://${project.basedir}/lib-repo</url>
+            <releases>
+                <checksumPolicy>fail</checksumPolicy>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
     <dependencies>
@@ -86,6 +101,13 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Shared HttpSession storage so authentication survives container
+             replacement and works across multiple backend instances. -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-jdbc</artifactId>
         </dependency>
 
         <dependency>

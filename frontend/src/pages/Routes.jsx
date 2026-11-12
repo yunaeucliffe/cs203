@@ -9,6 +9,7 @@ import NavigationPage from './Navigation'
 import { useCompassHeading } from '../components/useCompassHeading'
 import { TripSharingContext } from '../components/TripSharingContext'
 import { loadActiveJourney } from '../utils/activeJourney'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 import {
   Navigation,
@@ -23,6 +24,17 @@ import {
   saveRouteSearchDraft,
   clearRouteSearchDraft,
 } from '../utils/routeSearchDraft'
+
+function resultFromJourney(journey) {
+  return {
+    recommendationId: journey.recommendationId,
+    origin: journey.origin,
+    destination: journey.destination,
+    routes: journey.routes || [journey.route],
+    sources: [],
+    engine: undefined,
+  }
+}
 
 function loadRouteSearchState() {
   try {
@@ -98,6 +110,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
   const [navigating, setNavigating] = useState(
     Boolean(resumeJourneyOnOpen && initialJourney?.route)
   )
+  const [pendingNewJourney, setPendingNewJourney] = useState(false)
   const [viewingDetails, setViewingDetails] = useState(false)
   const [choice, setChoice] = useState(null)
   const [choiceButtonContainer, setChoiceButtonContainer] = useState(null)
@@ -169,14 +182,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
           : null
 
     if (journey?.route) {
-      return {
-        recommendationId: journey.recommendationId,
-        origin: journey.origin,
-        destination: journey.destination,
-        routes: journey.routes || [journey.route],
-        sources: [],
-        engine: undefined,
-      }
+      return resultFromJourney(journey)
     }
 
     if (
@@ -211,14 +217,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
     setActiveNavigation(journey)
 
     // Restore the journey's route results.
-    setResult({
-      recommendationId: journey.recommendationId,
-      origin: journey.origin,
-      destination: journey.destination,
-      routes: journey.routes || [journey.route],
-      sources: [],
-      engine: undefined,
-    })
+    setResult(resultFromJourney(journey))
 
     setSelectedIndex(journey.selectedIndex ?? 0)
     setHasSearched(true)
@@ -454,9 +453,93 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
     }
   }
 
+  const startNewJourney = () => {
+    if (!canStartNavigation || !result || !selectedRoute) return
+
+    const journey = {
+      id: `${result.recommendationId}:${selectedRoute.id}:${Date.now()}`,
+      recommendationId: result.recommendationId,
+      routeId: selectedRoute.id,
+      route: selectedRoute,
+      routes: result.routes,
+      selectedIndex,
+      origin: result.origin,
+      destination: result.destination,
+      startedAt: Date.now(),
+    }
+
+    // Save the new journey before ending the previous one.
+    try {
+      localStorage.setItem('activeJourney', JSON.stringify(journey))
+    } catch (error) {
+      console.error('Unable to save active journey:', error)
+      setError('Unable to save your journey. Please try again.')
+      setPendingNewJourney(false)
+      return
+    }
+
+    // Stop sharing the previous journey.
+    endJourney()
+
+    window.dispatchEvent(new Event('activeJourneyUpdated'))
+
+    setActiveNavigation(journey)
+    setPendingNewJourney(false)
+    setNavigating(true)
+
+    window.history.pushState(
+      { page: 'routes', view: 'navigation' },
+      ''
+    )
+
+    startCompass()
+  }
+
+  const handleStartNavigation = () => {
+    const existingJourney = loadActiveJourney()
+
+    // If the selected route is already active, resume it.
+    if (
+      existingJourney?.recommendationId === result?.recommendationId &&
+      existingJourney?.routeId === selectedRoute?.id
+    ) {
+      setActiveNavigation(existingJourney)
+      setNavigating(true)
+
+      window.history.pushState(
+        { page: 'routes', view: 'navigation' },
+        ''
+      )
+
+      startCompass()
+      return
+    }
+
+    // New journeys require a valid saved route choice.
+    if (!canStartNavigation) return
+
+    // Ask before replacing another active journey.
+    if (existingJourney?.route) {
+      setPendingNewJourney(true)
+      return
+    }
+
+    // No active journey: start normally.
+    startNewJourney()
+  }
+
  
   return (
     <>
+      {pendingNewJourney && (
+        <ConfirmDialog
+          message="You already have a journey in progress. Starting a new journey will end your current navigation. Do you want to continue?"
+          confirmLabel="Start New Journey"
+          onConfirm={startNewJourney}
+          onCancel={() => setPendingNewJourney(false)}
+        />
+      )}
+
       {navigating && selectedRoute && (
         <NavigationPage
           key={activeNavigation?.id}
@@ -521,8 +604,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
               destination={result?.destination ?? activeNavigation?.destination ?? initialJourney?.destination}
               engine={result?.engine}
               live={!navigating}
-              warnings={result?.warnings}
-              sources={result?.sources}
               onBack={() => window.history.back()}
               choiceButtonRef={setChoiceButtonContainer}
             />
@@ -772,15 +853,6 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
                 Your recommended routes
               </h2>
 
-                {result.warnings?.length > 0 && (
-                  <details className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4"
-                    open={result.routes.every(route => route.legs?.length > 0 && route.legs.every(leg => leg.mode === 'WALK'))}>
-                    <summary className="cursor-pointer font-semibold">Route notices</summary>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-                      {[...new Set(result.warnings)].map((warning, index) => <li key={index}>{warning}</li>)}
-                    </ul>
-                  </details>
-                )}
                 <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                   {result.routes.map((route, index) => (
                     <RouteCard
@@ -810,56 +882,7 @@ function Routes({ onBack, onSignIn, onProfile, onSavedPlaces, onJourneyEnd, isAu
                     activeNavigation?.recommendationId === result.recommendationId &&
                     activeNavigation?.routeId === selectedRoute.id
                   }
-                  onStartNavigation={() => {
-                    // Continue an existing journey without resetting its start time.
-                    if (
-                      activeNavigation?.recommendationId === result.recommendationId &&
-                      activeNavigation?.routeId === selectedRoute.id
-                    ) {
-                      setNavigating(true)
-
-                      window.history.pushState(
-                        { page: 'routes', view: 'navigation' },
-                        ''
-                      )
-
-                      startCompass()
-                      return
-                    }
-
-                    // New journeys require a valid route choice.
-                    if (!canStartNavigation) return
-
-                    const journey = {
-                      id: `${result.recommendationId}:${selectedRoute.id}:${Date.now()}`,
-                      recommendationId: result.recommendationId,
-                      routeId: selectedRoute.id,
-                      route: selectedRoute,
-                      routes: result.routes,
-                      selectedIndex,
-                      origin: result.origin,
-                      destination: result.destination,
-                      startedAt: Date.now(),
-                    }
-
-                    // Save the journey so it can be resumed from Home.
-                    try {
-                      localStorage.setItem('activeJourney', JSON.stringify(journey))
-                      window.dispatchEvent(new Event('activeJourneyUpdated'))
-                    } catch (error) {
-                      console.error('Unable to save active journey:', error)
-                    }
-
-                    setActiveNavigation(journey)
-                    setNavigating(true)
-
-                    window.history.pushState(
-                      { page: 'routes', view: 'navigation' },
-                      ''
-                    )
-
-                    startCompass()
-                  }}
+                  onStartNavigation={handleStartNavigation}
                   renderButton={(button) =>
                     choiceButtonContainer
                       ? createPortal(button, choiceButtonContainer)

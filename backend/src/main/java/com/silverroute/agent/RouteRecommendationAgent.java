@@ -71,7 +71,7 @@ public class RouteRecommendationAgent {
                     .findFirst().map(RouteContext.Candidate::weather).orElse(null);
             var reasons = RouteExplanationGenerator.explain(ordered, ranked.size(), trip.context().preferences(), weather);
             var routeWarnings = resolveReferences(selection.warnings(), selection.routeId(), labels, candidates.keySet());
-            ranked.add(candidates.get(selection.routeId()).explain(reasons, routeWarnings, RouteExplanationGenerator.weatherNote(weather)));
+            ranked.add(candidates.get(selection.routeId()).explain(reasons, routeWarnings));
         }
         if (walking != null) {
             var reasons = new ArrayList<String>();
@@ -82,7 +82,7 @@ public class RouteRecommendationAgent {
             var weather = trip.context().candidates().stream().filter(c -> c.id().equals(walkingId))
                     .findFirst().map(RouteContext.Candidate::weather).orElse(null);
             reasons.addAll(RouteExplanationGenerator.explain(ordered, ranked.size(), trip.context().preferences(), weather));
-            ranked.add(walking.explain(reasons, List.of(), RouteExplanationGenerator.weatherNote(weather)));
+            ranked.add(walking.explain(reasons, List.of()));
         }
         Set<String> warnings = new LinkedHashSet<>(trip.context().dataWarnings());
         if (walking != null && result.rankings().isEmpty())

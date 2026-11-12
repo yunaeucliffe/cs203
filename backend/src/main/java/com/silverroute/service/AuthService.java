@@ -1,13 +1,16 @@
 package com.silverroute.service;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.silverroute.dto.LoginRequest;
 import com.silverroute.dto.LoginResponse;
@@ -20,6 +23,9 @@ import com.silverroute.repository.UserPreferenceRepository;
 
 @Service
 public class AuthService {
+
+    /** Width of users.email and spring_session.principal_name. */
+    static final int MAX_EMAIL_LENGTH = 255;
 
     private final UserRepository userRepository;
     private final UserPreferenceRepository preferenceRepository;
@@ -34,8 +40,16 @@ public class AuthService {
         this.preferenceRepository = preferenceRepository;
     }
 
+    /**
+     * Canonical form of an email, used for storage, lookup and as the session
+     * principal. Locale.ROOT keeps it independent of the server's locale.
+     */
+    public static String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
+
     public LoginResponse login(LoginRequest request) {
-        String email = request.email().trim().toLowerCase();
+        String email = normalizeEmail(request.email());
         User user = userRepository.findByEmail(email).orElse(null);
 
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
@@ -55,8 +69,15 @@ public class AuthService {
 
     @Transactional
     public LoginResponse signUp(SignUpRequest request) {
-        String email = request.email().trim().toLowerCase();
-        String username = request.username().trim().toLowerCase();
+        String email = normalizeEmail(request.email());
+        String username = request.username().trim().toLowerCase(Locale.ROOT);
+
+        // @Size checks the raw value, but lowercasing some characters (e.g.
+        // U+0130) lengthens the string, so recheck what is actually stored.
+        if (email.length() > MAX_EMAIL_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "email size must be between 0 and " + MAX_EMAIL_LENGTH);
+        }
 
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new RegistrationConflictException("An account with this email already exists");

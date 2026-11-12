@@ -25,11 +25,19 @@ import java.time.format.DateTimeFormatter;
 @Service
 public class OneMapService {
 
-    @Value("${ONEMAP_EMAIL}")
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OneMapService.class);
+
+    // Blank defaults let the server start without credentials; requests then fail with
+    // an explicit 503 instead of the whole application failing to boot.
+    @Value("${ONEMAP_EMAIL:}")
     private String email;
 
-    @Value("${ONEMAP_PASSWORD}")
+    @Value("${ONEMAP_PASSWORD:}")
     private String password;
+
+    // Only cleared by the Spring lifecycle check below, so directly constructed instances
+    // (as in unit tests) keep their existing behaviour.
+    private volatile boolean credentialsConfigured = true;
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -60,8 +68,20 @@ public class OneMapService {
         objectMapper = new ObjectMapper();
     }
 
+    @jakarta.annotation.PostConstruct
+    void checkCredentials() {
+        credentialsConfigured = email != null && !email.isBlank() && password != null && !password.isBlank();
+        if (!credentialsConfigured) {
+            log.warn("ONEMAP_EMAIL / ONEMAP_PASSWORD are not set; address search and routing will return 503 until they are configured");
+        }
+    }
+
     // Returns the cached OneMap access token, refreshing it only when it is near expiry
     public String getToken() {
+        if (!credentialsConfigured) {
+            throw new RouteDataUnavailableException(
+                    "Address search and routing are unavailable because OneMap is not configured on the server.");
+        }
         CachedToken token = cachedToken;
         if (isUsable(token)) {
             return token.value();

@@ -75,20 +75,18 @@ class WalkingRecommendationTests {
                     : List.<RankingResult.Selection>of();
             var answer = RouteRecommendationAgent.validateAndBuild(trip, new RankingResult(selections), "test");
             var result = transit ? answer.alternatives().getLast() : answer.recommendedRoute();
-            assertThat(result.weatherNote()).contains("35°C", "2 mm", "300 m");
             assertThat(result.reasons().toString()).contains("35°C", "Within your 500 m walking limit");
             assertThat(result.warnings()).contains("Walking source warning");
             assertThat(answer.warnings()).contains("Walking source warning");
         }
     }
-    @Test void walkingWithoutWeatherDoesNotInventANote() throws Exception {
+    @Test void walkingWithoutWeatherDoesNotInventObservations() throws Exception {
         for (boolean transit : List.of(false, true)) {
             var trip = trip(transit);
             var selections = transit ? List.of(new RankingResult.Selection(trip.routes().getFirst().id(), List.of()))
                     : List.<RankingResult.Selection>of();
             var answer = RouteRecommendationAgent.validateAndBuild(trip, new RankingResult(selections), "test");
             var walking = transit ? answer.alternatives().getLast() : answer.recommendedRoute();
-            assertThat(walking.weatherNote()).isNull();
             assertThat(walking.reasons().toString()).doesNotContain("Nearby temperature", "Nearby rainfall");
         }
     }
