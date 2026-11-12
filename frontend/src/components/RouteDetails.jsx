@@ -5,7 +5,7 @@ import RouteModeChain from './transit/RouteModeChain'
 import JourneyTimeline from './transit/JourneyTimeline'
 import { formatDistance, getLegMode } from '../utils/transit'
 import { hasCoordinates } from '../utils/geo'
-import { createDestinationIcon } from '../utils/mapIcons'
+import { createDestinationIcon, createStartIcon } from '../utils/mapIcons'
 import RouteConditions from './RouteConditions'
 
 import {
@@ -24,6 +24,8 @@ import {
     Bus,
     Umbrella,
     Navigation,
+    Sun,
+    CloudRain,
 } from 'lucide-react'
 
 import 'leaflet/dist/leaflet.css'
@@ -57,6 +59,27 @@ function FitRoute({ paths, origin, destination }) {
 }
 
 const destinationIcon = createDestinationIcon({ size: 28 })
+const startIcon = createStartIcon({ size: 28 })
+
+function maxObservation(evidence, source, key) {
+    let result = null
+    for (const item of evidence ?? []) {
+        if (item?.source !== source || item.availability !== 'available') continue
+        for (const observation of item.details?.observations ?? []) {
+            const value = Number(observation?.[key])
+            if (observation?.[key] == null || !Number.isFinite(value)) continue
+            result = result == null ? value : Math.max(result, value)
+        }
+    }
+    return result
+}
+
+function getCurrentWeather(evidence) {
+    const temperature = maxObservation(evidence, 'NEA Air Temperature', 'temperatureCelsius')
+    const rainfall = maxObservation(evidence, 'NEA Rainfall', 'rainfallMm')
+    if (temperature == null && rainfall == null) return null
+    return { temperature, raining: rainfall == null ? null : rainfall > 0 }
+}
 
 
 // COMPONENT
@@ -67,7 +90,6 @@ function RouteDetails({
     origin,
     destination,
     engine,
-    warnings = [],
     onBack,
     choiceButtonRef,
     live = true,
@@ -87,6 +109,7 @@ function RouteDetails({
 
 
     const isWalkingOnly = Array.isArray(route.legs) && route.legs.length > 0 && route.legs.every((leg) => getLegMode(leg) === 'WALK')
+    const weather = getCurrentWeather(route.evidence)
     return (
         <div>
 
@@ -102,51 +125,52 @@ function RouteDetails({
 
 
             {/* HEADER */}
-            <div className="mb-6">
+            {/* On mobile, "Choose this route" sits below the mode chain;
+                on sm+ it sits beside the title. A CSS grid with named areas
+                lets the one button slot (and its portal ref) move between the two spots. */}
+            <div
+                className="mb-6 grid gap-y-3 [grid-template-areas:'title'_'origin'_'summary'_'button'] sm:grid-cols-[1fr_auto] sm:items-center sm:gap-x-4 sm:[grid-template-areas:'title_button'_'origin_origin'_'summary_summary']"
+            >
 
-                {/* TITLE ROW */}
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                {/* ROUTE TITLE + BADGES */}
+                <div className="flex flex-wrap items-center gap-3 [grid-area:title]">
 
-                    {/* ROUTE TITLE + BADGES */}
-                    <div className="flex flex-wrap items-center gap-3">
+                    <h1
+                        className="text-4xl text-[#2A3439]"
+                        style={{ fontFamily: '"DM Serif Display", serif' }}
+                    >
+                        Route {index + 1}
+                    </h1>
 
-                        <h1
-                            className="text-4xl text-[#2A3439]"
-                            style={{ fontFamily: '"DM Serif Display", serif' }}
-                        >
-                            Route {index + 1}
-                        </h1>
+                    {index === 0 && (
+                        <span className="rounded-full bg-[#DCE7D2] px-3 py-1 text-sm font-semibold">
+                            {isWalkingOnly ? 'Walking option' : 'Recommended for you'}
+                        </span>
+                    )}
 
-                        {index === 0 && (
-                            <span className="rounded-full bg-[#DCE7D2] px-3 py-1 text-sm font-semibold">
-                                {isWalkingOnly ? 'Walking option' : 'Recommended for you'}
-                            </span>
-                        )}
-
-                        {isDemo && (
-                            <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">
-                                Demo route
-                            </span>
-                        )}
-
-                    </div>
-
-
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div ref={choiceButtonRef} />
-                    </div>
+                    {isDemo && (
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">
+                            Demo route
+                        </span>
+                    )}
 
                 </div>
 
 
+                {/* CHOOSE THIS ROUTE */}
+                <div className="flex flex-wrap items-center gap-3 [grid-area:button] sm:justify-self-end">
+                    <div ref={choiceButtonRef} />
+                </div>
+
+
                 {/* ORIGIN AND DESTINATION */}
-                <p className="mt-2 text-[#555C60]">
+                <p className="text-[#555C60] [grid-area:origin]">
                     {origin?.name} → {destination?.name}
                 </p>
 
 
                 {/* ROUTE SUMMARY */}
-                <div className="mt-3">
+                <div className="[grid-area:summary]">
                     {isWalkingOnly && <p className="mb-2 text-lg font-semibold">Walk all the way</p>}
                     <RouteModeChain legs={route.legs} size="md" />
                     {isWalkingOnly && route.reasons?.length > 0 && (
@@ -156,24 +180,14 @@ function RouteDetails({
                     )}
                 </div>
 
-
-                {(warnings.length > 0 || route.warnings?.length > 0) && (
-                    <details className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                        <summary className="cursor-pointer font-semibold">Route notices</summary>
-                        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-                            {[...new Set([...warnings, ...(route.warnings || [])])].map((warning, i) => <li key={i}>{warning}</li>)}
-                        </ul>
-                    </details>
-                )}
-
-                {/* DEMO NOTICE */}
-                {isDemo && (
-                    <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-                        This route uses sample data and should not be used for navigation.
-                    </p>
-                )}
-
             </div>
+
+            {/* DEMO NOTICE */}
+            {isDemo && (
+                <p className="mb-6 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                    This route uses sample data and should not be used for navigation.
+                </p>
+            )}
 
 
             {/* MAIN CONTENT */}
@@ -265,10 +279,16 @@ function RouteDetails({
 
                     </div>
 
-                    {route.weatherNote && (
-                        <p className="mt-5 rounded-xl bg-[#F0F4EC] p-3 text-sm leading-relaxed text-[#3E424B]">
-                            {route.weatherNote}
-                        </p>
+                    {weather && (
+                        <div className="mt-5 flex items-center gap-2 rounded-xl bg-[#F0F4EC] p-3 text-sm font-semibold text-[#3E424B]">
+                            {weather.raining ? <CloudRain size={18} /> : <Sun size={18} />}
+                            <span>
+                                {[
+                                    weather.temperature != null && `${Math.round(weather.temperature)}°C`,
+                                    weather.raining != null && (weather.raining ? 'Raining' : 'No rain'),
+                                ].filter(Boolean).join(' · ')}
+                            </span>
+                        </div>
                     )}
 
                     {/* JOURNEY STEPS */}
@@ -332,6 +352,7 @@ function RouteDetails({
                         {hasCoordinates(start) && (
                             <Marker
                                 position={[start.latitude, start.longitude]}
+                                icon={startIcon}
                             >
                                 <Popup>Starting point</Popup>
                             </Marker>

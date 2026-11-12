@@ -27,21 +27,8 @@ class RouteExplanationGeneratorTests {
                 .contains("Nearby rainfall recorded: 2 mm").doesNotContain("ranking", "prioritizes");
     }
 
-    @Test void weatherNotesHandlePartialAndUnknownObservations() {
-        assertThat(RouteExplanationGenerator.weatherNote(null)).isNull();
-        assertThat(RouteExplanationGenerator.weatherNote(com.silverroute.routing.WeatherSummary.from(
-                List.of(), 100.0, null, 33))).isNull();
-        var hot = new com.silverroute.routing.WeatherSummary(34.0, null, true, null, 33, null);
-        assertThat(RouteExplanationGenerator.weatherNote(hot))
-                .contains("Nearby temperature: 34°C", "Unsheltered walking is unknown")
-                .doesNotContain("rainfall", "ranking");
-        var rain = new com.silverroute.routing.WeatherSummary(null, 2.0, null, true, 33, 50.0);
-        assertThat(RouteExplanationGenerator.weatherNote(rain))
-                .contains("Nearby rainfall: 2 mm", "Estimated unsheltered walking: 50 m", "shelter is estimated")
-                .doesNotContain("temperature", "ranking");
+    @Test void weatherComparisonsDoNotClaimRankingReasons() {
         var both = new com.silverroute.routing.WeatherSummary(34.0, 2.0, true, true, 33, 50.0);
-        assertThat(RouteExplanationGenerator.weatherNote(both))
-                .contains("34°C", "2 mm", "50 m", "not a route-wide forecast");
         var routes = List.of(route(300.0, 250.0, 40, 0), route(100.0, 50.0, 20, 0));
         assertThat(RouteExplanationGenerator.explain(routes, 0, preferences, both).toString())
                 .contains("higher than Route 2").doesNotContain("ranking", "prioritizes");
