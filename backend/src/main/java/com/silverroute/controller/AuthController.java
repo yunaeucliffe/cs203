@@ -49,7 +49,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
 
-        authenticate(response.userId(), request.email().trim().toLowerCase(), httpRequest, httpResponse);
+        authenticate(response.userId(), AuthService.normalizeEmail(request.email()), httpRequest, httpResponse);
 
         return ResponseEntity.ok(response);
     }
@@ -60,7 +60,7 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         LoginResponse response = authService.signUp(request);
-        authenticate(response.userId(), request.email().trim().toLowerCase(), httpRequest, httpResponse);
+        authenticate(response.userId(), AuthService.normalizeEmail(request.email()), httpRequest, httpResponse);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

@@ -48,11 +48,17 @@ psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f database/schema.sql
 psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/mockdata.sql
 ```
 
-`schema.sql` creates `silverroute` if needed and sets up `users`, `user_preferences`, `saved_places`, `categories`, `route_choice_snapshots`, `trip_shares`, and the `spring_session`/`spring_session_attributes` tables used for shared HTTP session storage. It automatically applies all migrations, so no separate migration commands are needed for a fresh installation. For an existing database, rerun `schema.sql` (all statements are `IF NOT EXISTS`/non-destructive) to add the session tables without affecting existing data.
+`schema.sql` creates `silverroute` if needed, connects to it and runs `database/bootstrap.sql`, which sets up `users`, `user_preferences`, `saved_places`, `categories`, `route_choice_snapshots`, `trip_shares`, and the `spring_session`/`spring_session_attributes` tables used for shared HTTP session storage. It automatically applies all migrations, so no separate migration commands are needed for a fresh installation. For an existing database, rerun `schema.sql` (all statements are `IF NOT EXISTS`/non-destructive) to apply any missing tables and migrations (including the session tables and the session principal widening in `005_widen_session_principal_name.sql`) without affecting existing data.
+
+`bootstrap.sql` is the same schema without the database creation step: it only operates on the database you are connected to. Use it for any database not named `silverroute` or whose role cannot `CREATE DATABASE` (e.g. a managed provider database):
+
+```sh
+psql "postgresql://user:password@host:5432/dbname?sslmode=require" -v ON_ERROR_STOP=1 -f database/bootstrap.sql
+```
 
 Saved preferences contain walking speed, independent 0–100 walking and shelter priorities, automatic learning, and an opt-in walking-only alternative (default limit 500 m, configurable from 100 to 5,000 m). An eligible walking route reserves one of the three result slots and does not train preferences when chosen.
 
-The walking-only fields are included directly in `schema.sql`. For an existing database without these fields, recreate the database using the setup commands above before starting the updated backend. Recreating the database deletes existing data; rerunning `schema.sql` alone does not add these fields to an existing table. Walking tolerance and the shelter boolean are no longer stored.
+The walking-only fields are included directly in the table definitions in `bootstrap.sql` (which `schema.sql` runs). For an existing database without these fields, recreate the database using the setup commands above before starting the updated backend. Recreating the database deletes existing data; rerunning `schema.sql`/`bootstrap.sql` alone does not add these fields to an existing table. Walking tolerance and the shelter boolean are no longer stored.
 
 `mockdata.sql` creates or updates the development account with a BCrypt password hash and sample preferences. Rerunning it resets that account's walking speed and priority scores, so use it only when you intend to reset the development account.
 
@@ -319,7 +325,7 @@ The frontend and backend deploy together as one Vercel project using [Services](
 
 1. **Root Directory**: set the project's Root Directory to the repository root (empty), not `frontend/`. The root [`vercel.json`](vercel.json) defines both services and the routes between them; a subdirectory root would never see it.
 2. **Environment variables** — set these on the backend's environment (Production and Preview as needed):
-   - `DB_URL` (preferred for a managed provider's connection string) or `DB_HOST`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD`/`DB_SSLMODE=require` (or stricter) for a plain external PostgreSQL instance. PostgreSQL itself is **not** deployed by this project — provision it separately (e.g. a Vercel Marketplace Postgres integration, or any reachable PostgreSQL host) and apply `database/schema.sql` against it before first deploy.
+   - `DB_URL` (preferred for a managed provider's connection string) or `DB_HOST`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD`/`DB_SSLMODE=require` (or stricter) for a plain external PostgreSQL instance. PostgreSQL itself is **not** deployed by this project — provision it separately (e.g. a Vercel Marketplace Postgres integration, or any reachable PostgreSQL host) and apply `database/bootstrap.sql` to the provider's database before first deploy (see [Fresh installation](#fresh-installation); pass `psql` the provider's `postgresql://…` connection string, not the `jdbc:` form). Do not use `schema.sql` here: it switches to a database literally named `silverroute`. If you copied `.env.example`, a blank `DB_URL=` is treated as unset.
    - `SESSION_COOKIE_SECURE=true` and leave `SESSION_COOKIE_SAMESITE` at its `lax` default, since the frontend and backend now share one origin.
    - `CRON_SECRET` — any random string. Vercel automatically sends it as `Authorization: Bearer <value>` when invoking the cron job below; the backend rejects the cleanup endpoint without it.
    - `CORS_ALLOWED_ORIGINS` only if the deployed frontend origin differs from the backend's own (same-origin deployments via the routing below don't need this changed).
@@ -340,7 +346,7 @@ The frontend and backend deploy together as one Vercel project using [Services](
 
 ### Session persistence and scaling
 
-The backend is stateless at the process level: Spring Session JDBC (`database/migrations/004_spring_session.sql`) stores HttpSession data in PostgreSQL instead of memory, so a login survives the container being replaced and works no matter which instance (or how many) answer later requests. CSRF protection, secure cookies, logout, and account deletion behave exactly as before — only where the session is stored changed.
+The backend is stateless at the process level: Spring Session JDBC (`database/migrations/004_spring_session.sql`) stores HttpSession data in PostgreSQL instead of memory (its `PRINCIPAL_NAME` column is widened to 255 characters by `005_widen_session_principal_name.sql` to fit any email signup accepts), so a login survives the container being replaced and works no matter which instance (or how many) answer later requests. CSRF protection, secure cookies, logout, and account deletion behave exactly as before — only where the session is stored changed.
 
 ### Expired trip-share cleanup
 
@@ -383,7 +389,7 @@ If a bad build somehow still reaches production (e.g. a check was bypassed with 
 #### Keeping preview and production isolated
 
 - **Environment variables**: every backend variable listed under [One-time project setup](#one-time-project-setup-manual-in-the-vercel-dashboard) (`DB_URL`/`DB_*`, `CRON_SECRET`, `OPENAI_API_KEY`, etc.) should be set separately for the **Preview** and **Production** environments in Vercel's dashboard, with different values — never point Preview at the production database.
-- **Preview database**: provision a second, separate PostgreSQL instance (or at minimum a separate database/schema) for Preview, and apply `database/schema.sql` to it too before the first PR deploy exercises the backend. `ddl-auto=validate` means a preview build whose entities don't match the preview schema will fail loudly at startup rather than touch data silently.
+- **Preview database**: provision a second, separate PostgreSQL instance (or at minimum a separate database/schema) for Preview, and apply `database/bootstrap.sql` to it too before the first PR deploy exercises the backend. `ddl-auto=validate` means a preview build whose entities don't match the preview schema will fail loudly at startup rather than touch data silently.
 - **Cron jobs only run against the production deployment** — the `crons` entry in `vercel.json` never fires for preview deployments, so a Preview-scoped `CRON_SECRET` only matters if you test the cleanup endpoint manually against a preview URL.
 - CI's own `backend` job already uses a disposable, dummy-credentialed Postgres service container (see `ci.yml`) — fully separate from both Preview and Production, nothing to change there.
 
@@ -392,7 +398,7 @@ GitHub secrets required for any of this: **none.** CI only runs tests/lint/build
 ## Troubleshooting
 
 - **Database connection fails:** confirm PostgreSQL is running, the `silverroute` database exists, and `DB_PASSWORD` in `.env` is correct. If `psql -h ::1` works but `psql -h 127.0.0.1` does not, set `DB_HOST=[::1]`.
-- **Schema validation fails:** stop the backend and apply the migration listed under **Existing database**, then restart it. For a fresh database, run `database/schema.sql`. Reseeding is not required.
+- **Schema validation fails:** stop the backend and apply the migration listed under **Existing database**, then restart it. For a fresh database, run `database/schema.sql` locally or `database/bootstrap.sql` against a managed database. Reseeding is not required.
 - **Login fails:** rerun `database/mockdata.sql` to restore the BCrypt development password.
 - **Port 8081 is occupied:** stop the existing backend process or inspect it with `netstat -ano | Select-String ':8081'`.
 - **PowerShell blocks `npm.ps1`:** use `npm.cmd` as shown above.

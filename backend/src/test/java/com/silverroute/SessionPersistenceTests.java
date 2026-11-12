@@ -40,10 +40,23 @@ class SessionPersistenceTests {
 
     @Test
     void loginPersistsTheSessionInThePostgresSessionTable() throws Exception {
+        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
+        assertLoginPersistsSession(suffix, "session-test-" + suffix + "@example.com");
+    }
+
+    @Test
+    void loginPersistsTheSessionForAnEmailLongerThanSpringSessionsDefaultColumn() throws Exception {
+        // Spring Session's stock PRINCIPAL_NAME is VARCHAR(100); signup accepts
+        // emails up to 255 characters, so the column must be at least that wide.
+        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
+        String email = "session-test-" + suffix + "-" + "a".repeat(40) + "@" + "b".repeat(50) + ".example.com";
+        assertThat(email.length()).isGreaterThan(100).isLessThanOrEqualTo(255);
+        assertLoginPersistsSession(suffix, email);
+    }
+
+    private void assertLoginPersistsSession(String suffix, String email) throws Exception {
         // Create our own account rather than relying on seed data: CI applies
         // only database/schema.sql, not database/mockdata.sql.
-        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
-        String email = "session-test-" + suffix + "@example.com";
         String password = "password123";
         String base = "http://localhost:" + port;
         try {
