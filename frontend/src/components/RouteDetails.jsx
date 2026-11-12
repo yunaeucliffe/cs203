@@ -5,7 +5,7 @@ import RouteModeChain from './transit/RouteModeChain'
 import JourneyTimeline from './transit/JourneyTimeline'
 import { formatDistance, getLegMode } from '../utils/transit'
 import { hasCoordinates } from '../utils/geo'
-import { createDestinationIcon } from '../utils/mapIcons'
+import { createDestinationIcon, createStartIcon } from '../utils/mapIcons'
 import RouteConditions from './RouteConditions'
 
 import {
@@ -59,6 +59,7 @@ function FitRoute({ paths, origin, destination }) {
 }
 
 const destinationIcon = createDestinationIcon({ size: 28 })
+const startIcon = createStartIcon({ size: 28 })
 
 function maxObservation(evidence, source, key) {
     let result = null
@@ -351,6 +352,7 @@ function RouteDetails({
                         {hasCoordinates(start) && (
                             <Marker
                                 position={[start.latitude, start.longitude]}
+                                icon={startIcon}
                             >
                                 <Popup>Starting point</Popup>
                             </Marker>
