@@ -25,6 +25,12 @@ import com.silverroute.model.UserPreference;
 import com.silverroute.repository.UserRepository;
 import com.silverroute.repository.UserPreferenceRepository;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+
+import java.util.Locale;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTests {
@@ -102,5 +108,30 @@ class AuthServiceTests {
                 "Mary Tan", "mary2", "mary@example.com", "password123")))
                 .isInstanceOf(RegistrationConflictException.class)
                 .hasMessageContaining("email");
+    }
+
+    @Test
+    void normalizeEmailIgnoresServerLocale() {
+        Locale original = Locale.getDefault();
+        try {
+            // Under a Turkish default locale, plain toLowerCase() maps 'I' to dotless 'ı'.
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            assertThat(AuthService.normalizeEmail("  MARY.LIM@EXAMPLE.COM ")).isEqualTo("mary.lim@example.com");
+        } finally {
+            Locale.setDefault(original);
+        }
+    }
+
+    @Test
+    void signUpRejectsEmailThatExceedsColumnWidthOnceLowercased() {
+        // 'İ' (U+0130) lowercases to two chars, so this 254-char email becomes 256.
+        String email = "\u0130\u0130" + "a".repeat(62) + "@" + "b".repeat(60) + "." + "c".repeat(60) + "." + "d".repeat(63) + ".com";
+        assertThat(email).hasSize(254);
+        assertThat(AuthService.normalizeEmail(email).length()).isGreaterThan(255);
+
+        assertThatThrownBy(() -> authService.signUp(new SignUpRequest("Mary Tan", "marytan", email, "password123")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(userRepository, never()).save(any(User.class));
     }
 }

@@ -48,11 +48,17 @@ psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f database/schema.sql
 psql -U postgres -d silverroute -v ON_ERROR_STOP=1 -f database/mockdata.sql
 ```
 
-`schema.sql` creates `silverroute` if needed and sets up `users`, `user_preferences`, `saved_places`, `categories`, `route_choice_snapshots`, and `trip_shares`. It automatically applies all migrations, so no separate migration commands are needed for a fresh installation.
+`schema.sql` creates `silverroute` if needed, connects to it and runs `database/bootstrap.sql`, which sets up `users`, `user_preferences`, `saved_places`, `categories`, `route_choice_snapshots`, `trip_shares`, and the `spring_session`/`spring_session_attributes` tables used for shared HTTP session storage. It automatically applies all migrations, so no separate migration commands are needed for a fresh installation. For an existing database, rerun `schema.sql` (all statements are `IF NOT EXISTS`/non-destructive) to apply any missing tables and migrations (including the session tables and the session principal widening in `005_widen_session_principal_name.sql`) without affecting existing data.
+
+`bootstrap.sql` is the same schema without the database creation step: it only operates on the database you are connected to. Use it for any database not named `silverroute` or whose role cannot `CREATE DATABASE` (e.g. a managed provider database):
+
+```sh
+psql "postgresql://user:password@host:5432/dbname?sslmode=require" -v ON_ERROR_STOP=1 -f database/bootstrap.sql
+```
 
 Saved preferences contain walking speed, independent 0–100 walking and shelter priorities, automatic learning, and an opt-in walking-only alternative (default limit 500 m, configurable from 100 to 5,000 m). An eligible walking route reserves one of the three result slots and does not train preferences when chosen.
 
-The walking-only fields are included directly in `schema.sql`. For an existing database without these fields, recreate the database using the setup commands above before starting the updated backend. Recreating the database deletes existing data; rerunning `schema.sql` alone does not add these fields to an existing table. Walking tolerance and the shelter boolean are no longer stored.
+The walking-only fields are included directly in the table definitions in `bootstrap.sql` (which `schema.sql` runs). For an existing database without these fields, recreate the database using the setup commands above before starting the updated backend. Recreating the database deletes existing data; rerunning `schema.sql`/`bootstrap.sql` alone does not add these fields to an existing table. Walking tolerance and the shelter boolean are no longer stored.
 
 `mockdata.sql` creates or updates the development account with a BCrypt password hash and sample preferences. Rerunning it resets that account's walking speed and priority scores, so use it only when you intend to reset the development account.
 
@@ -77,6 +83,8 @@ The default `[::1]` is the IPv6 loopback address used by the tested Windows Post
 Keep `SESSION_COOKIE_SECURE=false` for local HTTP development. Set it to `true` when deploying behind HTTPS.
 
 The existing OneMap and LTA variables in `.env.example` can also be configured when those integrations are needed. Do not commit the `.env` file.
+
+`DB_HOST`, `DB_NAME`, `DB_USERNAME` and `DB_SSLMODE` compose the JDBC URL for local development; `DB_URL` overrides them with a full connection string when pointing at an external/managed PostgreSQL instance. See [Deployment](#deployment-vercel) for the deployed configuration.
 
 ## Run the backend
 
@@ -309,10 +317,88 @@ npm.cmd run lint
 npm.cmd run build
 ```
 
+## Deployment (Vercel)
+
+The frontend and backend deploy together as one Vercel project using [Services](https://vercel.com/docs/services): the frontend builds normally (Vite), and the backend builds from `backend/Dockerfile` as a container image (Vercel's [container runtime](https://vercel.com/docs/functions/runtimes/container)). PostgreSQL stays external — it is never bundled into either build.
+
+### One-time project setup (manual, in the Vercel dashboard)
+
+1. **Root Directory**: set the project's Root Directory to the repository root (empty), not `frontend/`. The root [`vercel.json`](vercel.json) defines both services and the routes between them; a subdirectory root would never see it.
+2. **Environment variables** — set these on the backend's environment (Production and Preview as needed):
+   - `DB_URL` (preferred for a managed provider's connection string) or `DB_HOST`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD`/`DB_SSLMODE=require` (or stricter) for a plain external PostgreSQL instance. PostgreSQL itself is **not** deployed by this project — provision it separately (e.g. a Vercel Marketplace Postgres integration, or any reachable PostgreSQL host) and apply `database/bootstrap.sql` to the provider's database before first deploy (see [Fresh installation](#fresh-installation); pass `psql` the provider's `postgresql://…` connection string, not the `jdbc:` form). Do not use `schema.sql` here: it switches to a database literally named `silverroute`. If you copied `.env.example`, a blank `DB_URL=` is treated as unset.
+   - `SESSION_COOKIE_SECURE=true` and leave `SESSION_COOKIE_SAMESITE` at its `lax` default, since the frontend and backend now share one origin.
+   - `CRON_SECRET` — any random string. Vercel automatically sends it as `Authorization: Bearer <value>` when invoking the cron job below; the backend rejects the cleanup endpoint without it.
+   - `CORS_ALLOWED_ORIGINS` only if the deployed frontend origin differs from the backend's own (same-origin deployments via the routing below don't need this changed).
+   - The existing `LTA_DATAMALL_API_KEY`, `ONEMAP_EMAIL`, `ONEMAP_PASSWORD`, `OPENAI_API_KEY`, `OPENAI_MODEL` as already used locally.
+     None of these block startup: if one is missing the backend still boots, logs a warning, and the affected feature reports itself unavailable (OneMap-backed search/routing returns 503; LTA-backed evidence shows as unavailable).
+   - Leave `PORT` unset unless you need something other than the container default; the backend honors it automatically (`server.port=${PORT:8081}`).
+3. **Environment variables** — set this on the frontend's environment:
+   - `VITE_API_URL=/` so browser requests stay on the frontend's own origin and are routed to the backend by the rewrites below (see `frontend/src/api.js`).
+4. Deploy (Git push or `vercel deploy`/`vercel --prod`). Do not deploy from this repository state without reviewing the above — these steps are manual on purpose.
+
+### How requests are routed
+
+`vercel.json` at the repository root declares two services and the public route table:
+
+- `services.frontend` (`root: frontend`) — the Vite build, with its own catch-all rewrite to `index.html` so client-side (React Router) deep links resolve.
+- `services.backend` (`root: backend`, `runtime: container`) — built from `backend/Dockerfile`.
+- Top-level `rewrites` send `/api/*` to the backend service (unchanged request path, matching the backend's existing `/api/...` mappings) and everything else to the frontend. This replaces the old `frontend/vercel.json` rewrite to the Railway backend (`https://cs203-production.up.railway.app`), which has been removed.
+
+### Session persistence and scaling
+
+The backend is stateless at the process level: Spring Session JDBC (`database/migrations/004_spring_session.sql`) stores HttpSession data in PostgreSQL instead of memory (its `PRINCIPAL_NAME` column is widened to 255 characters by `005_widen_session_principal_name.sql` to fit any email signup accepts), so a login survives the container being replaced and works no matter which instance (or how many) answer later requests. CSRF protection, secure cookies, logout, and account deletion behave exactly as before — only where the session is stored changed.
+
+### Expired trip-share cleanup
+
+`TripShareService` still runs its in-process `@Scheduled` cleanup every 10 minutes for environments that stay warm, but a container on Vercel scales to zero after idle traffic and that timer stops firing. `GET /api/internal/trip-shares/cleanup` triggers the same cleanup over HTTP and is wired to the `crons` entry in `vercel.json` (`0 3 * * *`, i.e. once daily — the minimum Hobby plan cron frequency; tighten the schedule if the project is on Pro/Enterprise). The endpoint requires the `CRON_SECRET` bearer token described above and does nothing without it. Expiry is still re-checked on every read (`TripShareService.read`/`requireActive`), so a link cannot be used past expiry even if cleanup is delayed.
+
+### Local development
+
+Unaffected: `vercel.json` only applies to Vercel builds/`vercel dev`. Continue running `./mvnw spring-boot:run` and `npm run dev` in two terminals as described above; `VITE_API_URL` stays unset locally so the frontend keeps talking to `http://localhost:8081` directly.
+
+### Continuous deployment
+
+This project uses Vercel's native Git integration for all deployments — there is no `vercel deploy`/`VERCEL_TOKEN` step in GitHub Actions, and none is needed. [`.github/workflows/ci.yml`](.github/workflows/ci.yml) is purely a test/lint/build gate; Vercel does the actual building and deploying itself, directly from the same commits.
+
+**Two separate gates, two separate systems — don't conflate them:**
+
+| Gate | Blocks | Mechanism | Status |
+|---|---|---|---|
+| Branch ruleset | Merging a PR into `main` | GitHub required status checks (`jira-key`, `backend`, `frontend`) | Already configured (existing repo state) |
+| [Deployment Checks](https://vercel.com/docs/deployment-checks) | Promoting a build to the production domain | Vercel reads the same GitHub check results, for the exact commit it built | **Manual step below — not yet configured** |
+
+How it fits together:
+
+1. **Pull requests / feature branches** → Vercel's GitHub integration automatically builds a preview deployment for every push, independent of CI passing or failing. `ci.yml` runs `jira-key`, `backend`, `docker` (builds `backend/Dockerfile` the same way Vercel will, so a broken image is caught here instead of at deploy time), and `frontend` on the PR.
+2. **Merging into `main`** pushes a commit that triggers two independent, parallel things on that exact SHA: `ci.yml` reruns (`push: branches: [main]`), and Vercel starts a new **production** build.
+3. **Deployment Checks** (set up once, manually — see below) make Vercel hold that production build and *not* alias it to the production domain until the `backend`, `docker`, and `frontend` GitHub checks report success on that same commit.
+4. **If any required check fails**, Vercel never promotes the new build — the existing production deployment keeps serving users untouched. (A human can still override this from the dashboard via "Force Promote", which is a deliberate, visible action, not something that happens automatically.)
+
+#### Enable Deployment Checks (manual, one-time, in the Vercel dashboard)
+
+1. Confirm **Settings → Git → Production Branch** is `main`.
+2. Go to **Settings → Git → Deployment Checks** (or **Checks**, naming varies by dashboard version) and add `backend`, `docker`, and `frontend` as required checks. **Do not add `jira-key`** — that job only runs `if: github.event_name == 'pull_request'`, so it never posts a status on a push-to-`main` commit, and a required check that never reports would block production forever.
+3. No GitHub secret is needed for this — Vercel reads GitHub's Check Runs API through its existing GitHub App installation, not through anything `ci.yml` has to push.
+
+#### Rollback
+
+If a bad build somehow still reaches production (e.g. a check was bypassed with Force Promote), two equivalent options:
+- Dashboard: **Deployments → (previous good deployment) → Promote to Production** (instant, no rebuild).
+- CLI: `vercel rollback` (rolls back to the previous production deployment) or `vercel promote <deployment-url>` (promotes a specific one).
+
+#### Keeping preview and production isolated
+
+- **Environment variables**: every backend variable listed under [One-time project setup](#one-time-project-setup-manual-in-the-vercel-dashboard) (`DB_URL`/`DB_*`, `CRON_SECRET`, `OPENAI_API_KEY`, etc.) should be set separately for the **Preview** and **Production** environments in Vercel's dashboard, with different values — never point Preview at the production database.
+- **Preview database**: provision a second, separate PostgreSQL instance (or at minimum a separate database/schema) for Preview, and apply `database/bootstrap.sql` to it too before the first PR deploy exercises the backend. `ddl-auto=validate` means a preview build whose entities don't match the preview schema will fail loudly at startup rather than touch data silently.
+- **Cron jobs only run against the production deployment** — the `crons` entry in `vercel.json` never fires for preview deployments, so a Preview-scoped `CRON_SECRET` only matters if you test the cleanup endpoint manually against a preview URL.
+- CI's own `backend` job already uses a disposable, dummy-credentialed Postgres service container (see `ci.yml`) — fully separate from both Preview and Production, nothing to change there.
+
+GitHub secrets required for any of this: **none.** CI only runs tests/lint/build against throwaway services; Vercel's own Git integration handles every actual deployment, authenticated through its GitHub App installation rather than a stored token.
+
 ## Troubleshooting
 
 - **Database connection fails:** confirm PostgreSQL is running, the `silverroute` database exists, and `DB_PASSWORD` in `.env` is correct. If `psql -h ::1` works but `psql -h 127.0.0.1` does not, set `DB_HOST=[::1]`.
-- **Schema validation fails:** stop the backend and apply the migration listed under **Existing database**, then restart it. For a fresh database, run `database/schema.sql`. Reseeding is not required.
+- **Schema validation fails:** stop the backend and apply the migration listed under **Existing database**, then restart it. For a fresh database, run `database/schema.sql` locally or `database/bootstrap.sql` against a managed database. Reseeding is not required.
 - **Login fails:** rerun `database/mockdata.sql` to restore the BCrypt development password.
 - **Port 8081 is occupied:** stop the existing backend process or inspect it with `netstat -ano | Select-String ':8081'`.
 - **PowerShell blocks `npm.ps1`:** use `npm.cmd` as shown above.

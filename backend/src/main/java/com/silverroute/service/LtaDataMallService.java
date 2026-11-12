@@ -15,8 +15,19 @@ public class LtaDataMallService {
     private final RestClient downloadClient = com.silverroute.routing.ProviderHttp.client("https://datamall2.mytransport.sg", 30);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${LTA_DATAMALL_API_KEY}")
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LtaDataMallService.class);
+
+    // Blank default lets the server start without a key; LTA-backed evidence then
+    // degrades to its existing "unavailable" warnings instead of blocking startup.
+    @Value("${LTA_DATAMALL_API_KEY:}")
     private String apiKey;
+
+    @jakarta.annotation.PostConstruct
+    void checkApiKey() {
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("LTA_DATAMALL_API_KEY is not set; bus arrivals, MRT alerts and covered linkway data will be reported as unavailable");
+        }
+    }
 
     public LtaDataMallService() {
         this.restClient = com.silverroute.routing.ProviderHttp.client("https://datamall2.mytransport.sg", 10);

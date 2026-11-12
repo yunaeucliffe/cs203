@@ -1,5 +1,7 @@
 # CI: runs on every pull request into main (and on main after a merge).
-# A PR cannot be merged unless all three jobs are green (enforced by the branch ruleset).
+# jira-key, backend and frontend are enforced by the existing branch ruleset.
+# docker (added alongside the backend Dockerfile) is not yet in that ruleset;
+# add it as a required check if it should also block merges.
 name: CI
 
 on:
@@ -82,6 +84,15 @@ jobs:
         with:
           name: surefire-reports
           path: backend/target/surefire-reports/
+
+  # Backend container: build the same Dockerfile Vercel's container runtime
+  # builds, so a broken image is caught here instead of at deploy time.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t silverroute-backend ./backend
 
   # 3. Frontend: install, lint, build.
   frontend:

@@ -1,2 +1,5 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+
+# Vendored Maven artifacts are verified by .sha1 checksums; never rewrite line endings.
+lib-repo/** -text
